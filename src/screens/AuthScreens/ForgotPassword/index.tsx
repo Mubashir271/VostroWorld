@@ -1,0 +1,214 @@
+import { Image, ImageBackground, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import React, { useState } from 'react'
+import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
+import { useNavigation } from '@react-navigation/native';
+import PrimaryButton from '../../../components/PrimaryButton';
+import { resetToLogin } from '../../../utils/navigationActions';
+import CheckboxItem from '../../../components/CheckboxItem';
+
+const ForgotPassword = () => {
+    const { showSnackbar } = useSnackbarStore();
+    const navigation = useNavigation();
+    type Method = 'sms' | 'email' | 'security' | null;
+
+    const [selectedMethod, setSelectedMethod] = useState<Method>(null);
+
+    const toggleMethod = (method: Method) => {
+        setSelectedMethod(method);
+    };
+
+
+    const handleSubmit = () => {
+        if (!selectedMethod) {
+            showSnackbar('Please select a verification method');
+            return;
+        }
+
+        switch (selectedMethod) {
+            case 'sms':
+                navigation.navigate('ForgotPhone' as never);
+                break;
+
+            case 'email':
+                navigation.navigate('ForgotEmail' as never);
+                break;
+
+            case 'security':
+                navigation.navigate('ForgotQuestions' as never);
+                break;
+        }
+    };
+
+
+
+    return (
+        <KeyboardAvoidingView style={styles.container}>
+            <ScrollView showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ flexGrow: 1 }}>
+
+                {/* Top image section */}
+                <ImageBackground
+                    source={require('../../../assets/img/login.png')}
+                    style={styles.topImage}
+                    resizeMode="stretch"
+                >
+                    <Image
+                        source={require('../../../assets/img/VostroLogo.png')}
+                        style={styles.logo}
+                        resizeMode="contain"
+                    />
+                </ImageBackground>
+                <View style={styles.card}>
+                    <Image
+                        source={require('../../../assets/img/forgotpass.png')}
+                        style={styles.lockImage}
+                        resizeMode="contain"
+                    />
+                    <Text style={styles.title}>Forgot Password?</Text>
+                    <Text style={styles.subtitle}>
+                        Choose how you'd like to reset your password
+                    </Text>
+
+                    <View style={styles.checkboxContainer}>
+                        <CheckboxItem
+                            label="Send OTP to registered phone"
+                            checked={selectedMethod === 'sms'}
+                            onPress={() => toggleMethod('sms')}
+                        />
+                    </View>
+
+                    <View style={styles.checkboxContainer}>
+                        <CheckboxItem
+                            label="Send OTP to email"
+                            checked={selectedMethod === 'email'}
+                            onPress={() => toggleMethod('email')}
+                        />
+                    </View>
+
+                    <View style={styles.checkboxContainer}>
+                        <CheckboxItem
+                            label="Answer security questions"
+                            checked={selectedMethod === 'security'}
+                            onPress={() => toggleMethod('security')}
+                        />
+                    </View>
+
+                    <PrimaryButton
+                        title="Continue"
+                        onPress={handleSubmit}
+                    />
+                </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
+    );
+}
+
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
+    checkboxContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+    },
+    lostAppText: {
+        color: '#999',
+        fontSize: 12,
+        marginVertical: 20,
+        textAlign: 'center',
+    },
+    separator: {
+        width: '90%',
+        height: 1,
+        backgroundColor: '#E0E0E0',
+        marginBottom: 20,
+    },
+    backToLoginText: {
+        color: '#E10600',
+        fontSize: 14,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    topImage: {
+        height: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    logo: {
+        width: 180,
+        height: 80,
+    },
+    card: {
+        flex: 1,
+        backgroundColor: '#F5F5F5',
+        // marginHorizontal: 20,
+        marginTop: -40, // pull up on top image for overlap effect
+        borderRadius: 40,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    lockImage: {
+        width: 100,
+        height: 100,
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 6,
+    },
+    subtitle: {
+        textAlign: 'center',
+        color: '#666',
+        fontSize: 13,
+        marginBottom: 20,
+    },
+    questionContainer: {
+        width: '100%',
+        marginBottom: 20,
+        padding: 20,
+        backgroundColor: '#fff',
+        borderRadius: 10,
+    },
+    questionText: {
+        fontSize: 13,
+        fontWeight: '600',
+        marginBottom: 8,
+        color: '#333',
+    },
+    input: {
+        backgroundColor: '#7B7B7B1A',
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+    },
+    submitBtn: {
+        backgroundColor: '#E10600',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        marginTop: 10,
+        width: '100%',
+        alignItems: 'center',
+    },
+    submitBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 16,
+    },
+});
+
+export default ForgotPassword
