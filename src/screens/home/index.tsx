@@ -6,7 +6,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     ImageSourcePropType,
     Image
 } from 'react-native';
@@ -16,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import ProfileHeader from '../../components/ProfileHeader';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -87,7 +87,7 @@ export default function DashboardScreen() {
                 onRightPress={() => navigation.navigate('Notifications')}
                 backgroundColor="#FFE5E5"
             />
-            <SafeAreaView style={styles.container}>
+            <View style={styles.container}>
 
                 <ScrollView showsVerticalScrollIndicator={false}>
                     {/* Header / Welcome */}
@@ -211,7 +211,7 @@ export default function DashboardScreen() {
 
                     <View style={{ height: 40 }} />
                 </ScrollView>
-            </SafeAreaView>
+            </View>
         </>
     );
 }

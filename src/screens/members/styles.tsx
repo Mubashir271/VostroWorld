@@ -1,0 +1,158 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F7F7F7', padding: 16 },
+
+  header: { fontSize: 20, fontWeight: '700', marginBottom: 10 },
+
+  searchBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+
+  input: { marginLeft: 8, flex: 1 },
+
+  filters: { flexDirection: 'row', marginBottom: 10 },
+
+  filterItem: {
+    backgroundColor: '#FFF',
+    padding: 8,
+    borderRadius: 6,
+  },
+
+  filterText: { fontSize: 12 },
+
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+
+  avatar: {
+    width: 45,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: '#E63946',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+
+  avatarText: { color: '#FFF', fontWeight: '700' },
+
+  name: { fontWeight: '600' },
+
+  info: { fontSize: 12, color: '#777' },
+
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  packageBadge: {
+    backgroundColor: '#E63946',
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+
+  packageText: { color: '#FFF', fontSize: 10 },
+
+  actions: { flexDirection: 'row', gap: 6 },
+
+  iconBtn: {
+    backgroundColor: '#FFF5F5',
+    padding: 6,
+    borderRadius: 20,
+  },
+
+  loadMore: {
+    borderWidth: 1,
+    borderColor: '#E63946',
+    padding: 10,
+    borderRadius: 20,
+    alignSelf: 'center',
+    marginTop: 10,
+  },
+
+  loadMoreText: { color: '#E63946' },
+
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#E63946',
+    width: 55,
+    height: 55,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  sheetContent: { padding: 16 },
+
+  sheetTitle: { fontSize: 16, fontWeight: '700', marginBottom: 10 },
+
+  sheetLabel: { marginTop: 10, fontWeight: '600' },
+
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+
+  chip: {
+    padding: 8,
+    backgroundColor: '#EEE',
+    borderRadius: 20,
+  },
+
+  applyBtn: {
+    backgroundColor: '#E63946',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  topBar: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 10,
+},
+
+topTitle: {
+  fontSize: 18,
+  fontWeight: '700',
+},
+
+filterRow: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginBottom: 6,
+},
+
+filterChip: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#FFF',
+  paddingHorizontal: 10,
+  paddingVertical: 6,
+  borderRadius: 6,
+  gap: 4,
+},
+
+filterChipText: {
+  fontSize: 12,
+  color: '#444',
+},
+
+reset: {
+  color: '#E63946',
+  fontSize: 12,
+  textAlign: 'right',
+  marginBottom: 10,
+},
+});

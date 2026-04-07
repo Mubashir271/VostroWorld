@@ -8,8 +8,8 @@ import {
     TouchableOpacity,
     Image,
     ImageSourcePropType,
-    SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface AppHeaderProps {
     title: string;

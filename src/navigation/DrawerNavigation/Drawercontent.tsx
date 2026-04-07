@@ -4,119 +4,202 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
-  Image,
 } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Edit_fill, User } from '../../assets/icons';
 import ProfileHeader from '../../components/ProfileHeader';
-import CloseEyeIconSvg from '../../assets/svg/close-eye-svg';
-import CrossSVG from '../../assets/svg/CrossSVG';
 
 const DrawerContent = (props) => {
   const { navigation } = props;
+  const [expanded, setExpanded] = React.useState(null);
+  const [active, setActive] = React.useState('Dashboard');
 
-  const menuItems = [
-    { id: '1', title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard', badge: null },
-    { id: '2', title: 'Members', icon: 'account-group', screen: 'Members', badge: '101 Members' },
-    { id: '3', title: 'Attendance', icon: 'calendar-check', screen: 'Attendance', badge: null },
-    { id: '4', title: 'Fees Registration', icon: 'cash-register', screen: 'FeesRegistration', badge: null },
-    { id: '5', title: 'Enquiry', icon: 'help-circle', screen: 'Enquiry', badge: null },
-    { id: '6', title: 'Member Balance', icon: 'wallet', screen: 'MemberBalance', badge: null },
-    { id: '7', title: 'Plans', icon: 'clipboard-list', screen: 'Plans', badge: null },
-    { id: '8', title: 'Manage Packages', icon: 'package-variant', screen: 'ManagePackages', badge: null },
-    { id: '9', title: 'SMS', icon: 'message-text', screen: 'SMS', badge: null },
-    { id: '10', title: 'Staff Management', icon: 'account-tie', screen: 'StaffManagement', badge: null },
-  ];
+const toggleExpand = (title) => {
+  setExpanded(prev => (prev === title ? null : title));
+};
+const MENU = [
+  {
+    title: 'Dashboard',
+    icon: 'view-dashboard',
+    screen: 'Dashboard',
+  },
+  {
+    title: 'Members',
+    icon: 'account-group',
+    children: [
+      { title: 'All Members', screen: 'AllMembers' },
+      { title: 'New Registration', screen: 'NewRegistration' },
+      { title: 'Member Search', screen: 'MemberSearch' },
+      { title: 'Member Balance', screen: 'MemberBalance' },
+    ],
+  },
+  {
+    title: 'Packages',
+    icon: 'package-variant',
+    children: [
+      { title: 'Manage Packages', screen: 'ManagePackages' },
+      { title: 'Pricing', screen: 'Pricing' },
+    ],
+  },
+  {
+    title: 'Staff Management',
+    icon: 'account-tie',
+    children: [
+      { title: 'Users / Staff', screen: 'UsersStaff' },
+      { title: 'Roles and Permissions', screen: 'RolesPermissions' },
+      { title: 'Departments', screen: 'Departments' },
+      { title: 'Schedule / Timing', screen: 'StaffTiming' },
+    ],
+  },
+  {
+    title: 'Fitness',
+    icon: 'dumbbell',
+    children: [
+      { title: 'Fitness Plans', screen: 'FitnessPlans' },
+      { title: 'Classes/Sessions', screen: 'Classes' },
+      { title: 'Trainer Management', screen: 'TrainerManagement' },
+      { title: 'Progress Tracking', screen: 'ProgressTracking' },
+    ],
+  },
+  {
+    title: 'Finance',
+    icon: 'finance',
+    children: [
+      { title: 'Transactions', screen: 'Transactions' },
+      { title: 'Reports', screen: 'Reports' },
+      { title: 'Expenses', screen: 'Expenses' },
+      { title: 'Approvals', screen: 'Approvals' },
+      { title: 'Bank Accounts', screen: 'BankAccounts' },
+    ],
+  },
+  {
+    title: 'HR Management',
+    icon: 'briefcase-account',
+    children: [
+      { title: 'Leave Applications', screen: 'LeaveApplications' },
+      { title: 'Loan Management', screen: 'LoanManagement' },
+      { title: 'Salary Management', screen: 'SalaryManagement' },
+      { title: 'Promotions', screen: 'Promotions' },
+    ],
+  },
+  {
+    title: 'Cafe Operations',
+    icon: 'coffee',
+    children: [
+      { title: 'Orders', screen: 'Orders' },
+      { title: 'Inventory', screen: 'Inventory' },
+      { title: 'Cafe Accounts', screen: 'CafeAccounts' },
+      { title: 'Cafe Reports', screen: 'DailyReports' },
+    ],
+  },
+  {
+    title: 'Settings',
+    icon: 'cog',
+    children: [
+      { title: 'Branches', screen: 'Branches' },
+      { title: 'App Settings', screen: 'AppSettings' },
+      { title: 'User Management', screen: 'UserManagement' },
+      { title: 'Roles', screen: 'Roles' },
+      { title: 'Notifications', screen: 'Notifications' },
+    ],
+  },
+];
 
-  const hrSection = [
-    { id: '11', title: 'Users / Staff', icon: 'account-multiple', screen: 'UsersStaff' },
-    { id: '12', title: 'Work Schedule', icon: 'calendar-clock', screen: 'WorkSchedule' },
-    { id: '13', title: 'Departments', icon: 'office-building', screen: 'Departments' },
-    { id: '14', title: 'Staff Timing', icon: 'clock-outline', screen: 'StaffTiming' },
-  ];
 
-  const fitnessSection = [
-    { id: '15', title: 'Fitness', icon: 'dumbbell', screen: 'Fitness' },
-    { id: '16', title: 'Fitness Plans', icon: 'clipboard-text', screen: 'FitnessPlans' },
-    { id: '17', title: 'Classes/Batches', icon: 'google-classroom', screen: 'Classes' },
-    { id: '18', title: 'Trainer Management', icon: 'account-star', screen: 'TrainerManagement' },
-    { id: '19', title: 'Progress Tracking', icon: 'chart-line', screen: 'ProgressTracking' },
-  ];
 
-  const financeSection = [
-    { id: '20', title: 'Finance', icon: 'finance', screen: 'Finance' },
-    { id: '21', title: 'Transactions', icon: 'swap-horizontal', screen: 'Transactions' },
-    { id: '22', title: 'Expenses', icon: 'cash-minus', screen: 'Expenses' },
-    { id: '23', title: 'Approvals', icon: 'check-circle', screen: 'Approvals' },
-    { id: '24', title: 'Bank Accounts', icon: 'bank', screen: 'BankAccounts' },
-  ];
+  
 
-  const hrManagementSection = [
-    { id: '25', title: 'HR Management', icon: 'briefcase-account', screen: 'HRManagement' },
-    { id: '26', title: 'Leave Applications', icon: 'calendar-remove', screen: 'LeaveApplications' },
-    { id: '27', title: 'Loan Management', icon: 'cash-refund', screen: 'LoanManagement' },
-    { id: '28', title: 'Salary Management', icon: 'cash-multiple', screen: 'SalaryManagement' },
-    { id: '29', title: 'Promotions', icon: 'trending-up', screen: 'Promotions' },
-  ];
 
-  const cafeSection = [
-    { id: '30', title: 'Cafe Operations', icon: 'coffee', screen: 'CafeOperations' },
-    { id: '31', title: 'Orders', icon: 'food', screen: 'Orders' },
-    { id: '32', title: 'Inventory', icon: 'archive', screen: 'Inventory' },
-    { id: '33', title: 'Cafe Accounts', icon: 'calculator', screen: 'CafeAccounts' },
-    { id: '34', title: 'Daily Reports', icon: 'file-document', screen: 'DailyReports' },
-  ];
+const renderChild = (child) => {
+  const isActive = active === child.title;
 
-  const settingsSection = [
-    { id: '35', title: 'Settings', icon: 'cog', screen: 'Settings' },
-    { id: '36', title: 'Branches', icon: 'source-branch', screen: 'Branches' },
-    { id: '37', title: 'App Settings', icon: 'application-cog', screen: 'AppSettings' },
-    { id: '38', title: 'User Management', icon: 'account-cog', screen: 'UserManagement' },
-    { id: '39', title: 'Roles', icon: 'shield-account', screen: 'Roles' },
-    { id: '40', title: 'Notifications', icon: 'bell', screen: 'Notifications' },
-  ];
-
-  const renderMenuItem = (item, isDanger = false) => (
+  return (
     <TouchableOpacity
-      key={item.id}
-      style={styles.menuItem}
-      onPress={() => navigation.navigate(item.screen)}
+      key={child.title}
+      style={[
+        styles.subMenuItem,
+        isActive && styles.activeSubItem
+      ]}
+      onPress={() => {
+        setActive(child.title);
+        navigation.navigate(child.screen);
+      }}
     >
-      <View style={styles.menuItemLeft}>
-        <Icon
-          name={item.icon}
-          size={20}
-          color={isDanger ? '#E63946' : '#666'}
-          style={styles.menuIcon}
-        />
-        <Text style={[styles.menuText, isDanger && styles.menuTextDanger]}>
-          {item.title}
-        </Text>
-      </View>
-      {item.badge && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{item.badge}</Text>
-        </View>
-      )}
+      <Text
+        style={[
+          styles.subMenuText,
+          isActive && styles.activeSubText
+        ]}
+      >
+        {child.title}
+      </Text>
     </TouchableOpacity>
   );
+};
 
-  const renderSection = (title, items, icon = null) => (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        {icon && <Icon name={icon} size={18} color="#E63946" style={styles.sectionIcon} />}
-        <Text style={styles.sectionTitle}>{title}</Text>
-      </View>
-      {items.map((item) => renderMenuItem(item))}
+const renderParent = (item) => {
+  const isOpen = expanded === item.title;
+  const isActive = active === item.title;
+
+  return (
+    <View key={item.title}>
+      <TouchableOpacity
+        style={[
+          styles.menuItem,
+          isActive && styles.activeItem,
+          isOpen && styles.openItem, // 👈 NEW
+        ]}
+        onPress={() => {
+          if (item.children) {
+            toggleExpand(item.title);
+          } else {
+            setActive(item.title);
+            navigation.navigate(item.screen);
+          }
+        }}
+      >
+        <View style={styles.menuItemLeft}>
+          <Icon
+            name={item.icon}
+            size={20}
+            color={isActive ? '#FFF' : '#666'}
+          />
+
+          <Text
+            style={[
+              styles.menuText,
+              isActive && styles.activeText,
+              isOpen && styles.openText, // 👈 NEW
+            ]}
+          >
+            {item.title}
+          </Text>
+        </View>
+
+        {item.children && (
+          <Icon
+            name={isOpen ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={isActive ? '#FFF' : '#999'}
+          />
+        )}
+      </TouchableOpacity>
+
+      {/* CHILDREN */}
+      {isOpen && (
+        <View style={styles.subContainer}>
+          {item.children.map(renderChild)}
+        </View>
+      )}
     </View>
   );
+};
 
   return (
     <DrawerContentScrollView {...props} style={styles.container}>
       {/* User Profile Header */}
-      
+
       <ProfileHeader
         name="Ahmed"
         role="Super Admin"
@@ -128,26 +211,12 @@ const DrawerContent = (props) => {
 
       {/* Main Menu Items */}
       <View style={styles.menuSection}>
-        {menuItems.map((item) => renderMenuItem(item))}
+        {/* {menuItems.map((item) => renderMenuItem(item))} */}
+          {MENU.map(renderParent)}
+
       </View>
 
-      {/* HR Section */}
-      {renderSection('HR', hrSection, 'briefcase')}
 
-      {/* Fitness Section */}
-      {renderSection('Fitness', fitnessSection, 'dumbbell')}
-
-      {/* Finance Section */}
-      {renderSection('Finance', financeSection, 'finance')}
-
-      {/* HR Management Section */}
-      {renderSection('HR Management', hrManagementSection, 'briefcase-account')}
-
-      {/* Cafe Section */}
-      {renderSection('Cafe Operations', cafeSection, 'coffee')}
-
-      {/* Settings Section */}
-      {renderSection('Settings', settingsSection, 'cog')}
 
       {/* Logout */}
       <TouchableOpacity
@@ -169,22 +238,22 @@ const DrawerContent = (props) => {
 };
 
 const styles = StyleSheet.create({
- container: {
-  flex: 1,
-  backgroundColor: '#FFFFFF',
-  position: 'relative',
-},
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+  },
 
   header: {
     backgroundColor: '#F8F9FA',
     paddingVertical: 20,
   },
-closeButton: {
-  position: 'absolute',
-  top: 10,
-  right: 10,
-  zIndex: 999,
-},
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 999,
+  },
   profileSection: {
     alignItems: 'center',
     paddingTop: 10,
@@ -273,6 +342,61 @@ closeButton: {
   bottomPadding: {
     height: 20,
   },
+  activeItem: {
+  backgroundColor: '#E63946',
+  borderRadius: 8,
+  marginHorizontal: 10,
+},
+
+activeText: {
+  color: '#FFF',
+  fontWeight: '600',
+},
+
+// subMenuIm
+// subContainer: {
+//   marginLeft: 20,
+//   borderLeftWidth: 1,
+//   borderLeftColor: '#EEE',
+//   paddingLeft: 10,
+// },
+openItem: {
+  backgroundColor: '#FFF5F5', // light red like screenshot
+  borderRadius: 8,
+  marginHorizontal: 10,
+},
+
+openText: {
+  color: '#E63946',
+  fontWeight: '600',
+},
+
+subContainer: {
+  marginLeft: 25,
+  borderLeftWidth: 1,
+  borderLeftColor: '#F0F0F0',
+  paddingLeft: 10,
+},
+
+subMenuItem: {
+  paddingVertical: 10,
+  paddingHorizontal: 10,
+},
+
+activeSubItem: {
+  backgroundColor: '#FFF5F5',
+  borderRadius: 6,
+},
+
+subMenuText: {
+  fontSize: 14,
+  color: '#666',
+},
+
+activeSubText: {
+  color: '#E63946',
+  fontWeight: '600',
+},
 });
 
 export default DrawerContent;

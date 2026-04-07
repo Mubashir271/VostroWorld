@@ -2,6 +2,7 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "types": ["jest"],
+        "jsx": "react-native",          // <-- this is required
   },
   "include": ["**/*.ts", "**/*.tsx", "src/navigation/stacks/ReportsStack.js", "src/navigation/stacks/PackageStack.js", "src/navigation/stacks/MembersStack.js", "src/navigation/stacks/AccountStack.js", "src/navigation/stacks/HomeStack.js"],
   "exclude": ["**/node_modules", "**/Pods"]

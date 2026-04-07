@@ -18,6 +18,7 @@ export const defaultStackOptions = {
     fontSize: 18,
   },
   headerBackTitleVisible: false,
+  headerShown: false, 
 };
 
 // Header with menu button
