@@ -20,6 +20,7 @@ import WelcomeAdminScreen from '../../screens/AuthScreens/WelcomeAdmin';
 import { RegistrationScreen } from '../../screens/AuthScreens/Registration';
 import DashboardScreen from '../../screens/home';
 import DrawerNavigation from '../DrawerNavigation';
+import NewMemberRegistrationScreen from '../../screens/NewMemberRegistration';
 const Stack = createStackNavigator();
 // enableScreens();
 
@@ -104,7 +105,12 @@ const AppNavigator = () => {
                     component={DrawerNavigation}
                     options={{ headerShown: false }}
                 />
-
+                                <Stack.Screen
+                    name="NewMemberRegistration"
+                    component={NewMemberRegistrationScreen}
+                    options={{ headerShown: false }}
+                />
+                
             </Stack.Navigator>
         </View>
     );

@@ -10,7 +10,8 @@ export const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     padding: 10,
     borderRadius: 10,
-    marginBottom: 10,
+    alignItems: 'center'
+    // marginBottom: 10,
   },
 
   input: { marginLeft: 8, flex: 1 },
@@ -127,32 +128,61 @@ topTitle: {
   fontWeight: '700',
 },
 
-filterRow: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 8,
-  marginBottom: 6,
-},
+  // New / Updated styles for fixed horizontal filters
+  filterScroll: {
+    // marginBottom: 8,           // space before "Reset Filters"
+  },
 
-filterChip: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#FFF',
-  paddingHorizontal: 10,
-  paddingVertical: 6,
-  borderRadius: 6,
-  gap: 4,
-},
+  filterRow: {
+    flexDirection: 'row',      // important: row + no wrap
+    alignItems: 'center',
+    paddingTop: 4,
+    flexWrap: 'wrap'
+    // No flexWrap here → prevents wrapping
+  },
 
-filterChipText: {
-  fontSize: 12,
-  color: '#444',
-},
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 8,
+    marginRight: 10,           // spacing between chips
+    minWidth: 110,             // prevents shrinking too much on long text
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+
+  filterChipText: {
+    fontSize: 13.5,
+    color: '#444',
+    fontWeight: '500',
+  },
 
 reset: {
   color: '#E63946',
   fontSize: 12,
   textAlign: 'right',
   marginBottom: 10,
+},
+// Add these to your existing styles
+optionItem: {
+  paddingVertical: 14,
+  paddingHorizontal: 16,
+  borderBottomWidth: 1,
+  borderBottomColor: '#F0F0F0',
+},
+optionSelected: {
+  backgroundColor: '#FFF5F5',
+},
+optionText: {
+  fontSize: 16,
+  color: '#333',
+},
+optionTextSelected: {
+  fontSize: 16,
+  color: '#E63946',
+  fontWeight: '600',
 },
 });
