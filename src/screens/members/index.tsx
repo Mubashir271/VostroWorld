@@ -13,6 +13,9 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
+import AppHeader from '../../components/AppHeader';
+import BurgerSVG from '../../assets/svg/BurgerSVG';
+import NotificationSVG from '../../assets/svg/NotificationSVG';
 
 const initialData = [
   {
@@ -159,172 +162,172 @@ const MembersScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Bar */}
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.openDrawer()}>
-          <Icon name="menu" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.topTitle}>Members</Text>
-        <View style={{ flexDirection: 'row', gap: 16 }}>
-          <Icon name="bell-outline" size={24} color="#333" />
-          <Icon name="dots-vertical" size={24} color="#333" />
-        </View>
-      </View>
-
-      {/* Search */}
-      <View style={styles.searchBox}>
-        <Icon name="magnify" size={20} color="#999" />
-        <TextInput
-          placeholder="Search members by name or ID"
-          value={search}
-          onChangeText={setSearch}
-          style={styles.input}
-        />
-      </View>
-
-      {/* Filter Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterRow}
-      >
-        <FilterChip
-          label="Status"
-          value={status}
-          onPress={() => openBottomSheet(statusRef)}
-        />
-        <FilterChip
-          label="Membership"
-          value={membership}
-          onPress={() => openBottomSheet(membershipRef)}
-        />
-        <FilterChip
-          label="Date"
-          value={dateRange}
-          onPress={() => openBottomSheet(dateRef)}
-        />
-        <FilterChip
-          label="Branch"
-          value={branch}
-          onPress={() => openBottomSheet(branchRef)}
-        />
-      </ScrollView>
-
-      <TouchableOpacity onPress={resetFilters}>
-        <Text style={styles.reset}>Reset Filters</Text>
-      </TouchableOpacity>
-
-      {/* Members List */}
-      <FlatList
-        data={filteredMembers}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 80 }}
-        ListFooterComponent={
-          <TouchableOpacity style={styles.loadMore} onPress={handleLoadMore}>
-            <Text style={styles.loadMoreText}>Load more</Text>
-          </TouchableOpacity>
-        }
-        ListEmptyComponent={
-          <View style={{ padding: 40, alignItems: 'center' }}>
-            <Text style={{ color: '#999', fontSize: 16 }}>No members found</Text>
-          </View>
-        }
+    <>
+      <AppHeader
+        title="Members"
+        leftIcon={<BurgerSVG width={24} height={24} />}
+        rightIcon={<NotificationSVG width={24} height={24} />}
+        onLeftPress={() => navigation.openDrawer()}
+        onRightPress={() => navigation.navigate('Notifications')}
+        backgroundColor="#FFE5E5"
       />
+      <View style={styles.container}>
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('NewMemberRegistration')}>
-        <Icon name="plus" size={28} color="#FFF" />
-      </TouchableOpacity>
 
-      {/* ====================== BOTTOM SHEETS ====================== */}
+        {/* Search */}
+        <View style={styles.searchBox}>
+          <Icon name="magnify" size={20} color="#999" />
+          <TextInput
+            placeholder="Search members by name or ID"
+            value={search}
+            onChangeText={setSearch}
+            style={styles.input}
+          />
+        </View>
 
-      {/* Status Bottom Sheet */}
-      <BottomSheet ref={statusRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
-        <BottomSheetView style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Status</Text>
-          {['All', 'Active', 'Expired'].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.optionItem, status === option && styles.optionSelected]}
-              onPress={() => {
-                setStatus(option);
-                statusRef.current?.close();
-              }}
-            >
-              <Text style={status === option ? styles.optionTextSelected : styles.optionText}>
-                {option}
-              </Text>
+        {/* Filter Chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterRow}
+        >
+          <FilterChip
+            label="Status"
+            value={status}
+            onPress={() => openBottomSheet(statusRef)}
+          />
+          <FilterChip
+            label="Membership"
+            value={membership}
+            onPress={() => openBottomSheet(membershipRef)}
+          />
+          <FilterChip
+            label="Date"
+            value={dateRange}
+            onPress={() => openBottomSheet(dateRef)}
+          />
+          <FilterChip
+            label="Branch"
+            value={branch}
+            onPress={() => openBottomSheet(branchRef)}
+          />
+        </ScrollView>
+
+        <TouchableOpacity onPress={resetFilters}>
+          <Text style={styles.reset}>Reset Filters</Text>
+        </TouchableOpacity>
+
+        {/* Members List */}
+        <FlatList
+          data={filteredMembers}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 80 }}
+          ListFooterComponent={
+            <TouchableOpacity style={styles.loadMore} onPress={handleLoadMore}>
+              <Text style={styles.loadMoreText}>Load more</Text>
             </TouchableOpacity>
-          ))}
-        </BottomSheetView>
-      </BottomSheet>
+          }
+          ListEmptyComponent={
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Text style={{ color: '#999', fontSize: 16 }}>No members found</Text>
+            </View>
+          }
+        />
 
-      {/* Membership Bottom Sheet */}
-      <BottomSheet ref={membershipRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
-        <BottomSheetView style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Membership</Text>
-          {['All', 'Gym', 'PT', 'Guest Pass'].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.optionItem, membership === option && styles.optionSelected]}
-              onPress={() => {
-                setMembership(option);
-                membershipRef.current?.close();
-              }}
-            >
-              <Text style={membership === option ? styles.optionTextSelected : styles.optionText}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </BottomSheetView>
-      </BottomSheet>
+        {/* FAB */}
+        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('NewMemberRegistration')}>
+          <Icon name="plus" size={28} color="#FFF" />
+        </TouchableOpacity>
 
-      {/* Date & Branch Bottom Sheets (same as before) */}
-      <BottomSheet ref={dateRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
-        <BottomSheetView style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Date Range</Text>
-          {['From - To', 'Last 7 Days', 'Last 30 Days', 'This Month'].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.optionItem, dateRange === option && styles.optionSelected]}
-              onPress={() => {
-                setDateRange(option);
-                dateRef.current?.close();
-              }}
-            >
-              <Text style={dateRange === option ? styles.optionTextSelected : styles.optionText}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </BottomSheetView>
-      </BottomSheet>
+        {/* ====================== BOTTOM SHEETS ====================== */}
 
-      <BottomSheet ref={branchRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
-        <BottomSheetView style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Branch</Text>
-          {['All', 'DHA Phase 6', 'Gulberg', 'Bahria Town', 'Model Town'].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.optionItem, branch === option && styles.optionSelected]}
-              onPress={() => {
-                setBranch(option);
-                branchRef.current?.close();
-              }}
-            >
-              <Text style={branch === option ? styles.optionTextSelected : styles.optionText}>
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </BottomSheetView>
-      </BottomSheet>
-    </SafeAreaView>
+        {/* Status Bottom Sheet */}
+        <BottomSheet ref={statusRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
+          <BottomSheetView style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Status</Text>
+            {['All', 'Active', 'Expired'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.optionItem, status === option && styles.optionSelected]}
+                onPress={() => {
+                  setStatus(option);
+                  statusRef.current?.close();
+                }}
+              >
+                <Text style={status === option ? styles.optionTextSelected : styles.optionText}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </BottomSheetView>
+        </BottomSheet>
+
+        {/* Membership Bottom Sheet */}
+        <BottomSheet ref={membershipRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
+          <BottomSheetView style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Membership</Text>
+            {['All', 'Gym', 'PT', 'Guest Pass'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.optionItem, membership === option && styles.optionSelected]}
+                onPress={() => {
+                  setMembership(option);
+                  membershipRef.current?.close();
+                }}
+              >
+                <Text style={membership === option ? styles.optionTextSelected : styles.optionText}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </BottomSheetView>
+        </BottomSheet>
+
+        {/* Date & Branch Bottom Sheets (same as before) */}
+        <BottomSheet ref={dateRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
+          <BottomSheetView style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Date Range</Text>
+            {['From - To', 'Last 7 Days', 'Last 30 Days', 'This Month'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.optionItem, dateRange === option && styles.optionSelected]}
+                onPress={() => {
+                  setDateRange(option);
+                  dateRef.current?.close();
+                }}
+              >
+                <Text style={dateRange === option ? styles.optionTextSelected : styles.optionText}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </BottomSheetView>
+        </BottomSheet>
+
+        <BottomSheet ref={branchRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
+          <BottomSheetView style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Branch</Text>
+            {['All', 'DHA Phase 6', 'Gulberg', 'Bahria Town', 'Model Town'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.optionItem, branch === option && styles.optionSelected]}
+                onPress={() => {
+                  setBranch(option);
+                  branchRef.current?.close();
+                }}
+              >
+                <Text style={branch === option ? styles.optionTextSelected : styles.optionText}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </BottomSheetView>
+        </BottomSheet>
+      </View>
+    </>
   );
 };
 

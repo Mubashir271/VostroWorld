@@ -1,93 +1,132 @@
-// components/AppHeader.tsx
-
 import React from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    Image,
-    ImageSourcePropType,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface AppHeaderProps {
-    title: string;
-    leftIcon?: React.ReactNode;
-    rightIcon?: React.ReactNode;
-    onLeftPress?: () => void;
-    onRightPress?: () => void;
-    backgroundColor?: string;
+  title: string;
+  leftIcon?: React.ReactNode;
+
+  rightIcon?: React.ReactNode;      // First right icon (e.g. notification bell)
+  dotIcon?: React.ReactNode;        // Second right icon (renamed as per your request)
+  rightText?: string;               // Optional text on right
+
+  onLeftPress?: () => void;
+  onRightPress?: () => void;        // For rightIcon
+  onDotPress?: () => void;          // For dotIcon
+  onRightTextPress?: () => void;
+
+  backgroundColor?: string;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
-    title,
-    leftIcon,
-    rightIcon,
-    onLeftPress,
-    onRightPress,
-    backgroundColor = '#ffffff',
+  title,
+  leftIcon,
+  rightIcon,
+  dotIcon,
+  rightText,
+  onLeftPress,
+  onRightPress,
+  onDotPress,
+  onRightTextPress,
+  backgroundColor = '#FFF8F8',
 }) => {
-    return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
-            <View style={styles.container}>
-                {/* Left */}
-                <View style={styles.sideContainer}>
-                    {leftIcon && (
-                        <TouchableOpacity onPress={onLeftPress}>
-                            {leftIcon}
-                        </TouchableOpacity>
-                    )}
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
+      <View style={styles.container}>
+        
+        {/* Left Side */}
+        <View style={styles.sideContainer}>
+          {leftIcon && (
+            <TouchableOpacity onPress={onLeftPress} activeOpacity={0.7}>
+              {leftIcon}
+            </TouchableOpacity>
+          )}
+        </View>
 
-                </View>
+        {/* Center Title */}
+        <View style={styles.centerContainer}>
+          <Text style={styles.title}>{title}</Text>
+        </View>
 
-                {/* Center Title */}
-                <View style={styles.centerContainer}>
-                    <Text style={styles.title}>{title}</Text>
-                </View>
+        {/* Right Side */}
+        <View style={styles.rightContainer}>
+          {rightIcon && (
+            <TouchableOpacity 
+              onPress={onRightPress} 
+              activeOpacity={0.7}
+              style={styles.rightItem}
+            >
+              {rightIcon}
+            </TouchableOpacity>
+          )}
 
-                {/* Right */}
-                <View style={[styles.sideContainer, { alignItems: 'flex-end' }]}>
-                    {rightIcon && (
-                        <TouchableOpacity onPress={onRightPress}>
-                            {rightIcon}  {/* render component directly */}
-                        </TouchableOpacity>
-                    )}
-                </View>
+          {dotIcon && (
+            <TouchableOpacity 
+              onPress={onDotPress} 
+              activeOpacity={0.7}
+              style={styles.rightItem}
+            >
+              {dotIcon}
+            </TouchableOpacity>
+          )}
 
-            </View>
-        </SafeAreaView>
-    );
+          {rightText && (
+            <TouchableOpacity 
+              onPress={onRightTextPress} 
+              activeOpacity={0.7}
+              style={styles.rightItem}
+            >
+              <Text style={styles.rightText}>{rightText}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+      </View>
+    </SafeAreaView>
+  );
 };
 
 export default AppHeader;
 
 const styles = StyleSheet.create({
-    safeArea: {
-        backgroundColor: '#fff',
-    },
-    container: {
-        height: 60,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-    },
-    sideContainer: {
-        width: 60, // keeps title perfectly centered
-        justifyContent: 'center',
-    },
-    centerContainer: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#0f172a',
-    },
-    icon: {
-        width: 24,
-        height: 24,
-        resizeMode: 'contain',
-    },
+  safeArea: {
+    backgroundColor: '#FFF8F8',
+  },
+  container: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  sideContainer: {
+    width: 40,
+    justifyContent: 'center',
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // gap: 16,
+  },
+  rightItem: {
+    padding: 4,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  rightText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#E63946',
+  },
 });

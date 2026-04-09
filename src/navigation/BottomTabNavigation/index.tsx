@@ -2,7 +2,14 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Image, StyleSheet } from 'react-native';
 
-import { AccountTab, HomeTab, MembersTab, PackageTab, ReportsTab } from '../../assets/icons';
+import { 
+  AccountTab, 
+  HomeTab, 
+  MembersTab, 
+  PackageTab, 
+  ReportsTab 
+} from '../../assets/icons';
+
 import HomeStack from '../stacks/HomeStack';
 import PackageStack from '../stacks/PackageStack';
 import MembersStack from '../stacks/MembersStack';
@@ -11,42 +18,13 @@ import AccountStack from '../stacks/AccountStack';
 
 const Tab = createBottomTabNavigator();
 
-const tabIcons = {
-  Home: {
-    active: HomeTab,
-    inactive: HomeTab,
-  },
-  Package: {
-    active: PackageTab,
-    inactive: PackageTab,
-  },
-  Members: {
-    active: MembersTab,
-    inactive: MembersTab,
-  },
-  Reports: {
-    active: ReportsTab,
-    inactive: ReportsTab,
-  },
-  Account: {
-    active: AccountTab,
-    inactive: AccountTab,
-  },
-};
-
-
-const TabIcon = ({ name, focused }) => {
-  const icon = focused ? tabIcons[name]?.active : tabIcons[name]?.inactive;
-  return <Image source={icon} style={styles.tabIcon} resizeMode="contain" />;
-};
-
 const BottomTabNavigation = () => {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#E63946',
-        tabBarInactiveTintColor: '#A0A0A0',
+        tabBarActiveTintColor: '#E63946',     // Red when active
+        tabBarInactiveTintColor: '#A0A0A0',   // Gray when inactive
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
       }}
@@ -55,35 +33,69 @@ const BottomTabNavigation = () => {
         name="Home"
         component={HomeStack}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Home" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Image 
+              source={focused ? HomeTab : HomeTab}   // You can make separate active/inactive icons later
+              style={[styles.tabIcon, { tintColor: color }]} 
+              resizeMode="contain" 
+            />
+          ),
         }}
       />
+
       <Tab.Screen
         name="Package"
         component={PackageStack}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Package" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Image 
+              source={focused ? PackageTab : PackageTab}
+              style={[styles.tabIcon, { tintColor: color }]} 
+              resizeMode="contain" 
+            />
+          ),
         }}
       />
+
       <Tab.Screen
         name="Members"
         component={MembersStack}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Members" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Image 
+              source={focused ? MembersTab : MembersTab}
+              style={[styles.tabIcon, { tintColor: color }]} 
+              resizeMode="contain" 
+            />
+          ),
         }}
       />
+
       <Tab.Screen
         name="Reports"
         component={ReportsStack}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Reports" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Image 
+              source={focused ? ReportsTab : ReportsTab}
+              style={[styles.tabIcon, { tintColor: color }]} 
+              resizeMode="contain" 
+            />
+          ),
         }}
       />
+
       <Tab.Screen
         name="Account"
         component={AccountStack}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Account" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Image 
+              source={focused ? AccountTab : AccountTab}
+              style={[styles.tabIcon, { tintColor: color }]} 
+              resizeMode="contain" 
+            />
+          ),
         }}
       />
     </Tab.Navigator>
