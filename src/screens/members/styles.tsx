@@ -54,11 +54,16 @@ export const styles = StyleSheet.create({
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 10,
+    borderBottomWidth:1,
+    gap: '10%',
+    borderBottomColor: '#D9D9D9'
   },
 
   packageBadge: {
     backgroundColor: '#E63946',
     paddingHorizontal: 8,
+    marginRight: 'auto',
     borderRadius: 10,
   },
 
@@ -67,16 +72,20 @@ export const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 6 },
 
   iconBtn: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#E63946',
     padding: 6,
     borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
 
   loadMore: {
     borderWidth: 1,
     borderColor: '#E63946',
     padding: 10,
-    borderRadius: 20,
+    borderRadius: 10,
+    backgroundColor: '#FEEEED',
+    paddingHorizontal: '15%',
     alignSelf: 'center',
     marginTop: 10,
   },
@@ -163,6 +172,7 @@ topTitle: {
 reset: {
   color: '#E63946',
   fontSize: 12,
+  fontWeight: 'bold',
   textAlign: 'right',
   marginBottom: 10,
 },

@@ -11,7 +11,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
 import AppHeader from '../../components/AppHeader';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
@@ -135,19 +134,23 @@ const MembersScreen = () => {
             <Text style={styles.packageText}>{item.package}</Text>
           </View>
         </View>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+          <View style={{flexDirection: 'column'}}>
         <Text style={styles.info}>• Expires: {item.expiry}</Text>
         <Text style={styles.info}>• Last visit: {item.lastVisit}</Text>
       </View>
       <View style={styles.actions}>
         <TouchableOpacity style={styles.iconBtn}>
-          <Icon name="phone" size={16} color="#E63946" />
+          <Icon name="phone" size={16} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn}>
-          <Icon name="whatsapp" size={16} color="#E63946" />
+          <Icon name="whatsapp" size={16} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn}>
-          <Icon name="eye" size={16} color="#E63946" />
+          <Icon name="eye" size={16} color="#FFFFFF" />
         </TouchableOpacity>
+        </View>
+      </View>
       </View>
     </View>
   );

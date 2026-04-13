@@ -200,7 +200,8 @@ const PackageScreen: React.FC = () => {
             />
           )}
 
-          <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.fab} activeOpacity={0.8}
+          onPress={() => navigation.navigate('NewPackage')}>
             <Text style={styles.fabPlus}>+</Text>
           </TouchableOpacity>
         </View>

@@ -202,7 +202,7 @@ const renderParent = (item) => {
 
       <ProfileHeader
         name="Ahmed"
-        role="Super Admin"
+        role="Ahmed Khan"
         branch="Dha Phase 6 Branch"
         avatar={require('../../assets/img/userIcon.png')}
         editIcon={Edit_fill}

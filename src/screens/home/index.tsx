@@ -95,7 +95,7 @@ export default function DashboardScreen() {
 
                     <ProfileHeader
                         name="Ahmed"
-                        role="Super Admin"
+                        role="Ahmed Khan"
                         branch="Dha Phase 6 Branch"
                         editIcon={Edit_fill}
                         avatar={require('../../assets/img/userIcon.png')} 
