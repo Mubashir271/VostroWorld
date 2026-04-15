@@ -15,7 +15,7 @@ const AccountStack = () => {
       <Stack.Screen 
         name="AccountScreen" 
         component={AccountScreen}
-        options={{ title: 'Settings' }}
+        options={{ headerShown: false }}
       />
       {/* <Stack.Screen 
         name="Profile" 

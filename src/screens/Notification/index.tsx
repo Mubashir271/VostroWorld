@@ -186,7 +186,7 @@ const NotificationScreen: React.FC = () => {
                 dotIcon={<Icon name="cog" size={24} color="#1A1A1A" />}         // Settings
                 onLeftPress={() => navigation.goBack()}
                 onRightPress={() => console.log('Search pressed')}
-                onDotPress={() => console.log('Settings pressed')}
+                onDotPress={() => navigation.navigate('Settings')}
                 backgroundColor="#FFE5E5"
             />
 {/* <View style={styles}></View> */}

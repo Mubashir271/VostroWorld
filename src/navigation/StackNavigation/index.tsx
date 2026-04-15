@@ -23,6 +23,7 @@ import DrawerNavigation from '../DrawerNavigation';
 import NewMemberRegistrationScreen from '../../screens/NewMemberRegistration';
 import NotificationScreen from '../../screens/Notification';
 import NewPackage from '../../screens/NewPackage';
+import Settings from '../../screens/Settings';
 const Stack = createStackNavigator();
 // enableScreens();
 
@@ -120,6 +121,11 @@ const AppNavigator = () => {
                 <Stack.Screen
                     name="NewPackage"
                     component={NewPackage}
+                    options={{ headerShown: false }}
+                />
+                                <Stack.Screen
+                    name="Settings"
+                    component={Settings}
                     options={{ headerShown: false }}
                 />
 
