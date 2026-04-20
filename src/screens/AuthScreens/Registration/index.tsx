@@ -13,6 +13,9 @@ import { Step3Credentials } from './Step3Credentials';
 import EmailVerification from './EmailVerification';
 import AccountConfirmation from './AccountConfirmation';
 import { useNavigation } from '@react-navigation/native';
+import { updateRegistrationData } from '../../../redux/slices/userSlice';
+import { useDispatch } from 'react-redux';
+
 
 
 const TOTAL_STEPS = 5;
@@ -41,6 +44,9 @@ export const RegistrationScreen = () => {
     const [joiningDate, setJoiningDate] = useState<Date | undefined>(undefined);
     const [lang, setLang] = useState('English');
     const [modalConfig, setModalConfig] = useState({ visible: false, type: '', title: '', options: [] });
+
+    // Step 3 - Credentials
+    const [password, setPassword] = useState('');
 
     // 2. Data Options
     const ROLE_OPTIONS = [
@@ -88,11 +94,33 @@ export const RegistrationScreen = () => {
         { id: '4', label: 'Fatima Noor' },
     ];
 
+      const dispatch = useDispatch();
 
-    const handleNext = () => {
-        if (step < TOTAL_STEPS) setStep(step + 1);
-        else navigation.navigate('Drawer')
-    };
+
+  const handleNext = () => {
+    if (step === 1) {
+      dispatch(updateRegistrationData({
+        firstName, lastName, email, phone, gender, branch,
+        dob: dob ? dob.toISOString() : null,  // serialize Date for Redux
+      }));
+    }
+
+    if (step === 2) {
+      dispatch(updateRegistrationData({
+        role, dept, desg, mngr, exp, employment, lang,
+        joiningDate: joiningDate ? joiningDate.toISOString() : null,
+      }));
+    }
+
+    if (step === 3) {
+      dispatch(updateRegistrationData({
+        password,
+      }));
+    }
+
+    if (step < TOTAL_STEPS) setStep(step + 1);
+    else navigation.navigate('Drawer' as never);
+  };
 
     const handlePrevious = () => {
         if (step > 1) setStep(step - 1);
@@ -273,11 +301,11 @@ export const RegistrationScreen = () => {
                 </View>
             )}
 
-            {step === 3 && <Step3Credentials />}
+            {step === 3 && <Step3Credentials password={password} onPasswordChange={setPassword} />}
 
-            {step === 4 && <EmailVerification />}
+            {step === 4 && <EmailVerification email={email} />}
 
-            {step === 5 && <AccountConfirmation />}
+            {step === 5 && <AccountConfirmation firstName={firstName} lastName={lastName} email={email} phone={phone} role={role} branch={branch} />}
 
 
             <View style={styles.buttonContainer}>

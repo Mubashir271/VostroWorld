@@ -1,5 +1,7 @@
 import React from 'react';
 import { Image, ImageBackground, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 import VerificationCodeInput from '../../../components/VerificationCodeInput';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +9,16 @@ import { useNavigation } from '@react-navigation/native';
 const SMS = () => {
     const { showSnackbar } = useSnackbarStore();
     const navigation = useNavigation();
+    
+    // Get phone from Redux
+    const { phone } = useSelector((state: RootState) => state.user.registrationData);
+
+    // Mask phone number to show only last 3 digits
+    const maskPhone = (phoneStr: string) => {
+        if (!phoneStr) return '+92 300-**** ***';
+        return phoneStr.slice(0, -3) + '***';
+    };
+
     return (
         <View style={styles.container}>
             {/* Top image section */}
@@ -33,7 +45,7 @@ const SMS = () => {
                           Enter the 6-digit code from your authenticator app
                         </Text>
                 <VerificationCodeInput
-                    phoneOrEmail="+92 333-**** 789"
+                    phoneOrEmail={maskPhone(phone)}
                     onVerify={() => navigation.navigate('Drawer')}
                     onUseBackup={() => showSnackbar('Use backup pressed')}
                     onBackToLogin={() => navigation.replace('Login')}

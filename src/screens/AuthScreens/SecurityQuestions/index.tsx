@@ -1,5 +1,7 @@
 import { Image, ImageBackground, StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, KeyboardAvoidingView } from 'react-native';
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import { useNavigation } from '@react-navigation/native';
 import PrimaryButton from './../../../components/PrimaryButton';
@@ -8,6 +10,9 @@ import { resetToLogin } from '../../../utils/navigationActions';
 const SecurityQuestions = () => {
     const { showSnackbar } = useSnackbarStore();
     const navigation = useNavigation();
+    
+    // Get user data from Redux
+    const { firstName, lastName } = useSelector((state: RootState) => state.user.registrationData);
 
     // State to hold answers for each question
     const [answers, setAnswers] = useState({
@@ -26,6 +31,8 @@ const SecurityQuestions = () => {
         showSnackbar('Answers submitted');
         // You can also navigate to the next screen here
     };
+    
+    const profileName = `${firstName} ${lastName}`.trim() || 'User';
 
     return (
         <KeyboardAvoidingView style={styles.container}>
@@ -51,7 +58,7 @@ const SecurityQuestions = () => {
                     />
                     <Text style={styles.title}>Verify Your Identity</Text>
                     <Text style={styles.subtitle}>
-                        Answer the security questions below to continue
+                        Hi {profileName}, answer the security questions below to continue
                     </Text>
 
                     {/* Questions */}

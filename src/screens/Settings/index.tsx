@@ -1,17 +1,29 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, Alert } from 'react-native'
 import React, { useState } from 'react'
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { updateAppImage } from '../../redux/slices/userSlice';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
 const Settings = () => {
-  const [autoBackup, setAutoBackup] = useState(true);
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const [autoBackup, setAutoBackup] = useState(true);
+  
+  // Get user data from Redux
+  const { firstName, lastName, email, branch, role } = useSelector((state: RootState) => state.user.registrationData);
+  const appImage = useSelector((state: RootState) => state.user.appImage);
+  
+  const profileName = `${firstName} ${lastName}`.trim() || 'User';
+  const initials = `${firstName?.[0] || 'U'}${lastName?.[0] || 'S'}`.toUpperCase();
 
   const appSettings = [
     { label: 'Vostro World', sublabel: 'Replace', icon: null },
-    { label: 'Contact Email', value: 'support@vostro.com' },
+    { label: 'Contact Email', value: email || 'support@vostro.com' },
     { label: 'Support Phone', value: '+92 300 1234567' },
     { label: 'Website URL', value: 'www.vostroworld.com' },
   ];
@@ -24,6 +36,7 @@ const Settings = () => {
   ];
 
   const branchesItems = [
+    { label: 'Current Branch', value: branch || 'Main Branch', icon: null },
     { label: 'List of branches', icon: 'chevron-right' },
     { label: 'Add branch', action: 'Add', actionStyle: true },
     { label: 'Delete branch', icon: 'chevron-right' },
@@ -31,6 +44,7 @@ const Settings = () => {
   ];
 
   const rolesItems = [
+    { label: 'Your Role', value: role || 'Staff', icon: null },
     { label: 'Add new role', action: 'Add', actionStyle: true },
     { label: 'Delete role', icon: 'chevron-right' },
     { label: 'Permission matrix per role', icon: 'chevron-right' },
@@ -62,6 +76,65 @@ const Settings = () => {
     { label: 'Password policy', icon: 'chevron-right' },
   ];
 
+  const handleUpdateAppImage = () => {
+    Alert.alert(
+      'Update App Logo',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => {
+            launchCamera(
+              {
+                mediaType: 'photo',
+                includeBase64: false,
+                saveToPhotos: true,
+              },
+              (response) => {
+                if (response.didCancel) {
+                  console.log('Camera cancelled');
+                } else if (response.errorCode) {
+                  console.log('Camera error:', response.errorMessage);
+                } else if (response.assets && response.assets.length > 0) {
+                  const imageUri = response.assets[0].uri || null;
+                  dispatch(updateAppImage(imageUri) as any);
+                  console.log('Image selected from camera:', imageUri);
+                }
+              }
+            );
+          },
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => {
+            launchImageLibrary(
+              {
+                mediaType: 'photo',
+                includeBase64: false,
+              },
+              (response) => {
+                if (response.didCancel) {
+                  console.log('Gallery cancelled');
+                } else if (response.errorCode) {
+                  console.log('Gallery error:', response.errorMessage);
+                } else if (response.assets && response.assets.length > 0) {
+                  const imageUri = response.assets[0].uri || null;
+                  dispatch(updateAppImage(imageUri) as any);
+                  console.log('Image selected from gallery:', imageUri);
+                }
+              }
+            );
+          },
+        },
+        {
+          text: 'Cancel',
+          onPress: () => {},
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
   return (
     <>
       <AppHeader
@@ -82,9 +155,20 @@ const Settings = () => {
               <View key={index} style={[styles.settingRow, index === appSettings.length - 1 && styles.lastRow]}>
                 {item.icon === null && item.sublabel ? (
                   <>
-                    <View style={styles.logoPlaceholder}>
-                      <Text style={styles.logoText}>VS</Text>
-                    </View>
+                    <TouchableOpacity 
+                      style={styles.logoPlaceholder}
+                      onPress={handleUpdateAppImage}
+                    >
+                      {appImage ? (
+                        <Image 
+                          source={{ uri: appImage }} 
+                          style={styles.logoImage}
+                        />
+                      ) : (
+                        <Text style={styles.logoText}>{initials}</Text>
+                      )}
+                      <Icon name="camera" size={12} color="#fff" style={styles.cameraIcon} />
+                    </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.settingLabel}>{item.label}</Text>
                       <Text style={styles.settingValue}>{item.sublabel}</Text>
@@ -121,7 +205,10 @@ const Settings = () => {
             <Text style={styles.sectionTitle}>Branches</Text>
             {branchesItems.map((item, index) => (
               <TouchableOpacity key={index} style={[styles.settingRow, index === branchesItems.length - 1 && styles.lastRow]}>
-                <Text style={styles.settingLabel}>{item.label}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                  {item.value && <Text style={styles.settingValue}>{item.value}</Text>}
+                </View>
                 {item.action ? (
                   <View style={styles.actionButton}>
                     <Text style={styles.actionText}>{item.action}</Text>
@@ -138,7 +225,10 @@ const Settings = () => {
             <Text style={styles.sectionTitle}>Roles & Permissions</Text>
             {rolesItems.map((item, index) => (
               <TouchableOpacity key={index} style={[styles.settingRow, index === rolesItems.length - 1 && styles.lastRow]}>
-                <Text style={styles.settingLabel}>{item.label}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                  {item.value && <Text style={styles.settingValue}>{item.value}</Text>}
+                </View>
                 {item.action ? (
                   <View style={styles.actionButton}>
                     <Text style={styles.actionText}>{item.action}</Text>
@@ -264,6 +354,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
   },
 
   settingLabel: {

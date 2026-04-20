@@ -13,14 +13,42 @@ import { Edit, Warning } from '../../../assets/icons';
 import CheckBox from '../../../components/Checkbox';
 import { Lock } from '../../../assets/icons/index';
 
-const AccountConfirmation = () => {
+interface AccountConfirmationProps {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: string;
+    branch: string;
+    username?: string;
+}
+
+const AccountConfirmation = ({ firstName, lastName, email, phone, role, branch, username }: AccountConfirmationProps) => {
     const [agreed, setAgreed] = useState({
         terms: true,
         privacy: true,
         code: true,
     });
 
-    const InfoRow = ({ label, value }) => (
+    // Mask email to show privacy
+    const maskEmail = (emailStr: string) => {
+        if (!emailStr) return 'user@example.com';
+        const parts = emailStr.split('@');
+        if (parts.length !== 2) return 'user@example.com';
+        
+        const localPart = parts[0];
+        const domain = parts[1];
+        
+        const maskedLocal = localPart.length > 3 
+          ? localPart.substring(0, 3) + '*'.repeat(Math.max(1, localPart.length - 6)) + localPart.substring(Math.max(3, localPart.length - 3))
+          : localPart;
+        
+        return `${maskedLocal}@${domain}`;
+    };
+
+    const profileName = `${firstName} ${lastName}`.trim() || 'User';
+
+    const InfoRow = ({ label, value }: { label: string; value: string }) => (
         <View style={styles.infoRow}>
             <Text style={styles.label}>{label}</Text>
             <Text style={styles.value}>{value}</Text>
@@ -36,12 +64,12 @@ const AccountConfirmation = () => {
             <Text style={styles.subtitle}>Almost there! Final steps needed</Text>
             {/* Profile Card */}
             <View style={styles.card}>
-                <InfoRow label="Name" value="Jhon Doe" />
-                <InfoRow label="Email" value="jhon@example***.com" />
-                <InfoRow label="Phone" value="+92 123456789" />
-                <InfoRow label="Role" value="Trainer" />
-                <InfoRow label="Branch" value="Main Branch" />
-                <InfoRow label="Username" value="jhon.doe97" />
+                <InfoRow label="Name" value={profileName} />
+                <InfoRow label="Email" value={maskEmail(email)} />
+                <InfoRow label="Phone" value={phone} />
+                <InfoRow label="Role" value={role || 'Not specified'} />
+                <InfoRow label="Branch" value={branch || 'Not specified'} />
+                <InfoRow label="Username" value={username || email} />
 
                 <TouchableOpacity style={styles.editButton}>
                     <Text style={styles.editButtonText}>Edit Details</Text>

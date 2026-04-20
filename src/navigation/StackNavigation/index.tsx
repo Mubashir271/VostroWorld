@@ -31,7 +31,7 @@ const AppNavigator = () => {
     return (
         <View style={{ flex: 1 }}>
             <Stack.Navigator
-                initialRouteName="Drawer"
+                initialRouteName="Splash"
                 screenOptions={{ headerShown: false }}>
                 <Stack.Screen
                     name="Splash"

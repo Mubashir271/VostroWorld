@@ -10,6 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 import Footer from '../../../components/Footer';
 import { resetToLogin } from '../../../utils/navigationActions';
 
@@ -20,6 +22,31 @@ const { width } = Dimensions.get('window');
 const VerificationMethod = () => {
   const navigation = useNavigation();
   const [selected, setSelected] = useState<Method | null>(null);
+  
+  // Get user data from Redux
+  const { phone, email } = useSelector((state: RootState) => state.user.registrationData);
+
+  // Mask phone number to show only last 3 digits
+  const maskPhone = (phoneStr: string) => {
+    if (!phoneStr) return '+92 300-**** ***';
+    return phoneStr.slice(0, -3) + '***';
+  };
+
+  // Mask email to show privacy
+  const maskEmail = (emailStr: string) => {
+    if (!emailStr) return 'user@example.com';
+    const parts = emailStr.split('@');
+    if (parts.length !== 2) return 'user@example.com';
+    
+    const localPart = parts[0];
+    const domain = parts[1];
+    
+    const maskedLocal = localPart.length > 3 
+      ? localPart.substring(0, 3) + '*'.repeat(Math.max(1, localPart.length - 6)) + localPart.substring(Math.max(3, localPart.length - 3))
+      : localPart;
+    
+    return `${maskedLocal}@${domain}`;
+  };
 
   const handleContinue = () => {
     if (!selected) return;
@@ -75,10 +102,9 @@ const VerificationMethod = () => {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.optionTitle}>OTP via SMS</Text>
-            {/* <Text style={styles.optionSub}>Code will send to +92 333-**** 789</Text> */}
             <Text style={styles.optionSub}>
               Code will send to{'\n'}
-              <Text style={styles.phoneNumber}>+92 333-**** 789</Text>
+              <Text style={styles.phoneNumber}>{maskPhone(phone)}</Text>
             </Text>
 
           </View>
@@ -100,7 +126,7 @@ const VerificationMethod = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.optionTitle}>OTP via Email</Text>
             <Text style={styles.optionSub}>Code will send to{'\n'}
-              <Text style={styles.phoneNumber}>admin@vos****.com</Text>
+              <Text style={styles.phoneNumber}>{maskEmail(email)}</Text>
             </Text>
           </View>
           <Text style={styles.optionArrow}>›</Text>

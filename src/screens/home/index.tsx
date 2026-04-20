@@ -15,7 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import ProfileHeader from '../../components/ProfileHeader';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -77,6 +78,20 @@ const QuickAction = ({ icon, label, onPress }: QuickActionProps) => (
 
 export default function DashboardScreen() {
     const navigation = useNavigation();
+
+    const { firstName, lastName, role, branch } = useSelector(
+        (state: RootState) => state.user.registrationData
+    );
+    
+    const appImage = useSelector((state: RootState) => state.user.appImage);
+
+    const fullName = `${firstName} ${lastName}`.trim() || 'User';
+    
+    // Use app image if available, otherwise use default avatar
+    const avatarSource = appImage 
+        ? { uri: appImage } 
+        : require('../../assets/img/userIcon.png');
+
     return (
         <>
             <AppHeader
@@ -91,14 +106,14 @@ export default function DashboardScreen() {
 
                 <ScrollView showsVerticalScrollIndicator={false}>
                     {/* Header / Welcome */}
-                    <Text style={styles.welcomeText}>Welcome, Ahmed</Text>
+                    <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
 
                     <ProfileHeader
-                        name="Ahmed"
-                        role="Ahmed Khan"
-                        branch="Dha Phase 6 Branch"
+                        name={fullName}
+                        role={role || 'Staff'}
+                        branch={branch || 'Main Branch'}
                         editIcon={Edit_fill}
-                        avatar={require('../../assets/img/userIcon.png')} 
+                        avatar={avatarSource}
                         onEditPress={() => console.log('Edit Pressed')}
                     />
 
@@ -177,15 +192,15 @@ export default function DashboardScreen() {
                             </TouchableOpacity>
                         </View>
 
-<View style={styles.activityItem}>
-    <View style={styles.activityIcon}>
-        <Image source={NewRegistration} style={styles.icon} />
-    </View>
-    <View style={styles.activityContent}>
-        <Text style={styles.activityText}>John Doe registered as member</Text>
-        <Text style={styles.activityTime}>2 mins ago</Text>
-    </View>
-</View>
+                        <View style={styles.activityItem}>
+                            <View style={styles.activityIcon}>
+                                <Image source={NewRegistration} style={styles.icon} />
+                            </View>
+                            <View style={styles.activityContent}>
+                                <Text style={styles.activityText}>John Doe registered as member</Text>
+                                <Text style={styles.activityTime}>2 mins ago</Text>
+                            </View>
+                        </View>
 
                         <View style={styles.activityItem}>
                             <View style={styles.activityIcon}>
@@ -472,24 +487,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: 12,
     },
-activityContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between', // push text left, time right
-    alignItems: 'center',
-},
+    activityContent: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'space-between', // push text left, time right
+        alignItems: 'center',
+    },
 
-activityText: {
-    fontSize: 13,
-    color: '#1e293b',
-    fontWeight: '500',
-    flexShrink: 1, // allows long text to wrap/truncate if needed
-},
+    activityText: {
+        fontSize: 13,
+        color: '#1e293b',
+        fontWeight: '500',
+        flexShrink: 1, // allows long text to wrap/truncate if needed
+    },
 
-activityTime: {
-    fontSize: 12,
-    color: '#64748b',
-    marginLeft: 8,
-},
+    activityTime: {
+        fontSize: 12,
+        color: '#64748b',
+        marginLeft: 8,
+    },
 
 });

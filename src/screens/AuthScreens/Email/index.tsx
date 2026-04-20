@@ -1,5 +1,7 @@
 import React from 'react';
 import { Image, ImageBackground, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 import VerificationCodeInput from '../../../components/VerificationCodeInput';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +9,26 @@ import { useNavigation } from '@react-navigation/native';
 const Email = () => {
     const { showSnackbar } = useSnackbarStore();
     const navigation = useNavigation();
+    
+    // Get email from Redux
+    const { email } = useSelector((state: RootState) => state.user.registrationData);
+
+    // Mask email to show privacy
+    const maskEmail = (emailStr: string) => {
+        if (!emailStr) return 'user@example.com';
+        const parts = emailStr.split('@');
+        if (parts.length !== 2) return 'user@example.com';
+        
+        const localPart = parts[0];
+        const domain = parts[1];
+        
+        const maskedLocal = localPart.length > 3 
+          ? localPart.substring(0, 3) + '*'.repeat(Math.max(1, localPart.length - 6)) + localPart.substring(Math.max(3, localPart.length - 3))
+          : localPart;
+        
+        return `${maskedLocal}@${domain}`;
+    };
+
     return (
         <View style={styles.container}>
             {/* Top image section */}
@@ -33,7 +55,7 @@ const Email = () => {
                     Enter the 6-digit code from your authenticator app
                 </Text>
                 <VerificationCodeInput
-                    phoneOrEmail="admin@vost*****.com"
+                    phoneOrEmail={maskEmail(email)}
                     onVerify={() => navigation.navigate('Drawer')}
                     onUseBackup={() => showSnackbar('Use backup pressed')}
                     onBackToLogin={() => navigation.replace('Login')}

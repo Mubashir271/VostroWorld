@@ -8,10 +8,13 @@ import { PasswordRules } from '../../../components/PasswordRules.tsx';
 import { Error } from '../../../assets/icons/index.ts';
 import PasswordTips from '../../../components/PasswordTips.tsx';
 
-export const Step3Credentials = () => {
-    //   const [username] = useState('alex.jhonson97');
+interface Step3CredentialsProps {
+  password: string;
+  onPasswordChange: (password: string) => void;
+}
+
+export const Step3Credentials = ({ password, onPasswordChange }: Step3CredentialsProps) => {
     const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
     const [securityAnswer, setSecurityAnswer] = useState('');
     const [selectedQuestion, setSelectedQuestion] = useState('');
 
@@ -36,7 +39,7 @@ export const Step3Credentials = () => {
                 label="Password"
                 secureTextEntry={true}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={onPasswordChange}
                 placeholder="**********"
             // showPasswordStrength
             // strength={strength}

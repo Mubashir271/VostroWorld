@@ -6,21 +6,43 @@ import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { logoutUser } from '../../redux/slices/userSlice';
 
 
 const AccountScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
+    const appImage = useSelector((state: RootState) => state.user.appImage);
+  
+    // Use app image if available, otherwise use default avatar
+    const avatarSource = appImage
+      ? { uri: appImage }
+      : require('../../assets/img/userIcon.png');
+
+  const { firstName, lastName, email, phone, joiningDate, desg, role, branch } = useSelector(
+    (state: RootState) => state.user.registrationData
+  );
+
+  const handleLogout = () => {
+    dispatch(logoutUser());
+    navigation.replace('WelcomeAdmin');
+  };
+  
+
+  const profileName = `${firstName} ${lastName}`.trim() || 'User';
 
   const profileData = {
-    name: 'Ahmed Khan',
-    role: 'Super Admin',
+    name: profileName,
+    role: role || 'Staff',
     verified: true,
-    branch: 'Downtown Gym',
-    email: 'ahmed.raza@email.com',
-    phone: '+92 300 123456',
-    username: 'ahmedraza',
-    joiningDate: '12 March 2025',
-    jobTitle: 'CEO',
+    branch: branch || 'Main Branch',
+    email: email || 'N/A',
+    phone: phone || 'N/A',
+    username: profileName.toLowerCase().replace(/\s+/g, '') || 'username',
+    joiningDate: joiningDate || 'N/A',
+    jobTitle: desg || 'Position',
   };
 
   const accountSections = [
@@ -70,7 +92,7 @@ const AccountScreen = () => {
           <View style={styles.profileSection}>
             <View style={styles.profileContent}>
               <Image
-                source={require('../../assets/img/userIcon.png')}
+                source={avatarSource}
                 style={styles.profileImage}
               />
               <View style={styles.notificationBadge}>
@@ -140,7 +162,7 @@ const AccountScreen = () => {
 
           {/* Action Buttons */}
           <View style={styles.buttonSection}>
-            <TouchableOpacity style={styles.logoutBtn}>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteBtn}>

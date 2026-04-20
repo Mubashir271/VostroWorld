@@ -13,6 +13,9 @@ import {
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import CheckBox from '../../../components/Checkbox';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../../../redux/store';
+import { setUser } from '../../../redux/slices/userSlice';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -20,26 +23,56 @@ const Login = () => {
     const [remember, setRemember] = useState(false);
     const [passwordVisible, setPasswordVisible] = useState(false);
     const navigation = useNavigation();
+    const dispatch = useDispatch();
     const { showSnackbar } = useSnackbarStore(); // ✅ get showSnackbar
 
+    // Get saved registration data from Redux
+    const { firstName, lastName, email: savedEmail, phone: savedPhone, password: savedPassword } = useSelector(
+        (state: RootState) => state.user.registrationData
+    );
+
+    // Create list of saved credentials
+    const savedCredentials = [
+        { label: `${firstName} ${lastName}`.trim(), value: savedEmail },
+        { label: 'Phone', value: savedPhone },
+    ].filter(cred => cred.value); // Only show if value exists
 
     const handleLogin = async () => {
         // 1. validate inputs
-        // if (!email || !password) {
-        //     showSnackbar('Please enter email or password')
-        //     return;
-        // }
-
-        // 2. call API (mock success here)
-        const loginSuccess = true;
-
-        if (loginSuccess) {
-            navigation.replace('Verification');
+        if (!email || !password) {
+            showSnackbar('Please enter email and password')
+            return;
         }
+
+        // 2. Verify email matches saved email
+        if (email !== savedEmail) {
+            showSnackbar('Invalid email. Email not registered.');
+            return;
+        }
+
+        // 3. Verify password matches saved password
+        if (password !== savedPassword) {
+            showSnackbar('Invalid password. Please try again.');
+            return;
+        }
+
+        // 4. Create dummy token and persist it
+        const dummyToken = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        dispatch(setUser(dummyToken));
+
+        // 5. Login successful - navigate to Verification
+        showSnackbar('Login successful!');
+        setTimeout(() => {
+            (navigation as any).replace('Verification');
+        }, 500);
+    };
+
+    const handleUseSavedCredential = (credential: string) => {
+        setEmail(credential);
     };
 
     const handleForgotPassword = () => {
-        navigation.navigate('ForgotPassword')
+        (navigation as any).navigate('ForgotPassword')
     }
 
     return (
@@ -82,6 +115,23 @@ const Login = () => {
                             autoCapitalize="none"
                         />
                     </View>
+                    
+                    {/* Saved Credentials Quick Select */}
+                    {/* {savedCredentials.length > 0 && (
+                        <View style={styles.savedCredentialsContainer}>
+                            <Text style={styles.savedCredentialsLabel}>Or use saved credentials:</Text>
+                            {savedCredentials.map((cred, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={styles.savedCredentialBtn}
+                                    onPress={() => handleUseSavedCredential(cred.value)}
+                                >
+                                    <Text style={styles.savedCredentialText}>{cred.label}</Text>
+                                    <Text style={styles.savedCredentialValue}>{cred.value}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )} */}
                 </View>
 
                 {/* Password */}
@@ -273,6 +323,36 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
         color: '#666',
         fontSize: 12,
+    },
+    savedCredentialsContainer: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#E5E5E5',
+    },
+    savedCredentialsLabel: {
+        fontSize: 12,
+        color: '#666',
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    savedCredentialBtn: {
+        backgroundColor: '#FFF5F5',
+        padding: 10,
+        borderRadius: 8,
+        marginBottom: 8,
+        borderLeftWidth: 3,
+        borderLeftColor: '#E10600',
+    },
+    savedCredentialText: {
+        fontSize: 13,
+        color: '#333',
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    savedCredentialValue: {
+        fontSize: 12,
+        color: '#666',
     },
 });
 

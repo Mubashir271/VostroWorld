@@ -4,7 +4,11 @@ import React, { useEffect, useRef, useState } from 'react'
 import PasswordTips from '../../../components/PasswordTips'
 import { Time } from '../../../assets/icons';
 
-const EmailVerification = () => {
+interface EmailVerificationProps {
+  email: string;
+}
+
+const EmailVerification = ({ email }: EmailVerificationProps) => {
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [codeExpiry, setCodeExpiry] = useState(18); // 00:18
     const [resendTime, setResendTime] = useState(30); // 00:30
@@ -30,6 +34,22 @@ const EmailVerification = () => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
+    // Mask email to show only first 3 chars and last 3 chars
+    const maskEmail = (emailStr: string) => {
+        if (!emailStr) return 'user@example.com';
+        const parts = emailStr.split('@');
+        if (parts.length !== 2) return 'user@example.com';
+        
+        const localPart = parts[0];
+        const domain = parts[1];
+        
+        const maskedLocal = localPart.length > 3 
+          ? localPart.substring(0, 3) + '*'.repeat(Math.max(1, localPart.length - 6)) + localPart.substring(Math.max(3, localPart.length - 3))
+          : localPart;
+        
+        return `${maskedLocal}@${domain}`;
     };
 
     const handleCodeChange = (text: string, index: number) => {
@@ -69,7 +89,7 @@ const EmailVerification = () => {
 
             <View style={styles.container}>
 
-                <Text style={styles.email}>user@exampl***.com</Text>
+                <Text style={styles.email}>{maskEmail(email)}</Text>
 
                 {/* Instruction */}
                 <Text style={styles.instruction}>
@@ -81,7 +101,7 @@ const EmailVerification = () => {
                     {code.map((digit, index) => (
                         <TextInput
                             key={index}
-                            ref={(ref) => (inputRefs.current[index] = ref)}
+                            ref={(ref: any) => (inputRefs.current[index] = ref)}
                             value={digit}
                             onChangeText={(text) => handleCodeChange(text, index)}
                             style={[

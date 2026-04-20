@@ -9,210 +9,264 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Edit_fill, User } from '../../assets/icons';
 import ProfileHeader from '../../components/ProfileHeader';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { logoutUser } from '../../redux/slices/userSlice';
 
-const DrawerContent = (props) => {
+const DrawerContent = (props: any) => {
   const { navigation } = props;
-  const [expanded, setExpanded] = React.useState(null);
+  const dispatch = useDispatch();
+  const [expanded, setExpanded] = React.useState<string | null>(null);
   const [active, setActive] = React.useState('Dashboard');
+  const appImage = useSelector((state: RootState) => state.user.appImage);
 
-const toggleExpand = (title) => {
-  setExpanded(prev => (prev === title ? null : title));
-};
-const MENU = [
-  {
-    title: 'Dashboard',
-    icon: 'view-dashboard',
-    screen: 'Dashboard',
-  },
-  {
-    title: 'Members',
-    icon: 'account-group',
-    children: [
-      { title: 'All Members', screen: 'AllMembers' },
-      { title: 'New Registration', screen: 'NewRegistration' },
-      { title: 'Member Search', screen: 'MemberSearch' },
-      { title: 'Member Balance', screen: 'MemberBalance' },
-    ],
-  },
-  {
-    title: 'Packages',
-    icon: 'package-variant',
-    children: [
-      { title: 'Manage Packages', screen: 'ManagePackages' },
-      { title: 'Pricing', screen: 'Pricing' },
-    ],
-  },
-  {
-    title: 'Staff Management',
-    icon: 'account-tie',
-    children: [
-      { title: 'Users / Staff', screen: 'UsersStaff' },
-      { title: 'Roles and Permissions', screen: 'RolesPermissions' },
-      { title: 'Departments', screen: 'Departments' },
-      { title: 'Schedule / Timing', screen: 'StaffTiming' },
-    ],
-  },
-  {
-    title: 'Fitness',
-    icon: 'dumbbell',
-    children: [
-      { title: 'Fitness Plans', screen: 'FitnessPlans' },
-      { title: 'Classes/Sessions', screen: 'Classes' },
-      { title: 'Trainer Management', screen: 'TrainerManagement' },
-      { title: 'Progress Tracking', screen: 'ProgressTracking' },
-    ],
-  },
-  {
-    title: 'Finance',
-    icon: 'finance',
-    children: [
-      { title: 'Transactions', screen: 'Transactions' },
-      { title: 'Reports', screen: 'Reports' },
-      { title: 'Expenses', screen: 'Expenses' },
-      { title: 'Approvals', screen: 'Approvals' },
-      { title: 'Bank Accounts', screen: 'BankAccounts' },
-    ],
-  },
-  {
-    title: 'HR Management',
-    icon: 'briefcase-account',
-    children: [
-      { title: 'Leave Applications', screen: 'LeaveApplications' },
-      { title: 'Loan Management', screen: 'LoanManagement' },
-      { title: 'Salary Management', screen: 'SalaryManagement' },
-      { title: 'Promotions', screen: 'Promotions' },
-    ],
-  },
-  {
-    title: 'Cafe Operations',
-    icon: 'coffee',
-    children: [
-      { title: 'Orders', screen: 'Orders' },
-      { title: 'Inventory', screen: 'Inventory' },
-      { title: 'Cafe Accounts', screen: 'CafeAccounts' },
-      { title: 'Cafe Reports', screen: 'DailyReports' },
-    ],
-  },
-  {
-    title: 'Settings',
-    icon: 'cog',
-    children: [
-      { title: 'Branches', screen: 'Branches' },
-      { title: 'App Settings', screen: 'AppSettings' },
-      { title: 'User Management', screen: 'UserManagement' },
-      { title: 'Roles', screen: 'Roles' },
-      { title: 'Notifications', screen: 'Notifications' },
-    ],
-  },
-];
+  // Use app image if available, otherwise use default avatar
+  const avatarSource = appImage
+    ? { uri: appImage }
+    : require('../../assets/img/userIcon.png');
 
-
-
-  
-
-
-const renderChild = (child) => {
-  const isActive = active === child.title;
-
-  return (
-    <TouchableOpacity
-      key={child.title}
-      style={[
-        styles.subMenuItem,
-        isActive && styles.activeSubItem
-      ]}
-      onPress={() => {
-        setActive(child.title);
-        navigation.navigate(child.screen);
-      }}
-    >
-      <Text
-        style={[
-          styles.subMenuText,
-          isActive && styles.activeSubText
-        ]}
-      >
-        {child.title}
-      </Text>
-    </TouchableOpacity>
+  const { firstName, lastName, role, branch } = useSelector(
+    (state: RootState) => state.user.registrationData
   );
-};
 
-const renderParent = (item) => {
-  const isOpen = expanded === item.title;
-  const isActive = active === item.title;
+  const profileName = `${firstName} ${lastName}`.trim() || 'Ahmed';
 
-  return (
-    <View key={item.title}>
+  const handleLogout = () => {
+    dispatch(logoutUser());
+    navigation.replace('WelcomeAdmin');
+  };
+
+  const toggleExpand = (title: string) => {
+    setExpanded(prev => (prev === title ? null : title));
+  };
+  const MENU = [
+    {
+      title: 'Dashboard',
+      icon: 'view-dashboard',
+      screen: 'Dashboard',
+    },
+    {
+      title: 'Members',
+      icon: 'account-group',
+      children: [
+        { title: 'All Members', screen: 'AllMembers' },
+        { title: 'New Registration', screen: 'NewRegistration' },
+        { title: 'Member Search', screen: 'MemberSearch' },
+        { title: 'Member Balance', screen: 'MemberBalance' },
+      ],
+    },
+    {
+      title: 'Packages',
+      icon: 'package-variant',
+      children: [
+        { title: 'Manage Packages', screen: 'ManagePackages' },
+        { title: 'Pricing', screen: 'Pricing' },
+      ],
+    },
+    {
+      title: 'Staff Management',
+      icon: 'account-tie',
+      children: [
+        { title: 'Users / Staff', screen: 'UsersStaff' },
+        { title: 'Roles and Permissions', screen: 'RolesPermissions' },
+        { title: 'Departments', screen: 'Departments' },
+        { title: 'Schedule / Timing', screen: 'StaffTiming' },
+      ],
+    },
+    {
+      title: 'Fitness',
+      icon: 'dumbbell',
+      children: [
+        { title: 'Fitness Plans', screen: 'FitnessPlans' },
+        { title: 'Classes/Sessions', screen: 'Classes' },
+        { title: 'Trainer Management', screen: 'TrainerManagement' },
+        { title: 'Progress Tracking', screen: 'ProgressTracking' },
+      ],
+    },
+    {
+      title: 'Finance',
+      icon: 'finance',
+      children: [
+        { title: 'Transactions', screen: 'Transactions' },
+        { title: 'Reports', screen: 'Reports' },
+        { title: 'Expenses', screen: 'Expenses' },
+        { title: 'Approvals', screen: 'Approvals' },
+        { title: 'Bank Accounts', screen: 'BankAccounts' },
+      ],
+    },
+    {
+      title: 'HR Management',
+      icon: 'briefcase-account',
+      children: [
+        { title: 'Leave Applications', screen: 'LeaveApplications' },
+        { title: 'Loan Management', screen: 'LoanManagement' },
+        { title: 'Salary Management', screen: 'SalaryManagement' },
+        { title: 'Promotions', screen: 'Promotions' },
+      ],
+    },
+    {
+      title: 'Cafe Operations',
+      icon: 'coffee',
+      children: [
+        { title: 'Orders', screen: 'Orders' },
+        { title: 'Inventory', screen: 'Inventory' },
+        { title: 'Cafe Accounts', screen: 'CafeAccounts' },
+        { title: 'Cafe Reports', screen: 'DailyReports' },
+      ],
+    },
+    {
+      title: 'Settings',
+      icon: 'cog',
+      children: [
+        { title: 'Branches', screen: 'Branches' },
+        { title: 'App Settings', screen: 'AppSettings' },
+        { title: 'User Management', screen: 'UserManagement' },
+        { title: 'Roles', screen: 'Roles' },
+        { title: 'Notifications', screen: 'Notifications' },
+      ],
+    },
+  ];
+
+
+
+
+
+
+  const renderChild = (child: any) => {
+    const isActive = active === child.title;
+
+    return (
       <TouchableOpacity
+        key={child.title}
         style={[
-          styles.menuItem,
-          isActive && styles.activeItem,
-          isOpen && styles.openItem, // 👈 NEW
+          styles.subMenuItem,
+          isActive && styles.activeSubItem
         ]}
         onPress={() => {
-          if (item.children) {
-            toggleExpand(item.title);
+          setActive(child.title);
+
+          // Navigate to appropriate bottom tab screens
+          if (child.screen === 'AllMembers' || child.screen === 'NewRegistration' ||
+            child.screen === 'MemberSearch' || child.screen === 'MemberBalance') {
+            navigation.navigate('Main', { screen: 'Members' });
+          } else if (child.screen === 'ManagePackages' || child.screen === 'Pricing') {
+            navigation.navigate('Main', { screen: 'Package' });
           } else {
-            setActive(item.title);
-            navigation.navigate(item.screen);
+            navigation.navigate(child.screen);
+          }
+
+          // Close drawer after navigation
+          if (navigation.closeDrawer) {
+            setTimeout(() => navigation.closeDrawer(), 100);
           }
         }}
       >
-        <View style={styles.menuItemLeft}>
-          <Icon
-            name={item.icon}
-            size={20}
-            color={isActive ? '#FFF' : '#666'}
-          />
-
-          <Text
-            style={[
-              styles.menuText,
-              isActive && styles.activeText,
-              isOpen && styles.openText, // 👈 NEW
-            ]}
-          >
-            {item.title}
-          </Text>
-        </View>
-
-        {item.children && (
-          <Icon
-            name={isOpen ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={isActive ? '#FFF' : '#999'}
-          />
-        )}
+        <Text
+          style={[
+            styles.subMenuText,
+            isActive && styles.activeSubText
+          ]}
+        >
+          {child.title}
+        </Text>
       </TouchableOpacity>
+    );
+  };
 
-      {/* CHILDREN */}
-      {isOpen && (
-        <View style={styles.subContainer}>
-          {item.children.map(renderChild)}
-        </View>
-      )}
-    </View>
-  );
-};
+  const renderParent = (item: any) => {
+    const isOpen = expanded === item.title;
+    const isActive = active === item.title;
+
+    return (
+      <View key={item.title}>
+        <TouchableOpacity
+          style={[
+            styles.menuItem,
+            isActive && styles.activeItem,
+            isOpen && styles.openItem, // 👈 NEW
+          ]}
+          onPress={() => {
+            if (item.children) {
+              toggleExpand(item.title);
+            } else {
+              setActive(item.title);
+
+              // Navigate to appropriate bottom tab screens
+              if (item.screen === 'Dashboard') {
+                navigation.navigate('Main', { screen: 'Home' });
+              } else if (item.screen === 'Members') {
+                navigation.navigate('Main', { screen: 'Members' });
+              } else if (item.screen === 'Package') {
+                navigation.navigate('Main', { screen: 'Package' });
+              } else if (item.screen === 'Reports') {
+                navigation.navigate('Main', { screen: 'Reports' });
+              } else if (item.screen === 'Account') {
+                navigation.navigate('Main', { screen: 'Account' });
+              } else {
+                navigation.navigate(item.screen);
+              }
+
+              // Close drawer after navigation
+              if (navigation.closeDrawer) {
+                setTimeout(() => navigation.closeDrawer(), 100);
+              }
+            }
+          }}
+        >
+          <View style={styles.menuItemLeft}>
+            <Icon
+              name={item.icon}
+              size={20}
+              color={isActive ? '#FFF' : '#666'}
+            />
+
+            <Text
+              style={[
+                styles.menuText,
+                isActive && styles.activeText,
+                isOpen && styles.openText, // 👈 NEW
+              ]}
+            >
+              {item.title}
+            </Text>
+          </View>
+
+          {item.children && (
+            <Icon
+              name={isOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={isActive ? '#FFF' : '#999'}
+            />
+          )}
+        </TouchableOpacity>
+
+        {/* CHILDREN */}
+        {isOpen && (
+          <View style={styles.subContainer}>
+            {item.children.map(renderChild)}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <DrawerContentScrollView {...props} style={styles.container}>
       {/* User Profile Header */}
 
       <ProfileHeader
-        name="Ahmed"
-        role="Ahmed Khan"
-        branch="Dha Phase 6 Branch"
-        avatar={require('../../assets/img/userIcon.png')}
+        name={profileName}
+        role={role || 'Staff'}
+        branch={branch || 'Main Branch'}
+        avatar={avatarSource}
         editIcon={Edit_fill}
-        onEditPress={() => console.log('Edit Pressed')}
+        onEditPress={() => navigation.navigate('Account')}
       />
 
       {/* Main Menu Items */}
       <View style={styles.menuSection}>
         {/* {menuItems.map((item) => renderMenuItem(item))} */}
-          {MENU.map(renderParent)}
+        {MENU.map(renderParent)}
 
       </View>
 
@@ -221,10 +275,7 @@ const renderParent = (item) => {
       {/* Logout */}
       <TouchableOpacity
         style={[styles.menuItem, styles.logoutItem]}
-        onPress={() => {
-          // Handle logout
-          console.log('Logout pressed');
-        }}
+        onPress={handleLogout}
       >
         <View style={styles.menuItemLeft}>
           <Icon name="logout" size={20} color="#E63946" style={styles.menuIcon} />
@@ -343,60 +394,60 @@ const styles = StyleSheet.create({
     height: 20,
   },
   activeItem: {
-  backgroundColor: '#E63946',
-  borderRadius: 8,
-  marginHorizontal: 10,
-},
+    backgroundColor: '#E63946',
+    borderRadius: 8,
+    marginHorizontal: 10,
+  },
 
-activeText: {
-  color: '#FFF',
-  fontWeight: '600',
-},
+  activeText: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
 
-// subMenuIm
-// subContainer: {
-//   marginLeft: 20,
-//   borderLeftWidth: 1,
-//   borderLeftColor: '#EEE',
-//   paddingLeft: 10,
-// },
-openItem: {
-  backgroundColor: '#FFF5F5', // light red like screenshot
-  borderRadius: 8,
-  marginHorizontal: 10,
-},
+  // subMenuIm
+  // subContainer: {
+  //   marginLeft: 20,
+  //   borderLeftWidth: 1,
+  //   borderLeftColor: '#EEE',
+  //   paddingLeft: 10,
+  // },
+  openItem: {
+    backgroundColor: '#FFF5F5', // light red like screenshot
+    borderRadius: 8,
+    marginHorizontal: 10,
+  },
 
-openText: {
-  color: '#E63946',
-  fontWeight: '600',
-},
+  openText: {
+    color: '#E63946',
+    fontWeight: '600',
+  },
 
-subContainer: {
-  marginLeft: 25,
-  borderLeftWidth: 1,
-  borderLeftColor: '#F0F0F0',
-  paddingLeft: 10,
-},
+  subContainer: {
+    marginLeft: 25,
+    borderLeftWidth: 1,
+    borderLeftColor: '#F0F0F0',
+    paddingLeft: 10,
+  },
 
-subMenuItem: {
-  paddingVertical: 10,
-  paddingHorizontal: 10,
-},
+  subMenuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
 
-activeSubItem: {
-  backgroundColor: '#FFF5F5',
-  borderRadius: 6,
-},
+  activeSubItem: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 6,
+  },
 
-subMenuText: {
-  fontSize: 14,
-  color: '#666',
-},
+  subMenuText: {
+    fontSize: 14,
+    color: '#666',
+  },
 
-activeSubText: {
-  color: '#E63946',
-  fontWeight: '600',
-},
+  activeSubText: {
+    color: '#E63946',
+    fontWeight: '600',
+  },
 });
 
 export default DrawerContent;

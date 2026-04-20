@@ -7,9 +7,12 @@ import {
   Animated,
   ImageBackground,
 } from 'react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 
-const Splash = ({ navigation }) => {
+const Splash = ({ navigation }: { navigation: any }) => {
   const progress = useRef(new Animated.Value(0)).current;
+  const token = useSelector((state: RootState) => state.user.token);
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -17,10 +20,14 @@ const Splash = ({ navigation }) => {
       duration: 2500,
       useNativeDriver: false,
     }).start(() => {
-      // Navigate after splash
-      navigation.replace('WelcomeAdmin'); // later
+      // Check if user has a token (is logged in)
+      if (token) {
+        navigation.replace('Drawer'); // Go to main drawer/app if logged in
+      } else {
+        navigation.replace('WelcomeAdmin'); // Go to welcome if not logged in
+      }
     });
-  }, []);
+  }, [token, navigation]);
 
   const widthInterpolated = progress.interpolate({
     inputRange: [0, 1],
