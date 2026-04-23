@@ -145,12 +145,14 @@ const DrawerContent = (props: any) => {
         onPress={() => {
           setActive(child.title);
 
-          // Navigate to appropriate bottom tab screens
+          // Navigate to appropriate bottom tab screens or specific screens
           if (child.screen === 'AllMembers' || child.screen === 'NewRegistration' ||
             child.screen === 'MemberSearch' || child.screen === 'MemberBalance') {
             navigation.navigate('Main', { screen: 'Members' });
           } else if (child.screen === 'ManagePackages' || child.screen === 'Pricing') {
             navigation.navigate('Main', { screen: 'Package' });
+          } else if (child.screen === 'LeaveApplications') {
+            navigation.navigate('LeaveApplications');
           } else {
             navigation.navigate(child.screen);
           }
@@ -243,7 +245,48 @@ const DrawerContent = (props: any) => {
         {/* CHILDREN */}
         {isOpen && (
           <View style={styles.subContainer}>
-            {item.children.map(renderChild)}
+            {item.children.map((child: any) => {
+              const isActive = active === child.title;
+
+              return (
+                <TouchableOpacity
+                  key={child.title}
+                  style={[
+                    styles.subMenuItem,
+                    isActive && styles.activeSubItem
+                  ]}
+                  onPress={() => {
+                    setActive(child.title);
+
+                    // Navigate to appropriate bottom tab screens or specific screens
+                    if (child.screen === 'AllMembers' || child.screen === 'NewRegistration' ||
+                      child.screen === 'MemberSearch' || child.screen === 'MemberBalance') {
+                      navigation.navigate('Main', { screen: 'Members' });
+                    } else if (child.screen === 'ManagePackages' || child.screen === 'Pricing') {
+                      navigation.navigate('Main', { screen: 'Package' });
+                    } else if (child.screen === 'LeaveApplications') {
+                      navigation.navigate('LeaveApplications');
+                    } else {
+                      navigation.navigate(child.screen);
+                    }
+
+                    // Close drawer after navigation
+                    if (navigation.closeDrawer) {
+                      setTimeout(() => navigation.closeDrawer(), 100);
+                    }
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.subMenuText,
+                      isActive && styles.activeSubText
+                    ]}
+                  >
+                    {child.title}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </View>

@@ -24,6 +24,16 @@ import NewMemberRegistrationScreen from '../../screens/NewMemberRegistration';
 import NotificationScreen from '../../screens/Notification';
 import NewPackage from '../../screens/NewPackage';
 import Settings from '../../screens/Settings';
+import SMTP from '../../screens/Settings/smtp';
+import DeleteRole from '../../screens/Settings/DeleteRole';
+import DeleteBranch from '../../screens/Settings/DeleteBranch';
+import PermissionMatrix from '../../screens/Settings/PermissionMatrix';
+import EmailTemplates from '../../screens/Settings/EmailTemplates';
+import DatabaseBackup from '../../screens/Settings/DatabaseBackup';
+import SecuritySettings from '../../screens/Settings/SecuritySettings';
+import LeaveApplications from '../../screens/LeaveApplications';
+import ApplyLeave from '../../screens/LeaveApplications/ApplyLeave';
+import LeaveDetail from '../../screens/LeaveApplications/LeaveDetail';
 const Stack = createStackNavigator();
 // enableScreens();
 
@@ -123,12 +133,61 @@ const AppNavigator = () => {
                     component={NewPackage}
                     options={{ headerShown: false }}
                 />
-                                <Stack.Screen
+                <Stack.Screen
                     name="Settings"
                     component={Settings}
                     options={{ headerShown: false }}
                 />
-
+                <Stack.Screen
+                    name="SMTP"
+                    component={SMTP}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="DeleteRole"
+                    component={DeleteRole}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="DeleteBranch"
+                    component={DeleteBranch}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="PermissionMatrix"
+                    component={PermissionMatrix}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="EmailTemplates"
+                    component={EmailTemplates}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="DatabaseBackup"
+                    component={DatabaseBackup}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="SecuritySettings"
+                    component={SecuritySettings}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="LeaveApplications"
+                    component={LeaveApplications}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="ApplyLeave"
+                    component={ApplyLeave}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="LeaveDetail"
+                    component={LeaveDetail}
+                    options={{ headerShown: false }}
+                />
             </Stack.Navigator>
         </View>
     );

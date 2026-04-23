@@ -204,7 +204,15 @@ const Settings = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Branches</Text>
             {branchesItems.map((item, index) => (
-              <TouchableOpacity key={index} style={[styles.settingRow, index === branchesItems.length - 1 && styles.lastRow]}>
+              <TouchableOpacity 
+                key={index} 
+                style={[styles.settingRow, index === branchesItems.length - 1 && styles.lastRow]}
+                onPress={() => {
+                  if (item.label === 'Delete branch') {
+                    (navigation as any).navigate('DeleteBranch');
+                  }
+                }}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.settingLabel}>{item.label}</Text>
                   {item.value && <Text style={styles.settingValue}>{item.value}</Text>}
@@ -224,7 +232,15 @@ const Settings = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Roles & Permissions</Text>
             {rolesItems.map((item, index) => (
-              <TouchableOpacity key={index} style={[styles.settingRow, index === rolesItems.length - 1 && styles.lastRow]}>
+              <TouchableOpacity 
+                key={index} 
+                style={[styles.settingRow, index === rolesItems.length - 1 && styles.lastRow]}
+                onPress={() => {
+                  if (item.label === 'Delete role') {
+                    (navigation as any).navigate('DeleteRole');
+                  }
+                }}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.settingLabel}>{item.label}</Text>
                   {item.value && <Text style={styles.settingValue}>{item.value}</Text>}
@@ -244,7 +260,17 @@ const Settings = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Email & Notifications</Text>
             {emailItems.map((item, index) => (
-              <TouchableOpacity key={index} style={[styles.settingRow, index === emailItems.length - 1 && styles.lastRow]}>
+              <TouchableOpacity 
+                key={index} 
+                style={[styles.settingRow, index === emailItems.length - 1 && styles.lastRow]}
+                onPress={() => {
+                  if (item.label === 'SMTP settings') {
+                    (navigation as any).navigate('SMTP');
+                  } else if (item.label === 'Email templates') {
+                    (navigation as any).navigate('EmailTemplates');
+                  }
+                }}
+              >
                 <Text style={styles.settingLabel}>{item.label}</Text>
                 {item.icon && <Icon name={item.icon} size={20} color="#999" />}
               </TouchableOpacity>
@@ -255,7 +281,15 @@ const Settings = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Database Backup</Text>
             {databaseItems.map((item, index) => (
-              <View key={index} style={[styles.settingRow, index === databaseItems.length - 1 && styles.lastRow]}>
+              <TouchableOpacity
+                key={index}
+                style={[styles.settingRow, index === databaseItems.length - 1 && styles.lastRow]}
+                onPress={() => {
+                  if (item.label === 'Download backup') {
+                    (navigation as any).navigate('DatabaseBackup');
+                  }
+                }}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.settingLabel}>{item.label}</Text>
                   {item.value && <Text style={styles.settingValue}>{item.value}</Text>}
@@ -270,7 +304,7 @@ const Settings = () => {
                 ) : (
                   item.icon && <Icon name={item.icon} size={20} color="#999" />
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
 
@@ -292,7 +326,15 @@ const Settings = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Security</Text>
             {securityItems.map((item, index) => (
-              <TouchableOpacity key={index} style={[styles.settingRow, index === securityItems.length - 1 && styles.lastRow]}>
+              <TouchableOpacity
+                key={index}
+                style={[styles.settingRow, index === securityItems.length - 1 && styles.lastRow]}
+                onPress={() => {
+                  if (item.label === 'Session timeout setting') {
+                    (navigation as any).navigate('SecuritySettings');
+                  }
+                }}
+              >
                 <Text style={styles.settingLabel}>{item.label}</Text>
                 {item.icon && <Icon name={item.icon} size={20} color="#999" />}
               </TouchableOpacity>
