@@ -1,0 +1,77 @@
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, ActivityIndicator } from 'react-native';
+import { getTransactionReport } from '../../../api/reports';
+import { reportStyles as styles } from '../styles/reportStyles';
+
+const TransactionReportScreen = () => {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const load = async () => {
+    setLoading(true);
+
+    const res = await getTransactionReport({
+      branch_id: 1,
+      start_date: '2026-05-01',
+      end_date: '2026-05-08',
+    });
+
+    setData(res.data?.data || []);
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Transaction Report</Text>
+
+      <FlatList
+        data={data}
+        keyExtractor={(_, i) => i.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+
+            <Text style={{ fontWeight: '700', marginBottom: 6 }}>
+              {item.date}
+            </Text>
+
+            {item.data.map((tx: any) => (
+              <View key={tx.id} style={{ marginBottom: 10 }}>
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>Client</Text>
+                  <Text style={styles.value}>{tx.client_name}</Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>Net</Text>
+                  <Text style={styles.value}>{tx.net_price}</Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>Sold By</Text>
+                  <Text style={styles.value}>{tx.sold_by}</Text>
+                </View>
+
+              </View>
+            ))}
+
+          </View>
+        )}
+      />
+    </View>
+  );
+};
+
+export default TransactionReportScreen;

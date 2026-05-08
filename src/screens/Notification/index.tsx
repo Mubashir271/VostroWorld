@@ -1,139 +1,150 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-    StyleSheet,
-    Text,
-    View,
-    TouchableOpacity,
-    FlatList,
-    ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+    StyleSheet, Text, View,
+    TouchableOpacity, FlatList, ScrollView, ActivityIndicator,
+} from 'react-native'
+import { useNavigation, NavigationProp } from '@react-navigation/native'
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 
-import AppHeader from '../../components/AppHeader';
-import { BackSVG } from '../../assets/svg';
+import AppHeader from '../../components/AppHeader'
+import { BackSVG } from '../../assets/svg'
+import api from '../../api/service'
+
+type RootStackParamList = {
+    Settings: undefined
+}
 
 type NotificationItem = {
-    id: string;
-    title: string;
-    description: string;
-    type: 'approval' | 'payment' | 'alert' | 'success' | 'report' | 'membership';
-    timestamp: string;
-    actionLabel?: string;
-    borderColor: string;
-    iconBg: string;
-    icon: string;
-    read?: boolean;
-};
+    id: string
+    title: string
+    description: string
+    type: 'approval' | 'payment' | 'alert' | 'success' | 'report' | 'membership' | 'announcement'
+    timestamp: string
+    actionLabel?: string
+    borderColor: string
+    iconBg: string
+    icon: string
+    read: boolean
+}
 
-const tabs = ['All', 'Unread', 'Approvals', 'Alerts', 'Message'];
+const TABS = ['All', 'Unread', 'Approvals', 'Alerts', 'Message'] as const
+type Tab = typeof TABS[number]
 
-const sampleNotifications: NotificationItem[] = [
-    {
-        id: '1',
-        title: 'Membership Approval Required',
-        description: 'Haroon Agha (HID-4021) has applied for a membership. Please review the application.',
-        type: 'approval',
-        timestamp: '2 mins ago',
-        actionLabel: 'Approve',
-        borderColor: '#FF9500',
-        iconBg: '#FF9500',
-        icon: '✓',
-        read: false,
-    },
-    {
-        id: '2',
-        title: 'Payment Overdue',
-        description: "Yasir Qureshi's membership payment is 7 days overdue.",
-        type: 'payment',
-        timestamp: '15 mins ago',
-        actionLabel: 'Pay Now',
-        borderColor: '#E63946',
-        iconBg: '#E63946',
-        icon: '!',
-        read: false,
-    },
-    {
-        id: '3',
-        title: 'Server Maintenance Alert',
-        description: 'Scheduled maintenance will occur on Friday at 2:00 AM. The system may be temporarily unavailable.',
-        type: 'alert',
-        timestamp: '15 mins ago',
-        actionLabel: 'View',
-        borderColor: '#E63946',
-        iconBg: '#E63946',
-        icon: '⚠',
-        read: false,
-    },
-    {
-        id: '4',
-        title: 'Payment Received',
-        description: 'You have received a payment of PKR 20,000 from Sara Khan.',
-        type: 'success',
-        timestamp: 'Yesterday',
-        actionLabel: 'View',
-        borderColor: '#06A77D',
-        iconBg: '#06A77D',
-        icon: '✓',
-        read: true,
-    },
-    {
-        id: '5',
-        title: 'Monthly Attendance Report',
-        description: 'Your monthly attendance report is now available to view.',
-        type: 'report',
-        timestamp: 'Yesterday',
-        actionLabel: 'Contact',
-        borderColor: '#E63946',
-        iconBg: '#E63946',
-        icon: '📋',
-        read: true,
-    },
-    {
-        id: '6',
-        title: 'Membership Expiring Soon',
-        description: "Yasir Qureshi's membership is set to expire in 3 days. Please notify.",
-        type: 'membership',
-        timestamp: '12 April 2025',
-        actionLabel: 'Contact',
-        borderColor: '#E63946',
-        iconBg: '#E63946',
-        icon: '⚠',
-        read: true,
-    },
-];
+// ── Map API announcement → NotificationItem ────────────────────────────────
+const mapAnnouncement = (a: {
+    id: number
+    title: string
+    description: string
+    created_at: string
+}): NotificationItem => ({
+    id: String(a.id),
+    title: a.title,
+    description: a.description,
+    type: 'announcement',
+    timestamp: new Date(a.created_at).toLocaleDateString('en-PK', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    }),
+    actionLabel: 'View',
+    borderColor: '#378ADD',
+    iconBg: '#378ADD',
+    icon: '📢',
+    read: false,
+})
 
 const NotificationScreen: React.FC = () => {
-    const navigation = useNavigation();
-    const [activeTab, setActiveTab] = useState<string>(tabs[0]);
-    const [notifications] = useState<NotificationItem[]>(sampleNotifications);
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const navigation = useNavigation<NavigationProp<RootStackParamList>>()
 
-    const filtered = useMemo(() => {
-        if (activeTab === 'All') return notifications;
-        if (activeTab === 'Unread') return notifications.filter(n => !n.read);
-        // Add more filters as needed
-        return notifications;
-    }, [activeTab, notifications]);
+    // ── Local state ────────────────────────────────────────────────────────
+    const [notifications, setNotifications] = useState<NotificationItem[]>([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [activeTab, setActiveTab] = useState<Tab>('All')
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-    const toggleSelect = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedIds(newSet);
-    };
-
-    const selectAll = () => {
-        if (selectedIds.size === filtered.length) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(filtered.map(n => n.id)));
+    // ── Fetch announcements ────────────────────────────────────────────────
+    const fetchAnnouncements = useCallback(async () => {
+        setLoading(true)
+        setError(null)
+        try {
+            const res = await api.get('/v1/announcements/index')
+            console.log("NOTIFICATIONS: ", res)
+            // "No record found" → empty list, not an error
+            if (!res.data.status) {
+                if (res.data.message === 'No record found') {
+                    setNotifications([])
+                } else {
+                    setError(
+                        typeof res.data.message === 'string'
+                            ? res.data.message
+                            : 'Something went wrong'
+                    )
+                }
+                return
+            }
+            setNotifications(res.data.data.map(mapAnnouncement))
+        } catch (err: any) {
+            setError(err?.message ?? 'Network error')
+            console.log(err)
+        } finally {
+            setLoading(false)
         }
-    };
+    }, [])
 
-    const renderItem = ({ item }: { item: NotificationItem }) => (
-        <View style={styles.notificationCard}>
+    useEffect(() => {
+        fetchAnnouncements()
+    }, [fetchAnnouncements])
+
+    // ── Filtered list ──────────────────────────────────────────────────────
+    const filtered = useMemo(() => {
+        switch (activeTab) {
+            case 'Unread': return notifications.filter((n) => !n.read)
+            case 'Approvals': return notifications.filter((n) => n.type === 'approval')
+            case 'Alerts': return notifications.filter((n) => n.type === 'alert' || n.type === 'payment')
+            case 'Message': return notifications.filter((n) => n.type === 'announcement')
+            default: return notifications
+        }
+    }, [activeTab, notifications])
+
+    // ── Selection handlers ─────────────────────────────────────────────────
+    const toggleSelect = useCallback((id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev)
+            next.has(id) ? next.delete(id) : next.add(id)
+            return next
+        })
+    }, [])
+
+    const selectAll = useCallback(() => {
+        setSelectedIds(
+            selectedIds.size === filtered.length
+                ? new Set()
+                : new Set(filtered.map((n) => n.id))
+        )
+    }, [selectedIds, filtered])
+
+    // ── Bulk actions (local state only) ────────────────────────────────────
+    const handleMarkAsRead = useCallback(() => {
+        if (selectedIds.size === 0) return
+        setNotifications((prev) =>
+            prev.map((n) => selectedIds.has(n.id) ? { ...n, read: true } : n)
+        )
+        setSelectedIds(new Set())
+    }, [selectedIds])
+
+    const handleDelete = useCallback(() => {
+        if (selectedIds.size === 0) return
+        setNotifications((prev) => prev.filter((n) => !selectedIds.has(n.id)))
+        setSelectedIds(new Set())
+    }, [selectedIds])
+
+    // ── Render item ────────────────────────────────────────────────────────
+    const renderItem = useCallback(({ item }: { item: NotificationItem }) => (
+        <View style={[
+            styles.notificationCard,
+            !item.read && styles.notificationCardUnread,
+        ]}>
             <TouchableOpacity style={styles.checkbox} onPress={() => toggleSelect(item.id)}>
                 <View style={selectedIds.has(item.id) ? styles.checkboxChecked : styles.checkboxEmpty}>
                     {selectedIds.has(item.id) && <Text style={styles.checkmark}>✓</Text>}
@@ -148,12 +159,10 @@ const NotificationScreen: React.FC = () => {
 
             <View style={styles.notificationContent}>
                 <View style={styles.titleRow}>
-                    <Text style={styles.notificationTitle}>{item.title}</Text>
+                    <Text style={styles.notificationTitle} numberOfLines={2}>{item.title}</Text>
                     <Text style={styles.timestamp}>{item.timestamp}</Text>
                 </View>
-
                 <Text style={styles.notificationDescription}>{item.description}</Text>
-
                 {item.actionLabel && (
                     <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
                         <Text style={styles.actionButtonText}>{item.actionLabel}</Text>
@@ -161,130 +170,134 @@ const NotificationScreen: React.FC = () => {
                 )}
             </View>
         </View>
-    );
-    const renderTab = (tab: string) => {
-        const selected = tab === activeTab;
-        return (
-            <TouchableOpacity
-                key={tab}
-                style={[styles.tabItem, selected && styles.tabItemActive]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.8}
-            >
-                <Text style={[styles.tabText, selected && styles.tabTextActive]}>
-                    {tab}
-                </Text>
-            </TouchableOpacity>
-        );
-    };
+    ), [selectedIds, toggleSelect])
+
+    const allSelected = selectedIds.size === filtered.length && filtered.length > 0
+
     return (
         <>
             <AppHeader
                 title="Notifications"
                 leftIcon={<BackSVG width={24} height={24} />}
-                rightIcon={<Icon name="magnify" size={24} color="#1A1A1A" />}   // Search
-                dotIcon={<Icon name="cog" size={24} color="#1A1A1A" />}         // Settings
+                rightIcon={<Icon name="magnify" size={24} color="#1A1A1A" />}
+                dotIcon={<Icon name="cog" size={24} color="#1A1A1A" />}
                 onLeftPress={() => navigation.goBack()}
                 onRightPress={() => console.log('Search pressed')}
                 onDotPress={() => navigation.navigate('Settings')}
                 backgroundColor="#FFE5E5"
             />
-{/* <View style={styles}></View> */}
+
             <View style={styles.safe}>
+                {/* ── Tabs ──────────────────────────────────────────────── */}
                 <View style={styles.tabsContainer}>
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.tabsContent}
                     >
-                        {tabs.map((tab) => {
-                            const selected = tab === activeTab;
-                            return (
-                                <TouchableOpacity
-                                    key={tab}
-                                    style={[styles.tabItem, selected && styles.tabItemActive]}
-                                    onPress={() => setActiveTab(tab)}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={[styles.tabText, selected && styles.tabTextActive]}>
-                                        {tab}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                        {TABS.map((tab) => (
+                            <TouchableOpacity
+                                key={tab}
+                                style={[styles.tabItem, tab === activeTab && styles.tabItemActive]}
+                                onPress={() => setActiveTab(tab)}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.tabText, tab === activeTab && styles.tabTextActive]}>
+                                    {tab}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </ScrollView>
                 </View>
 
-                {/* Action Bar */}
+                {/* ── Action bar ─────────────────────────────────────────── */}
                 <View style={styles.actionBar}>
                     <TouchableOpacity style={styles.checkboxContainer} onPress={selectAll}>
-                        <View style={selectedIds.size === filtered.length && filtered.length > 0
-                            ? styles.checkboxChecked
-                            : styles.checkboxEmpty}>
-                            {selectedIds.size === filtered.length && filtered.length > 0 &&
-                                <Text style={styles.checkmark}>✓</Text>}
+                        <View style={allSelected ? styles.checkboxChecked : styles.checkboxEmpty}>
+                            {allSelected && <Text style={styles.checkmark}>✓</Text>}
                         </View>
                         <Text style={styles.selectAllText}>Select All</Text>
                     </TouchableOpacity>
 
                     <View style={styles.actionButtons}>
-                        <TouchableOpacity style={styles.markAsReadBtn}>
-                            <Text style={styles.markAsReadText}>Mark as Read</Text>
+                        <TouchableOpacity
+                            onPress={handleMarkAsRead}
+                            disabled={selectedIds.size === 0}
+                        >
+                            <Text style={[
+                                styles.markAsReadText,
+                                selectedIds.size === 0 && styles.disabledText,
+                            ]}>
+                                Mark as Read
+                            </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.deleteBtn}>
-                            <Text style={styles.deleteText}>Delete</Text>
+                        <TouchableOpacity
+                            onPress={handleDelete}
+                            disabled={selectedIds.size === 0}
+                        >
+                            <Text style={[
+                                styles.deleteText,
+                                selectedIds.size === 0 && styles.disabledText,
+                            ]}>
+                                Delete
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                {/* Notification List */}
-                <FlatList
-                    data={filtered}
-                    keyExtractor={(i) => i.id}
-                    renderItem={renderItem}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                />
+                {/* ── Body ──────────────────────────────────────────────── */}
+                {loading ? (
+                    <ActivityIndicator size="large" color="#E63946" style={styles.loader} />
+                ) : error ? (
+                    <View style={styles.errorWrap}>
+                        <Text style={styles.errorText}>{error}</Text>
+                        <TouchableOpacity onPress={fetchAnnouncements}>
+                            <Text style={styles.retryText}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={filtered}
+                        keyExtractor={(i) => i.id}
+                        renderItem={renderItem}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <Text style={styles.emptyText}>No notifications here.</Text>
+                        }
+                    />
+                )}
             </View>
         </>
-    );
-};
+    )
+}
 
-export default NotificationScreen;
+export default NotificationScreen
 
 const styles = StyleSheet.create({
-    safe: { flexGrow: 1, backgroundColor: '#fff' },
-    container: { flex: 1 },
+    safe: { flex: 1, backgroundColor: '#F8F8F8' },
+
     tabsContainer: {
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
-        paddingVertical: 8,        // Fixed height area
-    },
-    /* FIXED TABS */
-    tabs: {
-        backgroundColor: '#fff',
-        maxHeight: '100%',           // Increased height
     },
     tabsContent: {
         paddingHorizontal: 12,
-        paddingVertical: 12,     // Better vertical padding
+        paddingVertical: 12,
         alignItems: 'center',
     },
-
     tabItem: {
-        paddingVertical: 10,     // Increased vertical padding
-        paddingHorizontal: 18,   // Increased horizontal padding
+        paddingVertical: 10,
+        paddingHorizontal: 18,
         borderRadius: 20,
         alignItems: 'center',
         marginRight: 10,
         backgroundColor: '#F8F8F8',
-        minWidth: 70,            // Prevents text from cutting
+        minWidth: 70,
     },
-    tabItemActive: {
-        backgroundColor: '#E63946',
-    },
-    tabText: { color: '#666', fontSize: 14, fontWeight: '500', lineHeight: 25 },
+    tabItemActive: { backgroundColor: '#E63946' },
+    tabText: { color: '#666', fontSize: 14, fontWeight: '500' },
     tabTextActive: { color: '#fff', fontWeight: '600' },
 
     actionBar: {
@@ -297,7 +310,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
     },
-
     checkboxContainer: { flexDirection: 'row', alignItems: 'center' },
     checkboxEmpty: {
         width: 20,
@@ -316,12 +328,12 @@ const styles = StyleSheet.create({
     },
     checkmark: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
     selectAllText: { marginLeft: 8, color: '#333', fontSize: 13.5 },
-
     actionButtons: { flexDirection: 'row', gap: 16 },
     markAsReadText: { color: '#E63946', fontWeight: '600', fontSize: 13.5 },
     deleteText: { color: '#E63946', fontWeight: '600', fontSize: 13.5 },
+    disabledText: { opacity: 0.35 },
 
-    listContent: { padding: 12, paddingBottom: '80%' },
+    listContent: { padding: 12, paddingBottom: 40 },
 
     notificationCard: {
         flexDirection: 'row',
@@ -332,9 +344,13 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#F0F0F0',
     },
+    notificationCardUnread: {
+        borderColor: '#FFE5E5',
+        backgroundColor: '#FFFAFA',
+    },
 
     checkbox: { paddingRight: 12, paddingTop: 4 },
-    borderLeft: { width: 5, borderRadius: 4, marginRight: 12 },
+    borderLeft: { width: 5, borderRadius: 4, marginRight: 12, borderLeftWidth: 5 },
     iconCircle: {
         width: 42,
         height: 42,
@@ -347,15 +363,9 @@ const styles = StyleSheet.create({
 
     notificationContent: { flex: 1 },
     titleRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-    notificationTitle: { fontSize: 15, fontWeight: '600', color: '#111', flex: 1 },
+    notificationTitle: { fontSize: 14, fontWeight: '600', color: '#111', flex: 1, marginRight: 8 },
     timestamp: { fontSize: 12, color: '#999' },
-
-    notificationDescription: {
-        fontSize: 13.5,
-        color: '#555',
-        lineHeight: 19,
-        marginBottom: 10,
-    },
+    notificationDescription: { fontSize: 13.5, color: '#555', lineHeight: 19, marginBottom: 10 },
 
     actionButton: {
         alignSelf: 'flex-start',
@@ -365,4 +375,10 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-});
+
+    loader: { marginTop: 60 },
+    errorWrap: { alignItems: 'center', marginTop: 60, gap: 12 },
+    errorText: { color: '#E63946', fontSize: 14 },
+    retryText: { color: '#378ADD', fontSize: 14, fontWeight: '600' },
+    emptyText: { textAlign: 'center', color: '#999', marginTop: 60, fontSize: 14 },
+})

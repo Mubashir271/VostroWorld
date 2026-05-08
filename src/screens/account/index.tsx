@@ -4,7 +4,6 @@ import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../redux/store';
@@ -14,16 +13,56 @@ import { logoutUser } from '../../redux/slices/userSlice';
 const AccountScreen = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
-    const appImage = useSelector((state: RootState) => state.user.appImage);
   
-    // Use app image if available, otherwise use default avatar
-    const avatarSource = appImage
-      ? { uri: appImage }
-      : require('../../assets/img/userIcon.png');
-
-  const { firstName, lastName, email, phone, joiningDate, desg, role, branch } = useSelector(
-    (state: RootState) => state.user.registrationData
+  
+  const { profile, appImage } = useSelector(
+    (state: RootState) => state.user
   );
+const avatarSource = appImage
+  ? { uri: appImage }
+  : profile?.image
+    ? { uri: profile.image }
+    : require('../../assets/img/userIcon.png');
+  const firstName = profile?.firstName || '';
+  const lastName = profile?.lastName || '';
+  
+  const profileName =
+  `${firstName} ${lastName}`.trim() || 'User';
+
+const profileData = {
+  name: profileName,
+
+  role:
+    profile?.type ||
+    profile?.role ||
+    'Staff',
+
+  verified: true,
+
+  branch:
+    profile?.branchName ||
+    (profile?.branchId
+      ? `Branch ${profile.branchId}`
+      : 'Main Branch'),
+
+  email: profile?.email || 'N/A',
+
+  phone: profile?.phone || 'N/A',
+
+  username:
+    profile?.username ||
+    profileName.toLowerCase().replace(/\s+/g, ''),
+
+  joiningDate:
+    profile?.joining ||
+    profile?.appointmentDate ||
+    'N/A',
+
+  jobTitle:
+    profile?.designationId
+      ? `Designation ${profile.designationId}`
+      : 'Position',
+};
 
   const handleLogout = () => {
     dispatch(logoutUser());
@@ -31,19 +70,7 @@ const AccountScreen = () => {
   };
   
 
-  const profileName = `${firstName} ${lastName}`.trim() || 'User';
 
-  const profileData = {
-    name: profileName,
-    role: role || 'Staff',
-    verified: true,
-    branch: branch || 'Main Branch',
-    email: email || 'N/A',
-    phone: phone || 'N/A',
-    username: profileName.toLowerCase().replace(/\s+/g, '') || 'username',
-    joiningDate: joiningDate || 'N/A',
-    jobTitle: desg || 'Position',
-  };
 
   const accountSections = [
     { label: 'Email', value: profileData.email },

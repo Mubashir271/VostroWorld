@@ -24,7 +24,9 @@ const VerificationMethod = () => {
   const [selected, setSelected] = useState<Method | null>(null);
   
   // Get user data from Redux
-  const { phone, email } = useSelector((state: RootState) => state.user.registrationData);
+  const profile = useSelector((state: RootState) => state.user.profile);
+const phone = profile?.phone ?? '';
+const email = profile?.email ?? '';
 
   // Mask phone number to show only last 3 digits
   const maskPhone = (phoneStr: string) => {

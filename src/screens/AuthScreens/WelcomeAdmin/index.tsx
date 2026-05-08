@@ -6,6 +6,7 @@ import {
   ImageBackground,
   Image,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -33,6 +34,10 @@ const WelcomeAdminScreen = ({ navigation }: any) => {
 
       {/* Content */}
       <View style={styles.card}>
+          <ScrollView
+    showsVerticalScrollIndicator={false}
+    contentContainerStyle={{ paddingBottom: 20 }}
+  >
         <Text style={styles.title}>Welcome to Vostro World Admin</Text>
         <Text style={styles.subtitle}>
           Manage Your Fitness Business Efficiently
@@ -95,6 +100,7 @@ const WelcomeAdminScreen = ({ navigation }: any) => {
           <SocialButton label="Login with Google" icon={Google} />
           <SocialButton label="Login with Apple" icon={Apple} />
         </View>
+        </ScrollView>
       </View>
 
     </SafeAreaView>

@@ -18,16 +18,20 @@ const DrawerContent = (props: any) => {
   const dispatch = useDispatch();
   const [expanded, setExpanded] = React.useState<string | null>(null);
   const [active, setActive] = React.useState('Dashboard');
-  const appImage = useSelector((state: RootState) => state.user.appImage);
+const { profile, appImage } = useSelector(
+  (state: RootState) => state.user
+);
 
-  // Use app image if available, otherwise use default avatar
-  const avatarSource = appImage
-    ? { uri: appImage }
+
+const firstName = profile?.firstName || 'User';
+const lastName = profile?.lastName || '';
+const role = profile?.role || profile?.type || 'Staff';
+const branch = profile?.branchName || `Branch ${profile?.branchId}`;
+const avatarSource = appImage
+  ? { uri: appImage }
+  : profile?.image
+    ? { uri: profile.image }
     : require('../../assets/img/userIcon.png');
-
-  const { firstName, lastName, role, branch } = useSelector(
-    (state: RootState) => state.user.registrationData
-  );
 
   const profileName = `${firstName} ${lastName}`.trim() || 'Ahmed';
 
@@ -153,6 +157,8 @@ const DrawerContent = (props: any) => {
             navigation.navigate('Main', { screen: 'Package' });
           } else if (child.screen === 'LeaveApplications') {
             navigation.navigate('LeaveApplications');
+          } else if (child.screen === 'LoanManagement') {
+            navigation.navigate('LoanManagement');
           } else {
             navigation.navigate(child.screen);
           }
@@ -266,6 +272,10 @@ const DrawerContent = (props: any) => {
                       navigation.navigate('Main', { screen: 'Package' });
                     } else if (child.screen === 'LeaveApplications') {
                       navigation.navigate('LeaveApplications');
+                    } else if (child.screen === 'LoanManagement') {
+                      navigation.navigate('LoanManagement');
+                    } else if (child.screen === 'Orders') {
+                      navigation.navigate('Orders');
                     } else {
                       navigation.navigate(child.screen);
                     }

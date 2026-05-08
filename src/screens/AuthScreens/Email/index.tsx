@@ -9,23 +9,24 @@ import { useNavigation } from '@react-navigation/native';
 const Email = () => {
     const { showSnackbar } = useSnackbarStore();
     const navigation = useNavigation();
-    
+
     // Get email from Redux
-    const { email } = useSelector((state: RootState) => state.user.registrationData);
+    const profile = useSelector((state: RootState) => state.user.profile);
+    const email = profile?.email ?? '';
 
     // Mask email to show privacy
     const maskEmail = (emailStr: string) => {
         if (!emailStr) return 'user@example.com';
         const parts = emailStr.split('@');
         if (parts.length !== 2) return 'user@example.com';
-        
+
         const localPart = parts[0];
         const domain = parts[1];
-        
-        const maskedLocal = localPart.length > 3 
-          ? localPart.substring(0, 3) + '*'.repeat(Math.max(1, localPart.length - 6)) + localPart.substring(Math.max(3, localPart.length - 3))
-          : localPart;
-        
+
+        const maskedLocal = localPart.length > 3
+            ? localPart.substring(0, 3) + '*'.repeat(Math.max(1, localPart.length - 6)) + localPart.substring(Math.max(3, localPart.length - 3))
+            : localPart;
+
         return `${maskedLocal}@${domain}`;
     };
 

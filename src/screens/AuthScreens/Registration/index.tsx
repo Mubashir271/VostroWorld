@@ -15,6 +15,7 @@ import AccountConfirmation from './AccountConfirmation';
 import { useNavigation } from '@react-navigation/native';
 import { updateRegistrationData } from '../../../redux/slices/userSlice';
 import { useDispatch } from 'react-redux';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 
@@ -132,6 +133,7 @@ export const RegistrationScreen = () => {
     };
 
     return (
+        <SafeAreaView>
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.stepText}>Step {step}/{TOTAL_STEPS}</Text>
             <ProgressBar step={step} totalSteps={TOTAL_STEPS} />
@@ -332,6 +334,7 @@ export const RegistrationScreen = () => {
 
             </View>
         </ScrollView>
+        </SafeAreaView>
     );
 };
 

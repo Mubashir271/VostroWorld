@@ -76,30 +76,43 @@ const LeaveApplications = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Bottom Tab Navigation */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity style={styles.tab}>
-            <Icon name="home" size={24} color="#E10600" />
-            <Text style={styles.tabLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Icon name="package-variant" size={24} color="#999" />
-            <Text style={styles.tabLabel}>Package</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Icon name="account-group" size={24} color="#999" />
-            <Text style={styles.tabLabel}>Members</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Icon name="chart-box" size={24} color="#999" />
-            <Text style={styles.tabLabel}>Reports</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Icon name="account" size={24} color="#999" />
-            <Text style={styles.tabLabel}>Account</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
+            <View style={styles.tabBar}>
+              <TouchableOpacity 
+                style={styles.tab}
+                onPress={() => {
+                  navigation.goBack();
+                }}
+              >
+                <Icon name="home" size={24} color="#E10600" />
+                <Text style={styles.tabLabel}>Home</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.tab}
+              >
+                <Icon name="package-variant" size={24} color="#999" />
+                <Text style={styles.tabLabel}>Package</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.tab}
+              >
+                <Icon name="account-group" size={24} color="#999" />
+                <Text style={styles.tabLabel}>Members</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.tab}
+              >
+                <Icon name="chart-box" size={24} color="#999" />
+                <Text style={styles.tabLabel}>Reports</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.tab}
+              >
+                <Icon name="account" size={24} color="#999" />
+                <Text style={styles.tabLabel}>Account</Text>
+              </TouchableOpacity>
+            </View>
     </>
   )
 }

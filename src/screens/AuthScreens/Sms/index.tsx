@@ -9,9 +9,10 @@ import { useNavigation } from '@react-navigation/native';
 const SMS = () => {
     const { showSnackbar } = useSnackbarStore();
     const navigation = useNavigation();
-    
+
     // Get phone from Redux
-    const { phone } = useSelector((state: RootState) => state.user.registrationData);
+    const profile = useSelector((state: RootState) => state.user.profile);
+    const phone = profile?.phone ?? '';
 
     // Mask phone number to show only last 3 digits
     const maskPhone = (phoneStr: string) => {
@@ -35,15 +36,15 @@ const SMS = () => {
             </ImageBackground>
 
             <View style={styles.card}>
-                        <Image
-                          source={require('../../../assets/img/authenticatoricon.png')}
-                          style={styles.lockImage}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.title}>Verify with Authenticator App</Text>
-                        <Text style={styles.subtitle}>
-                          Enter the 6-digit code from your authenticator app
-                        </Text>
+                <Image
+                    source={require('../../../assets/img/authenticatoricon.png')}
+                    style={styles.lockImage}
+                    resizeMode="contain"
+                />
+                <Text style={styles.title}>Verify with Authenticator App</Text>
+                <Text style={styles.subtitle}>
+                    Enter the 6-digit code from your authenticator app
+                </Text>
                 <VerificationCodeInput
                     phoneOrEmail={maskPhone(phone)}
                     onVerify={() => navigation.navigate('Drawer')}

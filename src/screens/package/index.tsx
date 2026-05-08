@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   StyleSheet,
   Text,
@@ -16,22 +16,25 @@ import AppHeader from '../../components/AppHeader';
 import { useNavigation } from '@react-navigation/native';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
+import { useDispatch, useSelector } from 'react-redux';
+import { getPackageCategories } from '../../api/dashboard';
+import { setCategories } from '../../redux/slices/package';
 
 const { width } = Dimensions.get('window')
 
 type PackageItem = {
-  id: string
-  title: string
-  category: string
-  duration: string
-  price: string
-  members: number
-  description?: string
-  status: 'Active' | 'Inactive' | 'Expiring Soon'
-  color?: string
-}
+  id: string;
+  title: string;
+  category: string;
+  category_code?: string;   // ✅ ADD THIS
+  duration: string;
+  price: string;
+  members: number;
+  description?: string;
+  status: 'Active' | 'Inactive' | 'Expiring Soon';
+  color?: string;
+};
 
-const tabs = ['All Packages', 'Gym Packages', 'PT Packages', 'Nutrition', 'Other']
 
 const samplePackages: PackageItem[] = [
   {
@@ -82,29 +85,61 @@ const samplePackages: PackageItem[] = [
 // const samplePackages: PackageItem[] = []
 
 const PackageScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>(tabs[0])
+  // const [activeTab, setActiveTab] = useState<string>(tabs[0])
+  const [activeTab, setActiveTab] = useState<string>('all');
   const [packages] = useState<PackageItem[]>(samplePackages)
   const navigation = useNavigation();
+  const dispatch = useDispatch();
 
-  const filtered = useMemo(() => {
-    if (activeTab === 'All Packages') return packages
-    // match by category name contained in tab
-    return packages.filter((p) => activeTab.includes(p.category) || p.category === activeTab.replace(' Packages', ''))
-  }, [activeTab, packages])
+const categories = useSelector(
+  (state: RootState) => state?.packages?.categories ?? []
+);
+const tabs = useMemo(() => [
+  { code: 'all', tag: 'All Packages' },
+  ...categories.map((c: any) => ({
+    code: c.code,
+    tag: c.tag,
+  })),
+], [categories]);
 
-  const renderTab = (tab: string) => {
-    const selected = tab === activeTab
-    return (
-      <TouchableOpacity
-        key={tab}
-        style={[styles.tabItem, selected && styles.tabItemActive]}
-        onPress={() => setActiveTab(tab)}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.tabText, selected && styles.tabTextActive]}>{tab}</Text>
-      </TouchableOpacity>
-    )
+useEffect(() => {
+  fetchCategories();
+}, []);
+
+const fetchCategories = async () => {
+  try {
+    const res = await getPackageCategories();
+console.log('PACKAGE DETAILS: ',res)
+    dispatch(setCategories(res?.data || []));
+  } catch (error) {
+    console.log('CATEGORY ERROR', error);
   }
+};
+
+const filtered = useMemo(() => {
+  if (activeTab === 'all') return packages;
+
+  return packages.filter(
+    (p) => String(p.category_code) === String(activeTab)
+  );
+}, [activeTab, packages]);
+
+
+const renderTab = (tab: any) => {
+  const selected = tab.code === activeTab;
+
+  return (
+    <TouchableOpacity
+      key={tab.code}
+      style={[styles.tabItem, selected && styles.tabItemActive]}
+      onPress={() => setActiveTab(tab.code)}
+    >
+      <Text style={[styles.tabText, selected && styles.tabTextActive]}>
+        {tab.tag}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
   const renderEmpty = () => (
     <View style={styles.emptyCard}>
@@ -118,7 +153,11 @@ const PackageScreen: React.FC = () => {
     </View>
   )
 
-  const renderItem = ({ item }: { item: PackageItem }) => (
+  const renderItem = ({ item }: { item: PackageItem }) => {
+      const categoryTag = categories.find(
+    (c: any) => c.code === item.category_code
+  )?.tag;
+  return(
     <View style={styles.card}>
       <View style={styles.cardTopRow}>
         <View style={[styles.iconCircle, { backgroundColor: item.color ?? '#FF3B30' }]}>
@@ -170,6 +209,7 @@ const PackageScreen: React.FC = () => {
       </View>
     </View>
   )
+}
 
   return (
     <>

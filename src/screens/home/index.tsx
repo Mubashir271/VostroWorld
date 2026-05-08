@@ -1,5 +1,5 @@
 // DashboardScreen.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -7,7 +7,8 @@ import {
     ScrollView,
     TouchableOpacity,
     ImageSourcePropType,
-    Image
+    Image,
+    ActivityIndicator
 } from 'react-native';
 import { Attendance, Cafe, Edit_fill, Features, Finance, Fitness, Freezing, ManageStaff, Members, NewRegistration, Notification, Package, Payments, Pending, ViewReports, Wallet } from '../../assets/icons';
 import AppHeader from '../../components/AppHeader';
@@ -17,6 +18,7 @@ import NotificationSVG from '../../assets/svg/NotificationSVG';
 import ProfileHeader from '../../components/ProfileHeader';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
+import { getMISDashboard } from '../../api/dashboard';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -79,18 +81,79 @@ const QuickAction = ({ icon, label, onPress }: QuickActionProps) => (
 export default function DashboardScreen() {
     const navigation = useNavigation();
 
-    const { firstName, lastName, role, branch } = useSelector(
-        (state: RootState) => state.user.registrationData
+    const { profile, appImage } = useSelector(
+        (state: RootState) => state.user
     );
-    
-    const appImage = useSelector((state: RootState) => state.user.appImage);
 
-    const fullName = `${firstName} ${lastName}`.trim() || 'User';
-    
-    // Use app image if available, otherwise use default avatar
-    const avatarSource = appImage 
-        ? { uri: appImage } 
-        : require('../../assets/img/userIcon.png');
+    const firstName = profile?.firstName || 'User';
+    const lastName = profile?.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    const role =
+        profile?.type ||
+        profile?.role ||
+        'Staff';
+
+    const branchId = profile?.branchId || null;
+
+    const branchName =
+        profile?.branchName ||
+        (branchId ? `Branch ${branchId}` : 'Main Branch');
+
+    const username =
+        profile?.username ||
+        fullName;
+
+    const [dashboard, setDashboard] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+        fetchDashboard();
+    }, []);
+
+const fetchDashboard = async () => {
+    try {
+        setLoading(true);
+
+        if (!branchId) {
+            console.log('Branch ID missing');
+            return;
+        }
+
+        const res = await getMISDashboard(branchId);
+
+        console.log('MIS DASHBOARD => ', res);
+
+        setDashboard(res);
+
+    } catch (error: any) {
+        console.log(
+            'MIS DASHBOARD ERROR => ',
+            error?.response?.data || error.message
+        );
+    } finally {
+        setLoading(false);
+    }
+};
+
+const avatarSource = appImage
+  ? { uri: appImage }
+  : profile?.image
+    ? { uri: profile.image }
+    : require('../../assets/img/userIcon.png');
+
+    if (loading) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                }}
+            >
+                <ActivityIndicator size="large" color="#E10600" />
+            </View>
+        );
+    }
 
     return (
         <>
@@ -111,7 +174,7 @@ export default function DashboardScreen() {
                     <ProfileHeader
                         name={fullName}
                         role={role || 'Staff'}
-                        branch={branch || 'Main Branch'}
+                        branch={branchName || 'Main Branch'}
                         editIcon={Edit_fill}
                         avatar={avatarSource}
                         onEditPress={() => console.log('Edit Pressed')}
@@ -122,13 +185,13 @@ export default function DashboardScreen() {
                     <View style={styles.statsRow}>
                         <StatCard
                             icon={Members}
-                            value="245"
+                            value={dashboard?.total_members || 0}
                             label="Total members active"
                             trend="+12 this month"
                         />
                         <StatCard
                             icon={Wallet}
-                            value="PKR 85,500"
+                            value={`PKR ${dashboard?.total_revenue || 0}`}
                             trend="vs Yesterday"
                         // trendColor="#10b981"
 
@@ -145,8 +208,8 @@ export default function DashboardScreen() {
                         />
                         <StatCard
                             icon={Attendance}
-                            value="92% Attendance"
-                            trend="156/240 Members"
+                            value={`${dashboard?.attendance_percentage || 0}% Attendance`}
+                            trend={`${dashboard?.present_members || 0}/${dashboard?.total_members || 0} Members`}
                             backgroundColor="#ecfdf5"
                         />
                     </View>
@@ -154,14 +217,14 @@ export default function DashboardScreen() {
                     <View style={styles.secondaryStats}>
                         <StatCard
                             icon={Pending}
-                            value="62%"
-                            trend="Current members: 156 / 240"
+                            value={`${dashboard?.gym_capacity || 0}%`}
+                            trend={`Current members: ${dashboard?.current_members || 0} / ${dashboard?.total_members || 0}`}
                             label="Gym Capacity Today"
                             backgroundColor="#fefce8"
                         />
                         <StatCard
                             icon={NewRegistration}
-                            value="12"
+                            value={dashboard?.new_registrations || 0}
                             label="New Registrations"
                             backgroundColor="#ecfdf5"
                             trend='This Week >'
@@ -192,35 +255,48 @@ export default function DashboardScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.activityItem}>
-                            <View style={styles.activityIcon}>
-                                <Image source={NewRegistration} style={styles.icon} />
-                            </View>
-                            <View style={styles.activityContent}>
-                                <Text style={styles.activityText}>John Doe registered as member</Text>
-                                <Text style={styles.activityTime}>2 mins ago</Text>
-                            </View>
-                        </View>
+                        {dashboard?.recent_activities?.length > 0 ? (
+                            dashboard.recent_activities.map(
+                                (item: any, index: number) => (
+                                    <View style={styles.activityItem} key={index}>
+                                        <View style={styles.activityIcon}>
+                                            <Image
+                                                source={
+                                                    item?.type === 'payment'
+                                                        ? Payments
+                                                        : item?.type === 'registration'
+                                                            ? NewRegistration
+                                                            : item?.type === 'freeze'
+                                                                ? Freezing
+                                                                : Notification
+                                                }
+                                                style={styles.icon}
+                                            />
+                                        </View>
 
-                        <View style={styles.activityItem}>
-                            <View style={styles.activityIcon}>
-                                <Image source={Payments} style={styles.icon} />
-                            </View>
-                            <View style={styles.activityContent}>
-                                <Text style={styles.activityText}>Payment received from Maria</Text>
-                                <Text style={styles.activityTime}>1 hour ago</Text>
-                            </View>
-                        </View>
-                        <View style={styles.activityItem}>
-                            <View style={styles.activityIcon}>
-                                <Image source={Freezing} style={styles.icon} />
+                                        <View style={styles.activityContent}>
+                                            <Text style={styles.activityText}>
+                                                {item?.title ||
+                                                    item?.message ||
+                                                    'Activity'}
+                                            </Text>
 
+                                            <Text style={styles.activityTime}>
+                                                {item?.time ||
+                                                    item?.created_at ||
+                                                    ''}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )
+                            )
+                        ) : (
+                            <View style={styles.activityItem}>
+                                <Text style={styles.activityText}>
+                                    No recent activities found
+                                </Text>
                             </View>
-                            <View style={styles.activityContent}>
-                                <Text style={styles.activityText}>Freezing request approved</Text>
-                                <Text style={styles.activityTime}>3 hours ago</Text>
-                            </View>
-                        </View>
+                        )}
 
                     </View>
 
@@ -234,7 +310,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f1f1ff1',
+        backgroundColor: '#f1f5f9',
         padding: 20,
     },
     header: {

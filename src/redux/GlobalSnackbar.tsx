@@ -41,7 +41,7 @@ const GlobalSnackbar = () => {
 
   if (!visible) return null;
 
-  const backgroundColor = type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#5d5252ff';
+  const backgroundColor = type === 'success' ? '#2ecc71' : '#e74c3c';
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY }], backgroundColor }]}>

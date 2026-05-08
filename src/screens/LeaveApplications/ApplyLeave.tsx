@@ -4,6 +4,9 @@ import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import DateTimePicker from 'react-native-modal-datetime-picker';
+import { useDispatch } from 'react-redux';
+import { showSnackbar } from '../../redux/slices/snackbarSlice';
 
 interface LeaveData {
   id: string;
@@ -16,6 +19,7 @@ interface LeaveData {
 const ApplyLeave = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const dispatch = useDispatch();
   const leaveData = (route.params as any)?.leaveData as LeaveData || {
     employeeName: 'Employee Name',
     leaveType: 'Sick | Casual',
@@ -26,6 +30,10 @@ const ApplyLeave = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  
+  // Date picker states
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   const leaveTypeOptions = ['Sick', 'Casual', 'Annual', 'Maternity', 'Paternity'];
 
@@ -36,6 +44,30 @@ const ApplyLeave = () => {
       endDate,
       reason,
     });
+    
+    dispatch(showSnackbar({ message: 'Leave request submitted successfully!', type: 'success' }));
+    
+    navigation.goBack();
+  };
+
+  const handleStartDateConfirm = (date: Date) => {
+    const formattedDate = date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    });
+    setStartDate(formattedDate);
+    setShowStartDatePicker(false);
+  };
+
+  const handleEndDateConfirm = (date: Date) => {
+    const formattedDate = date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    });
+    setEndDate(formattedDate);
+    setShowEndDatePicker(false);
   };
 
   return (
@@ -108,8 +140,13 @@ const ApplyLeave = () => {
           {/* Start Data Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Start Data</Text>
-            <TouchableOpacity style={styles.datePickerButton}>
-              <Text style={styles.datePickerText}>Select Data</Text>
+            <TouchableOpacity 
+              style={styles.datePickerButton}
+              onPress={() => setShowStartDatePicker(true)}
+            >
+              <Text style={[styles.datePickerText, !startDate && styles.placeholderText]}>
+                {startDate || 'Select Data'}
+              </Text>
               <Icon name="chevron-down" size={20} color="#999" />
             </TouchableOpacity>
           </View>
@@ -117,8 +154,13 @@ const ApplyLeave = () => {
           {/* End Data Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>End Data</Text>
-            <TouchableOpacity style={styles.datePickerButton}>
-              <Text style={styles.datePickerText}>Select Data</Text>
+            <TouchableOpacity 
+              style={styles.datePickerButton}
+              onPress={() => setShowEndDatePicker(true)}
+            >
+              <Text style={[styles.datePickerText, !endDate && styles.placeholderText]}>
+                {endDate || 'Select Data'}
+              </Text>
               <Icon name="chevron-down" size={20} color="#999" />
             </TouchableOpacity>
           </View>
@@ -147,7 +189,7 @@ const ApplyLeave = () => {
         </ScrollView>
 
         {/* Bottom Tab Navigation */}
-        <View style={styles.tabBar}>
+        {/* <View style={styles.tabBar}>
           <TouchableOpacity style={styles.tab}>
             <Icon name="home" size={24} color="#E10600" />
             <Text style={styles.tabLabel}>Home</Text>
@@ -168,8 +210,48 @@ const ApplyLeave = () => {
             <Icon name="account" size={24} color="#999" />
             <Text style={styles.tabLabel}>Account</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
       </SafeAreaView>
+              <View style={styles.tabBar}>
+                <TouchableOpacity style={styles.tab}>
+                  <Icon name="home" size={24} color="#E10600" />
+                  <Text style={styles.tabLabel}>Home</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab}>
+                  <Icon name="package-variant" size={24} color="#999" />
+                  <Text style={styles.tabLabel}>Package</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab}>
+                  <Icon name="account-group" size={24} color="#999" />
+                  <Text style={styles.tabLabel}>Members</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab}>
+                  <Icon name="chart-box" size={24} color="#999" />
+                  <Text style={styles.tabLabel}>Reports</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab}>
+                  <Icon name="account" size={24} color="#999" />
+                  <Text style={styles.tabLabel}>Account</Text>
+                </TouchableOpacity>
+              </View>
+
+      {/* Start Date Picker */}
+      <DateTimePicker
+        isVisible={showStartDatePicker}
+        mode="date"
+        onConfirm={handleStartDateConfirm}
+        onCancel={() => setShowStartDatePicker(false)}
+        display="spinner"
+      />
+
+      {/* End Date Picker */}
+      <DateTimePicker
+        isVisible={showEndDatePicker}
+        mode="date"
+        onConfirm={handleEndDateConfirm}
+        onCancel={() => setShowEndDatePicker(false)}
+        display="spinner"
+      />
     </>
   )
 }
@@ -284,6 +366,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     fontWeight: '500',
+  },
+
+  placeholderText: {
+    color: '#999',
   },
 
   reasonInput: {

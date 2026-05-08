@@ -34,6 +34,12 @@ import SecuritySettings from '../../screens/Settings/SecuritySettings';
 import LeaveApplications from '../../screens/LeaveApplications';
 import ApplyLeave from '../../screens/LeaveApplications/ApplyLeave';
 import LeaveDetail from '../../screens/LeaveApplications/LeaveDetail';
+import LoanManagement from '../../screens/LoanManagement';
+import ApplyLoan from '../../screens/LoanManagement/ApplyLoan';
+import LoanDetail from '../../screens/LoanManagement/LoanDetail';
+import Orders from '../../screens/CafeOperations/Orders';
+import NewOrder from '../../screens/CafeOperations/Orders/NewOrder';
+import OrderDetail from '../../screens/CafeOperations/Orders/OrderDetail';
 const Stack = createStackNavigator();
 // enableScreens();
 
@@ -186,6 +192,36 @@ const AppNavigator = () => {
                 <Stack.Screen
                     name="LeaveDetail"
                     component={LeaveDetail}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="LoanManagement"
+                    component={LoanManagement}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="ApplyLoan"
+                    component={ApplyLoan}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="LoanDetail"
+                    component={LoanDetail}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Orders"
+                    component={Orders}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="NewOrder"
+                    component={NewOrder}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="OrderDetail"
+                    component={OrderDetail}
                     options={{ headerShown: false }}
                 />
             </Stack.Navigator>
