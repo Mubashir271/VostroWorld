@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import { getCafeReport } from '../../../api/reports';
 import { reportStyles as styles } from '../styles/reportStyles';
+import AppHeader from '../../../components/AppHeader';
+import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
 
 const CafeReportScreen = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigation = useNavigation();
 
   useEffect(() => {
     load();
@@ -20,32 +26,49 @@ const CafeReportScreen = () => {
       end_date: '2026-05-08',
     });
 
-    setData(res.data?.data || []);
+    // setData(res.data?.data || []);
+    setData(Array.isArray(res.data) ? res.data : res.data?.data || []);
+
     setLoading(false);
   };
 
   if (loading) return <ActivityIndicator />;
 
   return (
-<View style={styles.container}>
-  <Text style={styles.title}>Cafe Report</Text>
-
-  {data.map((item, index) => (
-    <View key={index} style={styles.card}>
-      <Text style={{ fontWeight: '700' }}>{item.date}</Text>
-
-      <View style={styles.row}>
-        <Text style={styles.label}>Meals</Text>
-        <Text style={styles.value}>{item.total_meals}</Text>
-      </View>
-
-      <View style={styles.row}>
-        <Text style={styles.label}>Drinks</Text>
-        <Text style={styles.value}>{item.total_drinks}</Text>
-      </View>
-    </View>
-  ))}
-</View>
+    <>
+      <AppHeader
+        title="Cafe Reports"
+        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        rightIcon={<NotificationSVG width={24} height={24} />}
+        onLeftPress={() => navigation.goBack()}
+        onRightPress={() => navigation.navigate('Notifications')}
+        backgroundColor="#FFE5E5"
+      />
+      <ScrollView style={styles.container}>
+        {/* <Text style={styles.title}>Cafe Report</Text> */}
+        {data.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>☕</Text>
+            <Text style={styles.emptyTitle}>Coming Soon</Text>
+            <Text style={styles.emptySubtitle}>No cafe data available for this period.</Text>
+          </View>
+        ) : (
+          data.map((item, index) => (
+            <View key={index} style={styles.card}>
+              <Text style={{ fontWeight: '700' }}>{item.date}</Text>
+              <View style={styles.row}>
+                <Text style={styles.label}>Meals</Text>
+                <Text style={styles.value}>{item.total_meals}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>Drinks</Text>
+                <Text style={styles.value}>{item.total_drinks}</Text>
+              </View>
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </>
   );
 };
 
