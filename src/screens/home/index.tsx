@@ -121,10 +121,58 @@ const fetchDashboard = async () => {
 
         const res = await getMISDashboard(branchId);
 
+        const mappedDashboard = {
+    total_members: res?.totalStaff || 0,
+
+    total_revenue: res?.salenet_today || '0',
+
+    attendance_percentage:
+        res?.totalStaff > 0
+            ? Math.round(
+                  (res?.presentStaff / res?.totalStaff) * 100
+              )
+            : 0,
+
+    present_members: res?.presentStaff || 0,
+
+    gym_capacity:
+        res?.totalStaff > 0
+            ? Math.round(
+                  ((res?.morning_SevnToTwlv +
+                      res?.after_twlvTofive +
+                      res?.even_fiveToeleven) /
+                      res?.totalStaff) *
+                      100
+              )
+            : 0,
+
+    current_members:
+        (res?.morning_SevnToTwlv || 0) +
+        (res?.after_twlvTofive || 0) +
+        (res?.even_fiveToeleven || 0),
+
+    new_registrations: res?.saleqty_today || 0,
+
+    today_sales: res?.saleprice_today || '0',
+
+    today_net_sales: res?.salenet_today || '0',
+
+    today_expense: res?.today_expense || '0',
+
+    male_members: res?.totalMales || 0,
+
+    female_members: res?.totalFemales || 0,
+
+    pt_sales: res?.ptnsalenet_today || '0',
+
+    cafe_sales: res?.csalenet_today || '0',
+};
+
         console.log('MIS DASHBOARD => ', res);
 
-        setDashboard(res);
+        // setDashboard(res);
 
+        setDashboard(mappedDashboard);
     } catch (error: any) {
         console.log(
             'MIS DASHBOARD ERROR => ',

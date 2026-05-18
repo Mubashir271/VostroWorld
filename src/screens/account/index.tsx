@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native'
-import React from 'react'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native'
+import React, { useCallback, useState } from 'react'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
@@ -13,62 +13,78 @@ import { logoutUser } from '../../redux/slices/userSlice';
 const AccountScreen = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
-  
-  
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+
+    try {
+      // Call profile API here
+      // Example:
+      // await dispatch(getProfile());
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    } catch (error) {
+      console.log('Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   const { profile, appImage } = useSelector(
     (state: RootState) => state.user
   );
-const avatarSource = appImage
-  ? { uri: appImage }
-  : profile?.image
-    ? { uri: profile.image }
-    : require('../../assets/img/userIcon.png');
+  const avatarSource = appImage
+    ? { uri: appImage }
+    : profile?.image
+      ? { uri: profile.image }
+      : require('../../assets/img/userIcon.png');
   const firstName = profile?.firstName || '';
   const lastName = profile?.lastName || '';
-  
+
   const profileName =
-  `${firstName} ${lastName}`.trim() || 'User';
+    `${firstName} ${lastName}`.trim() || 'User';
 
-const profileData = {
-  name: profileName,
+  const profileData = {
+    name: profileName,
 
-  role:
-    profile?.type ||
-    profile?.role ||
-    'Staff',
+    role:
+      profile?.type ||
+      profile?.role ||
+      'Staff',
 
-  verified: true,
+    verified: true,
 
-  branch:
-    profile?.branchName ||
-    (profile?.branchId
-      ? `Branch ${profile.branchId}`
-      : 'Main Branch'),
+    branch:
+      profile?.branchName ||
+      (profile?.branchId
+        ? `Branch ${profile.branchId}`
+        : 'Main Branch'),
 
-  email: profile?.email || 'N/A',
+    email: profile?.email || 'N/A',
 
-  phone: profile?.phone || 'N/A',
+    phone: profile?.phone || 'N/A',
 
-  username:
-    profile?.username ||
-    profileName.toLowerCase().replace(/\s+/g, ''),
+    username:
+      profile?.username ||
+      profileName.toLowerCase().replace(/\s+/g, ''),
 
-  joiningDate:
-    profile?.joining ||
-    profile?.appointmentDate ||
-    'N/A',
+    joiningDate:
+      profile?.joining ||
+      profile?.appointmentDate ||
+      'N/A',
 
-  jobTitle:
-    profile?.designationId
-      ? `Designation ${profile.designationId}`
-      : 'Position',
-};
+    jobTitle:
+      profile?.designationId
+        ? `Designation ${profile.designationId}`
+        : 'Position',
+  };
 
   const handleLogout = () => {
     dispatch(logoutUser());
     navigation.replace('WelcomeAdmin');
   };
-  
+
 
 
 
@@ -113,7 +129,16 @@ const profileData = {
         backgroundColor="#FFE5E5"
       />
       <View style={styles.container}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <ScrollView style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#E10600']}
+              tintColor="#E10600"
+            />
+          }>
 
           {/* Profile Section */}
           <View style={styles.profileSection}>

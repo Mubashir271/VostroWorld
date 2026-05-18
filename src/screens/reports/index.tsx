@@ -7,10 +7,13 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AppHeader from '../../components/AppHeader';
+import BurgerSVG from '../../assets/svg/BurgerSVG';
+import NotificationSVG from '../../assets/svg/NotificationSVG';
 
 const REPORTS = [
   {
@@ -87,7 +90,16 @@ const ReportCard = ({ item, navigation }) => {
 
 const ReportsScreen = ({ navigation }) => {
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+          <AppHeader
+        title="Reports"
+        leftIcon={<BurgerSVG width={24} height={24} />}
+        rightIcon={<NotificationSVG width={24} height={24} />}
+        onLeftPress={() => navigation.openDrawer()}
+        onRightPress={() => navigation.navigate('Notifications')}
+        backgroundColor="#FFE5E5"
+      />
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.heading}>Reports</Text>
@@ -109,7 +121,8 @@ const ReportsScreen = ({ navigation }) => {
           />
         )}
       />
-    </SafeAreaView>
+    </View>
+    </>
   );
 };
 
