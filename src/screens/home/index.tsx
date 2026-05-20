@@ -8,7 +8,8 @@ import {
     TouchableOpacity,
     ImageSourcePropType,
     Image,
-    ActivityIndicator
+    ActivityIndicator,
+    RefreshControl
 } from 'react-native';
 import { Attendance, Cafe, Edit_fill, Features, Finance, Fitness, Freezing, ManageStaff, Members, NewRegistration, Notification, Package, Payments, Pending, ViewReports, Wallet } from '../../assets/icons';
 import AppHeader from '../../components/AppHeader';
@@ -19,6 +20,7 @@ import ProfileHeader from '../../components/ProfileHeader';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { getMISDashboard } from '../../api/dashboard';
+import { isAdmin } from '../../config/permissions';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -106,251 +108,282 @@ export default function DashboardScreen() {
 
     const [dashboard, setDashboard] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
     useEffect(() => {
         fetchDashboard();
     }, []);
 
-const fetchDashboard = async () => {
-    try {
-        setLoading(true);
+    const fetchDashboard = async () => {
+        try {
+            setLoading(true);
 
-        if (!branchId) {
-            console.log('Branch ID missing');
-            return;
+            if (!branchId) {
+                console.log('Branch ID missing');
+                return;
+            }
+
+            const res = await getMISDashboard(branchId);
+
+            const mappedDashboard = {
+                total_members: res?.totalStaff || 0,
+
+                total_revenue: res?.salenet_today || '0',
+
+                attendance_percentage:
+                    res?.totalStaff > 0
+                        ? Math.round(
+                              (res?.presentStaff / res?.totalStaff) * 100
+                          )
+                        : 0,
+
+                present_members: res?.presentStaff || 0,
+
+                gym_capacity:
+                    res?.totalStaff > 0
+                        ? Math.round(
+                              ((res?.morning_SevnToTwlv +
+                                  res?.after_twlvTofive +
+                                  res?.even_fiveToeleven) /
+                                  res?.totalStaff) *
+                                  100
+                          )
+                        : 0,
+
+                current_members:
+                    (res?.morning_SevnToTwlv || 0) +
+                    (res?.after_twlvTofive || 0) +
+                    (res?.even_fiveToeleven || 0),
+
+                new_registrations: res?.saleqty_today || 0,
+
+                today_sales: res?.saleprice_today || '0',
+
+                today_net_sales: res?.salenet_today || '0',
+
+                today_expense: res?.today_expense || '0',
+
+                male_members: res?.totalMales || 0,
+
+                female_members: res?.totalFemales || 0,
+
+                pt_sales: res?.ptnsalenet_today || '0',
+
+                cafe_sales: res?.csalenet_today || '0',
+            };
+
+            console.log('MIS DASHBOARD => ', res);
+
+            // setDashboard(res);
+
+            setDashboard(mappedDashboard);
+        } catch (error: any) {
+            console.log(
+                'MIS DASHBOARD ERROR => ',
+                error?.response?.data || error.message
+            );
+        } finally {
+            setLoading(false);
         }
+    };
 
-        const res = await getMISDashboard(branchId);
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        fetchDashboard().then(() => setRefreshing(false));
+    }, [branchId]);
 
-        const mappedDashboard = {
-    total_members: res?.totalStaff || 0,
-
-    total_revenue: res?.salenet_today || '0',
-
-    attendance_percentage:
-        res?.totalStaff > 0
-            ? Math.round(
-                  (res?.presentStaff / res?.totalStaff) * 100
-              )
-            : 0,
-
-    present_members: res?.presentStaff || 0,
-
-    gym_capacity:
-        res?.totalStaff > 0
-            ? Math.round(
-                  ((res?.morning_SevnToTwlv +
-                      res?.after_twlvTofive +
-                      res?.even_fiveToeleven) /
-                      res?.totalStaff) *
-                      100
-              )
-            : 0,
-
-    current_members:
-        (res?.morning_SevnToTwlv || 0) +
-        (res?.after_twlvTofive || 0) +
-        (res?.even_fiveToeleven || 0),
-
-    new_registrations: res?.saleqty_today || 0,
-
-    today_sales: res?.saleprice_today || '0',
-
-    today_net_sales: res?.salenet_today || '0',
-
-    today_expense: res?.today_expense || '0',
-
-    male_members: res?.totalMales || 0,
-
-    female_members: res?.totalFemales || 0,
-
-    pt_sales: res?.ptnsalenet_today || '0',
-
-    cafe_sales: res?.csalenet_today || '0',
-};
-
-        console.log('MIS DASHBOARD => ', res);
-
-        // setDashboard(res);
-
-        setDashboard(mappedDashboard);
-    } catch (error: any) {
-        console.log(
-            'MIS DASHBOARD ERROR => ',
-            error?.response?.data || error.message
-        );
-    } finally {
-        setLoading(false);
-    }
-};
-
-const avatarSource = appImage
-  ? { uri: appImage }
-  : profile?.image
+    const avatarSource = appImage
+      ? { uri: appImage }
+      : profile?.image
     ? { uri: profile.image }
     : require('../../assets/img/userIcon.png');
 
-    if (loading) {
-        return (
-            <View
-                style={{
-                    flex: 1,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                }}
-            >
-                <ActivityIndicator size="large" color="#E10600" />
-            </View>
-        );
-    }
+    const headerTitle = isAdmin(role) ? 'Vostro Admin' : 'Vostro Employee';
 
     return (
         <>
             <AppHeader
-                title="Vostro Admin"
+                title={headerTitle}
                 leftIcon={<BurgerSVG width={24} height={24} />}
                 rightIcon={<NotificationSVG width={24} height={24} />}
                 onLeftPress={() => navigation.openDrawer()}
                 onRightPress={() => navigation.navigate('Notifications')}
                 backgroundColor="#FFE5E5"
             />
-            <View style={styles.container}>
+            
+            {loading ? (
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                    }}
+                >
+                    <ActivityIndicator size="large" color="#E10600" />
+                </View>
+            ) : (
+                <View style={styles.container}>
+                    <ScrollView 
+                        showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl 
+                                refreshing={refreshing} 
+                                onRefresh={onRefresh}
+                                tintColor="#E10600"
+                            />
+                        }
+                    >
+                        {/* Header / Welcome */}
+                        <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
-                    {/* Header / Welcome */}
-                    <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
-
-                    <ProfileHeader
-                        name={fullName}
-                        role={role || 'Staff'}
-                        branch={branchName || 'Main Branch'}
-                        editIcon={Edit_fill}
-                        avatar={avatarSource}
-                        onEditPress={() => console.log('Edit Pressed')}
-                    />
-
-
-                    {/* Stats Row */}
-                    <View style={styles.statsRow}>
-                        <StatCard
-                            icon={Members}
-                            value={dashboard?.total_members || 0}
-                            label="Total members active"
-                            trend="+12 this month"
+                        <ProfileHeader
+                            name={fullName}
+                            role={role || 'Staff'}
+                            branch={branchName || 'Main Branch'}
+                            editIcon={Edit_fill}
+                            avatar={avatarSource}
+                            onEditPress={() => console.log('Edit Pressed')}
                         />
-                        <StatCard
-                            icon={Wallet}
-                            value={`PKR ${dashboard?.total_revenue || 0}`}
-                            trend="vs Yesterday"
-                        // trendColor="#10b981"
-
-                        />
-                    </View>
-
-                    {/* Secondary Stats */}
-                    <View style={styles.secondaryStats}>
-                        <StatCard
-                            icon={Pending}
-                            value="Pending Approvals"
-                            trend="View All >"
-                            backgroundColor="#fefce8"
-                        />
-                        <StatCard
-                            icon={Attendance}
-                            value={`${dashboard?.attendance_percentage || 0}% Attendance`}
-                            trend={`${dashboard?.present_members || 0}/${dashboard?.total_members || 0} Members`}
-                            backgroundColor="#ecfdf5"
-                        />
-                    </View>
-
-                    <View style={styles.secondaryStats}>
-                        <StatCard
-                            icon={Pending}
-                            value={`${dashboard?.gym_capacity || 0}%`}
-                            trend={`Current members: ${dashboard?.current_members || 0} / ${dashboard?.total_members || 0}`}
-                            label="Gym Capacity Today"
-                            backgroundColor="#fefce8"
-                        />
-                        <StatCard
-                            icon={NewRegistration}
-                            value={dashboard?.new_registrations || 0}
-                            label="New Registrations"
-                            backgroundColor="#ecfdf5"
-                            trend='This Week >'
-                        />
-                    </View>
 
 
-                    {/* Quick Actions Grid */}
-                    <View style={styles.quickActionsGrid}>
-                        <QuickAction icon={NewRegistration} label="New Member Registrations" />
-                        <QuickAction icon={Package} label="Create Package" />
-                        <QuickAction icon={Attendance} label="View Attendance" />
-                        <QuickAction icon={ViewReports} label="View Reports" />
-                        <QuickAction icon={ManageStaff} label="Manage Staff" />
-                        <QuickAction icon={Finance} label="View Finance" />
-                        <QuickAction icon={Cafe} label="Cafe Operations" />
-                        <QuickAction icon={Fitness} label="Create Fitness Plan" />
-                        <QuickAction icon={Payments} label="Process Payments" />
-                        <QuickAction icon={Features} label="All Features" />
-                    </View>
+                        {/* Stats Row */}
+                        <View style={styles.statsRow}>
+                            <StatCard
+                                icon={Members}
+                                value={dashboard?.total_members || 0}
+                                label="Total members active"
+                                trend="+12 this month"
+                            />
+                            <StatCard
+                                icon={Wallet}
+                                value={`PKR ${dashboard?.total_revenue || 0}`}
+                                trend="vs Yesterday"
+                            // trendColor="#10b981"
 
-                    {/* Recent Activities */}
-                    <View style={styles.recentSection}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Recent Activities</Text>
-                            <TouchableOpacity>
-                                <Text style={styles.viewAll}>View all activities {'>'}</Text>
-                            </TouchableOpacity>
+                            />
                         </View>
 
-                        {dashboard?.recent_activities?.length > 0 ? (
-                            dashboard.recent_activities.map(
-                                (item: any, index: number) => (
-                                    <View style={styles.activityItem} key={index}>
-                                        <View style={styles.activityIcon}>
-                                            <Image
-                                                source={
-                                                    item?.type === 'payment'
-                                                        ? Payments
-                                                        : item?.type === 'registration'
-                                                            ? NewRegistration
-                                                            : item?.type === 'freeze'
-                                                                ? Freezing
-                                                                : Notification
-                                                }
-                                                style={styles.icon}
-                                            />
-                                        </View>
+                        {/* Secondary Stats */}
+                        <View style={styles.secondaryStats}>
+                            <StatCard
+                                icon={Pending}
+                                value="Pending Approvals"
+                                trend="View All >"
+                                backgroundColor="#fefce8"
+                            />
+                            <StatCard
+                                icon={Attendance}
+                                value={`${dashboard?.attendance_percentage || 0}% Attendance`}
+                                trend={`${dashboard?.present_members || 0}/${dashboard?.total_members || 0} Members`}
+                                backgroundColor="#ecfdf5"
+                            />
+                        </View>
 
-                                        <View style={styles.activityContent}>
-                                            <Text style={styles.activityText}>
-                                                {item?.title ||
-                                                    item?.message ||
-                                                    'Activity'}
-                                            </Text>
+                        <View style={styles.secondaryStats}>
+                            <StatCard
+                                icon={Pending}
+                                value={`${dashboard?.gym_capacity || 0}%`}
+                                trend={`Current members: ${dashboard?.current_members || 0} / ${dashboard?.total_members || 0}`}
+                                label="Gym Capacity Today"
+                                backgroundColor="#fefce8"
+                            />
+                            <StatCard
+                                icon={NewRegistration}
+                                value={dashboard?.new_registrations || 0}
+                                label="New Registrations"
+                                backgroundColor="#ecfdf5"
+                                trend='This Week >'
+                            />
+                        </View>
 
-                                            <Text style={styles.activityTime}>
-                                                {item?.time ||
-                                                    item?.created_at ||
-                                                    ''}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                )
-                            )
-                        ) : (
-                            <View style={styles.activityItem}>
-                                <Text style={styles.activityText}>
-                                    No recent activities found
-                                </Text>
+
+                        {/* Quick Actions Grid */}
+                        <View style={styles.quickActionsGrid}>
+                            <QuickAction 
+                                icon={NewRegistration} 
+                                label="New Member Registrations"
+                                onPress={() => navigation.navigate('Members')}
+                            />
+                            <QuickAction 
+                                icon={Package} 
+                                label="Create Package"
+                                onPress={() => navigation.navigate('Package')}
+                            />
+                            <QuickAction icon={Attendance} label="View Attendance" />
+                            <QuickAction 
+                                icon={ViewReports} 
+                                label="View Reports"
+                                onPress={() => navigation.navigate('Reports')}
+                            />
+                            <QuickAction icon={ManageStaff} label="Manage Staff" />
+                            <QuickAction 
+                                icon={Finance} 
+                                label="View Finance"
+                                onPress={() => navigation.navigate('Reports')}
+                            />
+                            {/* <QuickAction icon={Cafe} label="Cafe Operations" /> */}
+                            <QuickAction icon={Fitness} label="Create Fitness Plan" />
+                            <QuickAction icon={Payments} label="Process Payments" />
+                            <QuickAction icon={Features} label="All Features" />
+                        </View>
+
+                        {/* Recent Activities */}
+                        <View style={styles.recentSection}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Recent Activities</Text>
+                                <TouchableOpacity>
+                                    <Text style={styles.viewAll}>View all activities {'>'}</Text>
+                                </TouchableOpacity>
                             </View>
-                        )}
 
-                    </View>
+                            {dashboard?.recent_activities?.length > 0 ? (
+                                dashboard.recent_activities.map(
+                                    (item: any, index: number) => (
+                                        <View style={styles.activityItem} key={index}>
+                                            <View style={styles.activityIcon}>
+                                                <Image
+                                                    source={
+                                                        item?.type === 'payment'
+                                                            ? Payments
+                                                            : item?.type === 'registration'
+                                                                ? NewRegistration
+                                                                : item?.type === 'freeze'
+                                                                    ? Freezing
+                                                                    : Notification
+                                                    }
+                                                    style={styles.icon}
+                                                />
+                                            </View>
 
-                    <View style={{ height: 40 }} />
-                </ScrollView>
-            </View>
+                                            <View style={styles.activityContent}>
+                                                <Text style={styles.activityText}>
+                                                    {item?.title ||
+                                                        item?.message ||
+                                                        'Activity'}
+                                                </Text>
+
+                                                <Text style={styles.activityTime}>
+                                                    {item?.time ||
+                                                        item?.created_at ||
+                                                        ''}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    )
+                                )
+                            ) : (
+                                <View style={styles.activityItem}>
+                                    <Text style={styles.activityText}>
+                                        No recent activities found
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={{ height: 40 }} />
+                    </ScrollView>
+                </View>
+            )}
         </>
     );
 }
