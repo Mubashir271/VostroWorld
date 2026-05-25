@@ -31,14 +31,6 @@ const TransactionReportScreen = () => {
     setLoading(false);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
   return (
     <>
       <AppHeader
@@ -46,12 +38,13 @@ const TransactionReportScreen = () => {
         leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
         rightIcon={<NotificationSVG width={24} height={24} />}
         onLeftPress={() => navigation.goBack()}
-        onRightPress={() => navigation.navigate('Notifications')}
+        onRightPress={() => (navigation as any).navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />
       <View style={styles.container}>
-        {/* <Text style={styles.title}>Transaction Report</Text> */}
-
+        {loading ? (
+          <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+        ) : (
         <FlatList
           data={data}
           keyExtractor={(_, i) => i.toString()}
@@ -86,6 +79,7 @@ const TransactionReportScreen = () => {
             </View>
           )}
         />
+        )}
       </View>
     </>
   );

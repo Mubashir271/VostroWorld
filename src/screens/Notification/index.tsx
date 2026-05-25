@@ -8,7 +8,9 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 
 import AppHeader from '../../components/AppHeader'
 import { BackSVG } from '../../assets/svg'
-import api from '../../api/service'
+import { useSelector } from 'react-redux'
+import { RootState } from '../../redux/store'
+import { getAnnouncements } from '../../api/employeeDashboard'
 
 type RootStackParamList = {
     Settings: undefined
@@ -30,31 +32,43 @@ type NotificationItem = {
 const TABS = ['All', 'Unread', 'Approvals', 'Alerts', 'Message'] as const
 type Tab = typeof TABS[number]
 
+// ── Priority → colour mapping ──────────────────────────────────────────────
+const PRIORITY_COLOR: Record<string, string> = {
+    High:   '#E63946',
+    Medium: '#f59e0b',
+    Low:    '#378ADD',
+}
+
 // ── Map API announcement → NotificationItem ────────────────────────────────
 const mapAnnouncement = (a: {
     id: number
     title: string
-    description: string
+    description?: string
+    body?: string
+    priority?: string
     created_at: string
-}): NotificationItem => ({
-    id: String(a.id),
-    title: a.title,
-    description: a.description,
-    type: 'announcement',
-    timestamp: new Date(a.created_at).toLocaleDateString('en-PK', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    }),
-    actionLabel: 'View',
-    borderColor: '#378ADD',
-    iconBg: '#378ADD',
-    icon: '📢',
-    read: false,
-})
+}): NotificationItem => {
+    const color = PRIORITY_COLOR[a.priority ?? ''] ?? '#378ADD'
+    return {
+        id: String(a.id),
+        title: a.title,
+        description: a.description ?? a.body ?? '',
+        type: 'announcement',
+        timestamp: new Date(a.created_at).toLocaleDateString('en-PK', {
+            day: 'numeric', month: 'short', year: 'numeric',
+        }),
+        actionLabel: 'View',
+        borderColor: color,
+        iconBg: color,
+        icon: a.priority === 'High' ? '🔔' : a.priority === 'Medium' ? '📣' : '📢',
+        read: false,
+    }
+}
 
 const NotificationScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp<RootStackParamList>>()
+    const { profile } = useSelector((state: RootState) => state.user)
+    const branchId = profile?.branchId ?? 1
 
     // ── Local state ────────────────────────────────────────────────────────
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -68,29 +82,32 @@ const NotificationScreen: React.FC = () => {
         setLoading(true)
         setError(null)
         try {
-            const res = await api.get('/v1/announcements/index')
-            console.log("NOTIFICATIONS: ", res)
+            const res = await getAnnouncements({
+                branch_id: branchId,
+                active_only: 1,
+                limit: 50,
+            })
             // "No record found" → empty list, not an error
-            if (!res.data.status) {
-                if (res.data.message === 'No record found') {
-                    setNotifications([])
-                } else {
-                    setError(
-                        typeof res.data.message === 'string'
-                            ? res.data.message
-                            : 'Something went wrong'
-                    )
+            if (!res.status) {
+                setNotifications(res.message === 'No record found' ? [] : [])
+                if (res.message && res.message !== 'No record found') {
+                    setError(res.message)
                 }
                 return
             }
-            setNotifications(res.data.data.map(mapAnnouncement))
+            const rows = res.data?.data ?? (Array.isArray(res.data) ? res.data : [])
+            setNotifications(rows.map(mapAnnouncement))
         } catch (err: any) {
+            const data = err?.response?.data
+            if (err?.response?.status === 404 && data?.message === 'No record found') {
+                setNotifications([])
+                return
+            }
             setError(err?.message ?? 'Network error')
-            console.log(err)
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [branchId])
 
     useEffect(() => {
         fetchAnnouncements()

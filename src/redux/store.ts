@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import userReducer from './slices/userSlice'; // your existing user reducer
 import packageReducer from './slices/package';
 import notificationReducer from './slices/notificationSlice'
+import trainerReducer from './slices/trainerSlice'
 import { persistStore, persistReducer } from 'redux-persist';
 
 // Persist user data
@@ -16,6 +17,7 @@ export const store = configureStore({
     snackbar: snackbarReducer,
     packages: packageReducer,
     notifications: notificationReducer,
+    trainer: trainerReducer,
   },
 });
 

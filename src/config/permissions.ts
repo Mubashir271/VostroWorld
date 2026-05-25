@@ -12,15 +12,18 @@ export const ROLES = {
 
 export const TRAINER_ALLOWED_MENUS = [
   'Dashboard',
+  'My Clients',
+  'Attendance',
+  'My Commission',
+  'Roster',
   'Fitness',
-//   'HR Management', // Leave + Loan only — filtered further below
-//   'Packages'
+  'HR Management',
 ];
 
 // Within HR Management, trainers can only see these children
 export const TRAINER_ALLOWED_HR_CHILDREN = [
   'Leave Applications',
-  'Loan Management',
+  // 'Loan Management',
 ];
 
 // Stack screen names that trainers are allowed to navigate to
@@ -43,6 +46,18 @@ export const TRAINER_ALLOWED_SCREENS = [
   'Notifications',
   'Account',
   // 'NewPackage',
+];
+
+// Top-level menu items hidden from admin (trainer-only sections)
+export const ADMIN_HIDDEN_MENUS = [
+  'My Clients',
+  'My Commission',
+  'Roster',
+];
+
+// Children hidden from admin inside their parent section
+export const ADMIN_HIDDEN_FITNESS_CHILDREN = [
+  'Session History',
 ];
 
 export const isAdmin = (role?: string | null) => role === ROLES.ADMIN;

@@ -133,8 +133,8 @@ export default function DashboardScreen() {
                 attendance_percentage:
                     res?.totalStaff > 0
                         ? Math.round(
-                              (res?.presentStaff / res?.totalStaff) * 100
-                          )
+                            (res?.presentStaff / res?.totalStaff) * 100
+                        )
                         : 0,
 
                 present_members: res?.presentStaff || 0,
@@ -142,12 +142,12 @@ export default function DashboardScreen() {
                 gym_capacity:
                     res?.totalStaff > 0
                         ? Math.round(
-                              ((res?.morning_SevnToTwlv +
-                                  res?.after_twlvTofive +
-                                  res?.even_fiveToeleven) /
-                                  res?.totalStaff) *
-                                  100
-                          )
+                            ((res?.morning_SevnToTwlv +
+                                res?.after_twlvTofive +
+                                res?.even_fiveToeleven) /
+                                res?.totalStaff) *
+                            100
+                        )
                         : 0,
 
                 current_members:
@@ -193,10 +193,10 @@ export default function DashboardScreen() {
     }, [branchId]);
 
     const avatarSource = appImage
-      ? { uri: appImage }
-      : profile?.image
-    ? { uri: profile.image }
-    : require('../../assets/img/userIcon.png');
+        ? { uri: appImage }
+        : profile?.image
+            ? { uri: profile.image }
+            : require('../../assets/img/userIcon.png');
 
     const headerTitle = isAdmin(role) ? 'Vostro Admin' : 'Vostro Employee';
 
@@ -210,7 +210,7 @@ export default function DashboardScreen() {
                 onRightPress={() => navigation.navigate('Notifications')}
                 backgroundColor="#FFE5E5"
             />
-            
+
             {loading ? (
                 <View
                     style={{
@@ -223,11 +223,11 @@ export default function DashboardScreen() {
                 </View>
             ) : (
                 <View style={styles.container}>
-                    <ScrollView 
+                    <ScrollView
                         showsVerticalScrollIndicator={false}
                         refreshControl={
-                            <RefreshControl 
-                                refreshing={refreshing} 
+                            <RefreshControl
+                                refreshing={refreshing}
                                 onRefresh={onRefresh}
                                 tintColor="#E10600"
                             />
@@ -299,25 +299,33 @@ export default function DashboardScreen() {
 
                         {/* Quick Actions Grid */}
                         <View style={styles.quickActionsGrid}>
-                            <QuickAction 
-                                icon={NewRegistration} 
+                            <QuickAction
+                                icon={NewRegistration}
                                 label="New Member Registrations"
                                 onPress={() => navigation.navigate('Members')}
                             />
-                            <QuickAction 
-                                icon={Package} 
+                            <QuickAction
+                                icon={Package}
                                 label="Create Package"
                                 onPress={() => navigation.navigate('Package')}
                             />
-                            <QuickAction icon={Attendance} label="View Attendance" />
-                            <QuickAction 
-                                icon={ViewReports} 
+                            <QuickAction
+                                icon={Attendance}
+                                label="View Attendance"
+                                onPress={() => navigation.navigate('AttendanceScreen')}
+                            />
+                            <QuickAction
+                                icon={ViewReports}
                                 label="View Reports"
                                 onPress={() => navigation.navigate('Reports')}
                             />
-                            <QuickAction icon={ManageStaff} label="Manage Staff" />
                             <QuickAction 
-                                icon={Finance} 
+                            icon={ManageStaff} 
+                            label="Manage Staff" 
+                            onPress={() => navigation.navigate('TrainerHome')}
+                            />
+                            <QuickAction
+                                icon={Finance}
                                 label="View Finance"
                                 onPress={() => navigation.navigate('Reports')}
                             />

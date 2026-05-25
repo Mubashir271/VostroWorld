@@ -290,6 +290,12 @@ import AccessDenied from '../../screens/AccessDenied';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 import { isAdmin } from '../../config/permissions';
+import AttendanceScreen from '../../screens/Attendance';
+import MyClientsScreen from '../../screens/MyClientsScreen';
+import TrainerCommission from '../../screens/trainer/TrainerCommission';
+import TrainerHistory from '../../screens/trainer/TrainerHistory';
+import TrainerRoster from '../../screens/trainer/TrainerRoster';
+import SessionAttendanceReport from '../../screens/trainer/SessionAttendanceReport';
 
 const Stack = createStackNavigator();
 
@@ -354,6 +360,13 @@ const AppNavigator = () => {
                 <Stack.Screen name="LoanManagement" component={LoanManagement} />
                 <Stack.Screen name="ApplyLoan" component={ApplyLoan} />
                 <Stack.Screen name="LoanDetail" component={LoanDetail} />
+                <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
+                <Stack.Screen name="TrainerHome" component={MyClientsScreen} />
+                <Stack.Screen name="TrainerCommission" component={TrainerCommission} />
+                <Stack.Screen name="TrainerHistory" component={TrainerHistory} />
+                <Stack.Screen name="TrainerRoster" component={TrainerRoster} />
+                <Stack.Screen name="SessionAttendanceReport" component={SessionAttendanceReport} />
+
 
                 {/* ── Admin-only screens → show AccessDenied for non-admins ── */}
                 <Stack.Screen name="NewMemberRegistration" component={protect(NewMemberRegistrationScreen)} />

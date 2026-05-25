@@ -32,8 +32,6 @@ const CafeReportScreen = () => {
     setLoading(false);
   };
 
-  if (loading) return <ActivityIndicator />;
-
   return (
     <>
       <AppHeader
@@ -41,12 +39,13 @@ const CafeReportScreen = () => {
         leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
         rightIcon={<NotificationSVG width={24} height={24} />}
         onLeftPress={() => navigation.goBack()}
-        onRightPress={() => navigation.navigate('Notifications')}
+        onRightPress={() => (navigation as any).navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />
       <ScrollView style={styles.container}>
-        {/* <Text style={styles.title}>Cafe Report</Text> */}
-        {data.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+        ) : data.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>☕</Text>
             <Text style={styles.emptyTitle}>Coming Soon</Text>

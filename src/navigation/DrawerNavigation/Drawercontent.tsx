@@ -523,117 +523,144 @@ import {
   isAdmin,
   TRAINER_ALLOWED_MENUS,
   TRAINER_ALLOWED_HR_CHILDREN,
+  ADMIN_HIDDEN_MENUS,
+  ADMIN_HIDDEN_FITNESS_CHILDREN,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
 
+// const MENU = [
+//   { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
+//   {
+//     title: 'Members',
+//     icon: 'account-group',
+//     children: [
+//       { title: 'All Members',       screen: 'AllMembers' },
+//       { title: 'New Registration',  screen: 'NewRegistration' },
+//       { title: 'Member Search',     screen: 'MemberSearch' },
+//       { title: 'Member Balance',    screen: 'MemberBalance' },
+//     ],
+//   },
+//   {
+//     title: 'Packages',
+//     icon: 'package-variant',
+//     children: [
+//       { title: 'Manage Packages', screen: 'ManagePackages' },
+//       { title: 'Pricing',         screen: 'Pricing' },
+//     ],
+//   },
+//   {
+//     title: 'Staff Management',
+//     icon: 'account-tie',
+//     children: [
+//       { title: 'Users / Staff',         screen: 'UsersStaff' },
+//       { title: 'Roles and Permissions', screen: 'RolesPermissions' },
+//       { title: 'Departments',           screen: 'Departments' },
+//       { title: 'Schedule / Timing',     screen: 'StaffTiming' },
+//     ],
+//   },
+//   {
+//     title: 'Fitness',
+//     icon: 'dumbbell',
+//     children: [
+//           {
+//       title: 'Fitness Plans',
+//       children: [
+//         { title: 'View Plans', screen: 'ViewFitnessPlans' },
+//         { title: 'Add Plans', screen: 'AddFitnessPlan' },
+//         { title: 'Manage Exercises', screen: 'ManageExercises' },
+//       ],
+//     },
+//       { title: 'Classes/Sessions',   screen: 'Classes' },
+//       { title: 'Trainer Management', screen: 'TrainerManagement' },
+//       { title: 'Progress Tracking',  screen: 'ProgressTracking' },
+//     ],
+//   },
+//   {
+//     title: 'Finance',
+//     icon: 'finance',
+//     children: [
+//       { title: 'Transactions', screen: 'Transactions' },
+//       { title: 'Reports',      screen: 'Reports' },
+//       { title: 'Expenses',     screen: 'Expenses' },
+//       { title: 'Approvals',    screen: 'Approvals' },
+//       { title: 'Bank Accounts',screen: 'BankAccounts' },
+//     ],
+//   },
+//   {
+//     title: 'HR Management',
+//     icon: 'briefcase-account',
+//     children: [
+//       { title: 'Leave Applications', screen: 'LeaveApplications' },
+//       { title: 'Loan Management',    screen: 'LoanManagement' },
+//       { title: 'Salary Management',  screen: 'SalaryManagement' },
+//       { title: 'Promotions',         screen: 'Promotions' },
+//     ],
+//   },
+//   {
+//     title: 'Cafe Operations',
+//     icon: 'coffee',
+//     children: [
+//       { title: 'Orders',        screen: 'Orders' },
+//       { title: 'Inventory',     screen: 'Inventory' },
+//       { title: 'Cafe Accounts', screen: 'CafeAccounts' },
+//       { title: 'Cafe Reports',  screen: 'DailyReports' },
+//     ],
+//   },
+//   {
+//     title: 'Settings',
+//     icon: 'cog',
+//     children: [
+//       { title: 'Branches',        screen: 'Branches' },
+//       { title: 'App Settings',    screen: 'AppSettings' },
+//       { title: 'User Management', screen: 'UserManagement' },
+//       { title: 'Roles',           screen: 'Roles' },
+//       { title: 'Notifications',   screen: 'Notifications' },
+//     ],
+//   },
+// ];
 const MENU = [
-  { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
-  {
-    title: 'Members',
-    icon: 'account-group',
-    children: [
-      { title: 'All Members',       screen: 'AllMembers' },
-      { title: 'New Registration',  screen: 'NewRegistration' },
-      { title: 'Member Search',     screen: 'MemberSearch' },
-      { title: 'Member Balance',    screen: 'MemberBalance' },
-    ],
-  },
-  {
-    title: 'Packages',
-    icon: 'package-variant',
-    children: [
-      { title: 'Manage Packages', screen: 'ManagePackages' },
-      { title: 'Pricing',         screen: 'Pricing' },
-    ],
-  },
-  {
-    title: 'Staff Management',
-    icon: 'account-tie',
-    children: [
-      { title: 'Users / Staff',         screen: 'UsersStaff' },
-      { title: 'Roles and Permissions', screen: 'RolesPermissions' },
-      { title: 'Departments',           screen: 'Departments' },
-      { title: 'Schedule / Timing',     screen: 'StaffTiming' },
-    ],
-  },
+  { title: 'Dashboard',     icon: 'view-dashboard',   screen: 'Dashboard' },
+  { title: 'My Clients',    icon: 'account-multiple', screen: 'TrainerHome' },
+  { title: 'Attendance',    icon: 'calendar-check',   screen: 'AttendanceScreen' },
+  { title: 'My Commission', icon: 'cash-multiple',    screen: 'TrainerCommission' },
+  { title: 'Roster',        icon: 'calendar-text',    screen: 'TrainerRoster' },
+
   {
     title: 'Fitness',
     icon: 'dumbbell',
     children: [
-          {
-      title: 'Fitness Plans',
-      children: [
-        { title: 'View Plans', screen: 'ViewFitnessPlans' },
-        { title: 'Add Plans', screen: 'AddFitnessPlan' },
-        { title: 'Manage Exercises', screen: 'ManageExercises' },
-      ],
-    },
-      { title: 'Classes/Sessions',   screen: 'Classes' },
-      { title: 'Trainer Management', screen: 'TrainerManagement' },
-      { title: 'Progress Tracking',  screen: 'ProgressTracking' },
+      { title: 'Session Attendance Report', screen: 'SessionAttendanceReport' },
+      { title: 'Session History',           screen: 'TrainerHistory' },
     ],
   },
-  {
-    title: 'Finance',
-    icon: 'finance',
-    children: [
-      { title: 'Transactions', screen: 'Transactions' },
-      { title: 'Reports',      screen: 'Reports' },
-      { title: 'Expenses',     screen: 'Expenses' },
-      { title: 'Approvals',    screen: 'Approvals' },
-      { title: 'Bank Accounts',screen: 'BankAccounts' },
-    ],
-  },
+
   {
     title: 'HR Management',
     icon: 'briefcase-account',
     children: [
       { title: 'Leave Applications', screen: 'LeaveApplications' },
-      { title: 'Loan Management',    screen: 'LoanManagement' },
-      { title: 'Salary Management',  screen: 'SalaryManagement' },
-      { title: 'Promotions',         screen: 'Promotions' },
     ],
   },
-  {
-    title: 'Cafe Operations',
-    icon: 'coffee',
-    children: [
-      { title: 'Orders',        screen: 'Orders' },
-      { title: 'Inventory',     screen: 'Inventory' },
-      { title: 'Cafe Accounts', screen: 'CafeAccounts' },
-      { title: 'Cafe Reports',  screen: 'DailyReports' },
-    ],
-  },
-  {
-    title: 'Settings',
-    icon: 'cog',
-    children: [
-      { title: 'Branches',        screen: 'Branches' },
-      { title: 'App Settings',    screen: 'AppSettings' },
-      { title: 'User Management', screen: 'UserManagement' },
-      { title: 'Roles',           screen: 'Roles' },
-      { title: 'Notifications',   screen: 'Notifications' },
-    ],
-  },
-];
-
+]
 // ─── Navigation helper ───────────────────────────────────────────────────────
 
+// ─── Navigation helper ───────────────────────────────────────────────────────
 const navigateTo = (navigation: any, screen: string) => {
   const bottomTabScreens: Record<string, string> = {
-    AllMembers:      'Members',
+    AllMembers: 'Members',
     NewRegistration: 'Members',
-    MemberSearch:    'Members',
-    MemberBalance:   'Members',
-    ManagePackages:  'Package',
-    Pricing:         'Package',
-    Dashboard:       'Home',
+    MemberSearch: 'Members',
+    MemberBalance: 'Members',
+    ManagePackages: 'Package',
+    Pricing: 'Package',
+    Dashboard: 'Home',
   };
 
   if (bottomTabScreens[screen]) {
     navigation.navigate('Main', { screen: bottomTabScreens[screen] });
   } else {
+    // Navigate directly — all screens are registered in AppNavigator
     navigation.navigate(screen);
   }
 
@@ -648,13 +675,26 @@ const filterMenuForRole = (
   menu: typeof MENU,
   userIsAdmin: boolean,
 ): typeof MENU => {
-  if (userIsAdmin) return menu;
+  if (userIsAdmin) {
+    return menu
+      .filter(item => !ADMIN_HIDDEN_MENUS.includes(item.title))
+      .map(item => {
+        if (item.title === 'Fitness' && item.children) {
+          return {
+            ...item,
+            children: item.children.filter(
+              c => !ADMIN_HIDDEN_FITNESS_CHILDREN.includes(c.title),
+            ),
+          };
+        }
+        return item;
+      });
+  }
 
   // Trainer / non-admin: keep only allowed sections
   return menu
     .filter(item => TRAINER_ALLOWED_MENUS.includes(item.title))
     .map(item => {
-      // Within HR Management, strip children trainer shouldn't see
       if (item.title === 'HR Management' && item.children) {
         return {
           ...item,
