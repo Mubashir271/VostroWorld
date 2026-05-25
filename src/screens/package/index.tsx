@@ -126,7 +126,8 @@ const PackageScreen: React.FC = () => {
   const fetchCategories = useCallback(async () => {
     try {
       const res = await getPackageCategories();
-      dispatch(setCategories(res?.data ?? []));
+      const cats = res?.data;
+      dispatch(setCategories(Array.isArray(cats) ? cats : []));
     } catch {}
   }, [dispatch]);
 
@@ -162,7 +163,7 @@ const PackageScreen: React.FC = () => {
 
   // ── Tab list ──
   const tabs = useMemo(
-    () => [{ code: 'all', tag: 'All' }, ...categories],
+    () => [{ code: 'all', tag: 'All' }, ...(Array.isArray(categories) ? categories : [])],
     [categories],
   );
 

@@ -296,6 +296,21 @@ import TrainerCommission from '../../screens/trainer/TrainerCommission';
 import TrainerHistory from '../../screens/trainer/TrainerHistory';
 import TrainerRoster from '../../screens/trainer/TrainerRoster';
 import SessionAttendanceReport from '../../screens/trainer/SessionAttendanceReport';
+import SalaryManagement from '../../screens/SalaryManagement';
+import MySalarySlip from '../../screens/MySalarySlip';
+import StaffLoans from '../../screens/StaffLoans';
+import StaffFinance from '../../screens/StaffFinance';
+
+// ── New Admin screens ─────────────────────────────────────────────────────────
+import ViewClients from '../../screens/Sales/ViewClients';
+import ViewFreezing from '../../screens/Sales/ViewFreezing';
+import ApprovalsScreen from '../../screens/Sales/Approvals';
+import HRDashboard from '../../screens/HR/HRDashboard';
+import ViewStaff from '../../screens/HR/ViewStaff';
+import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
+import Expenses from '../../screens/Finance/Expenses';
+import GXClasses from '../../screens/Fitness/GXClasses';
+import PTRoster from '../../screens/Fitness/PTRoster';
 
 const Stack = createStackNavigator();
 
@@ -366,6 +381,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="TrainerHistory" component={TrainerHistory} />
                 <Stack.Screen name="TrainerRoster" component={TrainerRoster} />
                 <Stack.Screen name="SessionAttendanceReport" component={SessionAttendanceReport} />
+                <Stack.Screen name="MySalarySlip" component={MySalarySlip} />
 
 
                 {/* ── Admin-only screens → show AccessDenied for non-admins ── */}
@@ -382,6 +398,20 @@ const AppNavigator = () => {
                 <Stack.Screen name="Orders" component={protect(Orders)} />
                 <Stack.Screen name="NewOrder" component={protect(NewOrder)} />
                 <Stack.Screen name="OrderDetail" component={protect(OrderDetail)} />
+                <Stack.Screen name="SalaryManagement" component={protect(SalaryManagement)} />
+                <Stack.Screen name="StaffLoans" component={protect(StaffLoans)} />
+                <Stack.Screen name="StaffFinance" component={protect(StaffFinance)} />
+
+                {/* ── New admin screens ── */}
+                <Stack.Screen name="ViewClients" component={protect(ViewClients)} />
+                <Stack.Screen name="ViewFreezing" component={protect(ViewFreezing)} />
+                <Stack.Screen name="ApprovalsScreen" component={protect(ApprovalsScreen)} />
+                <Stack.Screen name="HRDashboard" component={protect(HRDashboard)} />
+                <Stack.Screen name="ViewStaff" component={protect(ViewStaff)} />
+                <Stack.Screen name="FinanceDashboard" component={protect(FinanceDashboard)} />
+                <Stack.Screen name="Expenses" component={protect(Expenses)} />
+                <Stack.Screen name="GXClasses" component={protect(GXClasses)} />
+                <Stack.Screen name="PTRoster" component={protect(PTRoster)} />
             </Stack.Navigator>
         </View>
     );

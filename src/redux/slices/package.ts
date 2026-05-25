@@ -38,7 +38,7 @@ const packageSlice = createSlice({
   initialState,
   reducers: {
     setCategories: (state, action: PayloadAction<PackageCategory[]>) => {
-      state.categories = action.payload;
+      state.categories = Array.isArray(action.payload) ? action.payload : [];
     },
     clearCategories: (state) => {
       state.categories = [];

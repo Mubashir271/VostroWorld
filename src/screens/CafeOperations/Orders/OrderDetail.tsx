@@ -51,11 +51,11 @@ const OrderDetail = () => {
           </View>
 
           {/* Print Receipt Button */}
-          <View style={styles.buttonContainer}>
+          {/* <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.printButton}>
               <Text style={styles.printButtonText}>Print Receipt</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
 
         </ScrollView>
       </SafeAreaView>

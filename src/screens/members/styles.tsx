@@ -1,17 +1,22 @@
 import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F7F7', padding: 16 },
+  container: { flex: 1, backgroundColor: '#F7F7F7' },
 
   header: { fontSize: 20, fontWeight: '700', marginBottom: 10 },
 
   searchBox: {
     flexDirection: 'row',
     backgroundColor: '#FFF',
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 10,
-    alignItems: 'center'
-    // marginBottom: 10,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: '#EEE',
+    elevation: 1,
   },
 
   input: { marginLeft: 8, flex: 1 },
@@ -54,16 +59,15 @@ export const styles = StyleSheet.create({
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 10,
-    borderBottomWidth:1,
-    gap: '10%',
-    borderBottomColor: '#D9D9D9'
+    borderBottomWidth: 1,
+    borderBottomColor: '#D9D9D9',
   },
 
   packageBadge: {
     backgroundColor: '#E63946',
     paddingHorizontal: 8,
-    marginRight: 'auto',
     borderRadius: 10,
   },
 
@@ -82,10 +86,10 @@ export const styles = StyleSheet.create({
   loadMore: {
     borderWidth: 1,
     borderColor: '#E63946',
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 40,
     borderRadius: 10,
     backgroundColor: '#FEEEED',
-    paddingHorizontal: '15%',
     alignSelf: 'center',
     marginTop: 10,
   },
@@ -137,34 +141,32 @@ topTitle: {
   fontWeight: '700',
 },
 
-  // New / Updated styles for fixed horizontal filters
   filterScroll: {
-    // marginBottom: 8,           // space before "Reset Filters"
+    maxHeight: 48,
   },
 
   filterRow: {
-    flexDirection: 'row',      // important: row + no wrap
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 4,
-    flexWrap: 'wrap'
-    // No flexWrap here → prevents wrapping
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
   },
 
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 8,
-    marginRight: 10,           // spacing between chips
-    minWidth: 110,             // prevents shrinking too much on long text
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#E0E0E0',
+    gap: 4,
   },
 
   filterChipText: {
-    fontSize: 13.5,
+    fontSize: 12,
     color: '#444',
     fontWeight: '500',
   },
@@ -172,9 +174,10 @@ topTitle: {
 reset: {
   color: '#E63946',
   fontSize: 12,
-  fontWeight: 'bold',
+  fontWeight: '600',
   textAlign: 'right',
-  marginBottom: 10,
+  paddingHorizontal: 16,
+  paddingBottom: 6,
 },
 // Add these to your existing styles
 optionItem: {

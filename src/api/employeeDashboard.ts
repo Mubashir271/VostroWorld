@@ -95,6 +95,72 @@ export const getSalarySlips = async (params: {
   return res.data;
 };
 
+// All staff salary list (admin)
+export const getSalaryList = async (params: {
+  branch_id: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/salary', { params });
+  return res.data;
+};
+
+// Single employee salary slip (pass user_id to filter)
+export const getMySalarySlip = async (params: {
+  branch_id: number;
+  user_id: number;
+}) => {
+  const res = await api.get('/v1/salary', { params });
+  return res.data;
+};
+
+// ── 6.8 Staff Loans (admin list) ─────────────────────────────────────────────
+
+export const getStaffLoansList = async (params: {
+  branch_id: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/staff-loans/get', { params });
+  return res.data;
+};
+
+// ── 6.9 Staff Finance — Fines & Advances ─────────────────────────────────────
+
+export const getStaffFinanceList = async (params: {
+  branch_id: number;
+  category?: string; // 'Fine' | 'Advance' | 'Reward' | etc.
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/users-finance/get', { params });
+  return res.data;
+};
+
+// ── 6.10 Cafe Orders ─────────────────────────────────────────────────────────
+
+export const getCafeOrders = async (params: {
+  branch_id: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/orders/get', { params });
+  return res.data;
+};
+
+// ── 6.11 Members / Clients ───────────────────────────────────────────────────
+
+export const getClientsList = async (params: {
+  branch_id: number;
+  status?: string;
+  search?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/clients/get', { params });
+  return res.data;
+};
+
 // ── 6.5 Leaves ────────────────────────────────────────────────────────────────
 
 export const getLeaveQuota = async (params: {
@@ -275,5 +341,142 @@ export const getAnnouncements = async (params: {
   page?: number;
 }) => {
   const res = await api.get('/v1/announcements/index', { params });
+  return res.data;
+};
+
+// ── HR Dashboard ──────────────────────────────────────────────────────────────
+
+export const getHRDashboard = async (params: {
+  branch_id?: number;
+  date?: string;
+}) => {
+  const res = await api.get('/v1/hr/dashboard', { params });
+  return res.data;
+};
+
+export const getStaffList = async (params: {
+  branch_id: number;
+  department?: string;
+  designation?: string;
+  search?: string;
+  status?: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/staff/get', { params });
+  return res.data;
+};
+
+export const getStaffDetail = async (staffId: number, branch_id: number) => {
+  const res = await api.get(`/v1/staff/detail/${staffId}`, { params: { branch_id } });
+  return res.data;
+};
+
+// ── Finance ───────────────────────────────────────────────────────────────────
+
+export const getFinanceDashboard = async (params: {
+  branch_id: number;
+  filter?: 'today' | 'week' | 'month' | 'quarter';
+}) => {
+  const res = await api.get('/v1/finance/dashboard', { params });
+  return res.data;
+};
+
+export const getExpensesList = async (params: {
+  branch_id: number;
+  category?: string;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/expenses/get', { params });
+  return res.data;
+};
+
+export const addExpense = async (payload: {
+  branch_id: number;
+  category: string;
+  amount: number;
+  description?: string;
+  expense_date: string;
+}) => {
+  const res = await api.post('/v1/expenses/store', payload);
+  return res.data;
+};
+
+export const getCashInHand = async (params: {
+  branch_id: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/cash-in-hand/get', { params });
+  return res.data;
+};
+
+// ── Sales / Clients ───────────────────────────────────────────────────────────
+
+export const getFreezingList = async (params: {
+  branch_id: number;
+  status?: string;
+  search?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/freezing/get', { params });
+  return res.data;
+};
+
+export const getApprovalsList = async (params: {
+  branch_id: number;
+  status?: string;
+  type?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/approvals/get', { params });
+  return res.data;
+};
+
+export const updateApproval = async (id: number, payload: {
+  status: 'Approved' | 'Rejected';
+  note?: string;
+}) => {
+  const res = await api.put(`/v1/approvals/update/${id}`, payload);
+  return res.data;
+};
+
+// ── Fitness / GX ─────────────────────────────────────────────────────────────
+
+export const getGXClasses = async (params: {
+  branch_id: number;
+  trainer_id?: number;
+  slot?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/gx/classes/get', { params });
+  return res.data;
+};
+
+export const getGXBookings = async (params: {
+  branch_id: number;
+  class_id?: number;
+  status?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/gx/bookings/get', { params });
+  return res.data;
+};
+
+export const getPTRosterAdmin = async (params: {
+  branch_id: number;
+  trainer_id?: number;
+  package_status?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/fitness/commission-portal/trainer/roster', { params });
   return res.data;
 };

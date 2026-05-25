@@ -1,161 +1,265 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   FlatList,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  Linking,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import { styles } from './styles';
 import AppHeader from '../../components/AppHeader';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
+import { RootState } from '../../redux/store';
+import { getClientsList } from '../../api/employeeDashboard';
 
-const initialData = [
-  {
-    id: '1',
-    name: 'Ahmed Khan',
-    package: 'Gym Package',
-    expiry: '15 Jan 2026',
-    lastVisit: '2 days ago',
-    status: 'Active',
-    branch: 'DHA Phase 6',
-  },
-  {
-    id: '2',
-    name: 'Sarah Khan',
-    package: 'PT Package',
-    expiry: '15 Jan 2026',
-    lastVisit: '2 days ago',
-    status: 'Active',
-    branch: 'Gulberg',
-  },
-  {
-    id: '3',
-    name: 'Mark Wilson',
-    package: 'Guest Pass',
-    expiry: '15 Mar 2026',
-    lastVisit: '2 days ago',
-    status: 'Expired',
-    branch: 'DHA Phase 6',
-  },
-  {
-    id: '4',
-    name: 'Ali Hassan',
-    package: 'Gym Package',
-    expiry: '10 Apr 2026',
-    lastVisit: 'Today',
-    status: 'Active',
-    branch: 'Bahria Town',
-  },
-];
+interface Membership {
+  client_id?: number;
+  package_id?: number;
+  category?: string;
+  get_package_name?: { id: number; name: string };
+}
+
+interface Member {
+  id: number;
+  uid: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  gender: string;
+  image: string;
+  city: string;
+  status: string; // '1' = Active, '0' = Inactive
+  birthday: string;
+  available_balance: number;
+  branches_name: string;
+  membership_type: Membership[];
+}
+
+const membershipName = (m: Member) =>
+  m.membership_type?.[0]?.get_package_name?.name ?? 'No Membership';
+
+const memberStatus = (m: Member): 'Active' | 'Expired' | 'Inactive' => {
+  if (m.status === '1' || m.status === 'Active' || m.status === 'active') return 'Active';
+  if (m.status === '0' || m.status === 'Inactive' || m.status === 'inactive') return 'Inactive';
+  return 'Expired';
+};
+
+const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
+  Active:   { bg: '#E6F4EA', text: '#2E7D32' },
+  Expired:  { bg: '#FFEBEE', text: '#C62828' },
+  Inactive: { bg: '#F5F5F5', text: '#666' },
+};
 
 const MembersScreen = () => {
-  const [search, setSearch] = useState('');
-  const [members] = useState(initialData);
+  const navigation = useNavigation<any>();
+  const { profile } = useSelector((state: RootState) => state.user);
+  const branchId = profile?.branchId ?? 1;
 
-  // Filter States
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+
+  // Filter states
   const [status, setStatus] = useState('All');
   const [membership, setMembership] = useState('All');
-  const [dateRange, setDateRange] = useState('From - To');
-  const [branch, setBranch] = useState('All');
-
-  const navigation = useNavigation();
+  const [dateRange, setDateRange] = useState('All Time');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Bottom Sheet Refs
-  const statusRef = useRef(null);
-  const membershipRef = useRef(null);
-  const dateRef = useRef(null);
-  const branchRef = useRef(null);
+  const statusRef = useRef<any>(null);
+  const membershipRef = useRef<any>(null);
+  const dateRef = useRef<any>(null);
 
   const snapPoints = useMemo(() => ['42%'], []);
 
-  // Helper to close all sheets and open only the desired one
-  const openBottomSheet = useCallback((targetRef) => {
-    // Close all other sheets first
-    [statusRef, membershipRef, dateRef, branchRef].forEach((ref) => {
-      if (ref.current && ref !== targetRef) {
-        ref.current.close();
-      }
+  const openBottomSheet = useCallback((targetRef: React.RefObject<any>) => {
+    [statusRef, membershipRef, dateRef].forEach((ref) => {
+      if (ref.current && ref !== targetRef) ref.current.close();
     });
-
-    // Open the target sheet after a tiny delay (ensures smooth close → open)
-    setTimeout(() => {
-      targetRef.current?.expand();
-    }, 50);
+    setTimeout(() => targetRef.current?.expand(), 50);
   }, []);
 
-  // ==================== MAIN FILTERING LOGIC ====================
-  const filteredMembers = members.filter((m) => {
-    const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase());
+  const load = useCallback(async (isRefresh = false, nextPage = 1) => {
+    if (isRefresh) { setRefreshing(true); setPage(1); }
+    else if (nextPage === 1) setLoading(true);
+    else setLoadingMore(true);
 
-    const matchesMembership =
-      membership === 'All' ||
-      m.package.toLowerCase().includes(membership.toLowerCase());
+    try {
+      const res = await getClientsList({ branch_id: branchId, limit: 30, page: nextPage });
+      const rawList: Member[] = res?.data?.data ?? [];
+      const totalPages = res?.totalPages ?? 1;
 
-    const matchesStatus =
-      status === 'All' || m.status === status;
+      if (isRefresh || nextPage === 1) {
+        setMembers(rawList);
+      } else {
+        setMembers(prev => [...prev, ...rawList]);
+      }
+      setPage(nextPage);
+      setHasMore(nextPage < totalPages);
+    } catch {
+      // non-blocking
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, [branchId]);
 
-    const matchesBranch =
-      branch === 'All' || m.branch === branch;
-
-    // Date filter is placeholder for now (you can enhance later)
-    const matchesDate = true;
-
-    return matchesSearch && matchesMembership && matchesStatus && matchesBranch && matchesDate;
-  });
+  useEffect(() => { load(); }, [load]);
 
   const handleLoadMore = () => {
-    console.log('Load more clicked');
+    if (!loadingMore && hasMore) load(false, page + 1);
   };
 
   const resetFilters = () => {
     setStatus('All');
     setMembership('All');
-    setDateRange('From - To');
-    setBranch('All');
+    setDateRange('All Time');
     setSearch('');
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.name}>{item.name}</Text>
-          <View style={styles.packageBadge}>
-            <Text style={styles.packageText}>{item.package}</Text>
+  // Derive unique filter options from loaded members
+  const statusOptions = useMemo(() => {
+    const seen = new Set(members.map(m => memberStatus(m)));
+    return ['All', ...Array.from(seen)];
+  }, [members]);
+
+  const membershipOptions = useMemo(() => {
+    const seen = new Set(
+      members
+        .map(m => membershipName(m))
+        .filter(n => n !== 'No Membership'),
+    );
+    return ['All', ...Array.from(seen)];
+  }, [members]);
+
+  // Client-side filtering on loaded data
+  const filteredMembers = useMemo(() => {
+    return members.filter((m) => {
+      const fullName = `${m.first_name} ${m.last_name}`.toLowerCase();
+      const matchSearch = !search ||
+        fullName.includes(search.toLowerCase()) ||
+        m.uid?.toLowerCase().includes(search.toLowerCase()) ||
+        m.phone?.includes(search);
+
+      const matchStatus = status === 'All' || memberStatus(m) === status;
+
+      const matchMembership =
+        membership === 'All' ||
+        membershipName(m).toLowerCase().includes(membership.toLowerCase());
+
+      return matchSearch && matchStatus && matchMembership;
+    });
+  }, [members, search, status, membership]);
+
+  const callPhone = (phone: string) => {
+    const url = `tel:${phone}`;
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) Linking.openURL(url);
+      else Alert.alert('Error', 'Phone calls are not supported on this device.');
+    });
+  };
+
+  const openWhatsApp = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    const url = `whatsapp://send?phone=${cleaned}`;
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) Linking.openURL(url);
+      else Alert.alert('WhatsApp Not Found', 'WhatsApp is not installed on this device.');
+    });
+  };
+
+  const renderItem = ({ item }: { item: Member }) => {
+    const ms = memberStatus(item);
+    const badge = STATUS_BADGE[ms] ?? STATUS_BADGE.Expired;
+    const fullName = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim();
+    const initial = (item.first_name?.[0] ?? '?').toUpperCase();
+
+    return (
+      <View style={cardStyles.card}>
+        {/* Top row: avatar + name/info + badge */}
+        <View style={cardStyles.topRow}>
+          <View style={cardStyles.avatar}>
+            <Text style={cardStyles.avatarText}>{initial}</Text>
+          </View>
+
+          <View style={cardStyles.infoCol}>
+            <Text style={cardStyles.name} numberOfLines={1}>{fullName}</Text>
+            <Text style={cardStyles.membership} numberOfLines={1}>
+              {membershipName(item)}
+            </Text>
+            <Text style={cardStyles.meta} numberOfLines={1}>
+              {[item.uid, item.branches_name, item.gender].filter(Boolean).join('  ·  ')}
+            </Text>
+          </View>
+
+          <View style={[cardStyles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[cardStyles.badgeText, { color: badge.text }]}>{ms}</Text>
           </View>
         </View>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-          <View style={{flexDirection: 'column'}}>
-        <Text style={styles.info}>• Expires: {item.expiry}</Text>
-        <Text style={styles.info}>• Last visit: {item.lastVisit}</Text>
-      </View>
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.iconBtn}>
-          <Icon name="phone" size={16} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn}>
-          <Icon name="whatsapp" size={16} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn}>
-          <Icon name="eye" size={16} color="#FFFFFF" />
-        </TouchableOpacity>
+
+        {/* Divider */}
+        <View style={cardStyles.divider} />
+
+        {/* Bottom row: phone info + action buttons */}
+        <View style={cardStyles.bottomRow}>
+          {item.phone ? (
+            <Text style={cardStyles.phone} numberOfLines={1}>
+              <Icon name="phone-outline" size={12} color="#888" /> {item.phone}
+            </Text>
+          ) : (
+            <Text style={cardStyles.phone}>No phone on file</Text>
+          )}
+
+          <View style={cardStyles.actions}>
+            <TouchableOpacity
+              style={cardStyles.iconBtn}
+              onPress={() => item.phone && callPhone(item.phone)}
+              disabled={!item.phone}
+            >
+              <Icon name="phone" size={15} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[cardStyles.iconBtn, { backgroundColor: '#25D366' }]}
+              onPress={() => item.phone && openWhatsApp(item.phone)}
+              disabled={!item.phone}
+            >
+              <Icon name="whatsapp" size={15} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[cardStyles.iconBtn, { backgroundColor: '#555' }]}>
+              <Icon name="eye-outline" size={15} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-      </View>
-    </View>
-  );
+    );
+  };
 
-  const FilterChip = ({ label, value, onPress }) => (
+  const FilterChip = ({
+    label,
+    value,
+    onPress,
+  }: {
+    label: string;
+    value: string;
+    onPress: () => void;
+  }) => (
     <TouchableOpacity style={styles.filterChip} onPress={onPress}>
       <Text style={styles.filterChipText}>
         {label}: {value}
@@ -175,16 +279,15 @@ const MembersScreen = () => {
         backgroundColor="#FFE5E5"
       />
       <View style={styles.container}>
-
-
         {/* Search */}
         <View style={styles.searchBox}>
           <Icon name="magnify" size={20} color="#999" />
           <TextInput
-            placeholder="Search members by name or ID"
+            placeholder="Search by name, UID or phone"
             value={search}
             onChangeText={setSearch}
             style={styles.input}
+            placeholderTextColor="#999"
           />
         </View>
 
@@ -210,11 +313,6 @@ const MembersScreen = () => {
             value={dateRange}
             onPress={() => openBottomSheet(dateRef)}
           />
-          <FilterChip
-            label="Branch"
-            value={branch}
-            onPress={() => openBottomSheet(branchRef)}
-          />
         </ScrollView>
 
         <TouchableOpacity onPress={resetFilters}>
@@ -222,45 +320,83 @@ const MembersScreen = () => {
         </TouchableOpacity>
 
         {/* Members List */}
-        <FlatList
-          data={filteredMembers}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 80 }}
-          ListFooterComponent={
-            <TouchableOpacity style={styles.loadMore} onPress={handleLoadMore}>
-              <Text style={styles.loadMoreText}>Load more</Text>
-            </TouchableOpacity>
-          }
-          ListEmptyComponent={
-            <View style={{ padding: 40, alignItems: 'center' }}>
-              <Text style={{ color: '#999', fontSize: 16 }}>No members found</Text>
-            </View>
-          }
-        />
+        {loading ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#E63946" />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredMembers}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={renderItem}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => load(true)}
+                colors={['#E63946']}
+                tintColor="#E63946"
+              />
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator color="#E63946" style={{ marginVertical: 16 }} />
+              ) : hasMore ? null : (
+                <Text style={{ textAlign: 'center', color: '#999', padding: 16, fontSize: 12 }}>
+                  All {members.length} members loaded
+                </Text>
+              )
+            }
+            ListEmptyComponent={
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Icon name="account-off-outline" size={48} color="#ccc" />
+                <Text style={{ color: '#999', fontSize: 16, marginTop: 12 }}>
+                  No members found
+                </Text>
+              </View>
+            }
+          />
+        )}
 
         {/* FAB */}
-        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('NewMemberRegistration')}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate('NewMemberRegistration')}
+        >
           <Icon name="plus" size={28} color="#FFF" />
         </TouchableOpacity>
 
-        {/* ====================== BOTTOM SHEETS ====================== */}
-
         {/* Status Bottom Sheet */}
-        <BottomSheet ref={statusRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
+        <BottomSheet
+          ref={statusRef}
+          index={-1}
+          snapPoints={snapPoints}
+          enablePanDownToClose
+        >
           <BottomSheetView style={styles.sheetContent}>
             <Text style={styles.sheetTitle}>Status</Text>
-            {['All', 'Active', 'Expired'].map((option) => (
+            {statusOptions.map((option) => (
               <TouchableOpacity
                 key={option}
-                style={[styles.optionItem, status === option && styles.optionSelected]}
+                style={[
+                  styles.optionItem,
+                  status === option && styles.optionSelected,
+                ]}
                 onPress={() => {
                   setStatus(option);
                   statusRef.current?.close();
                 }}
               >
-                <Text style={status === option ? styles.optionTextSelected : styles.optionText}>
+                <Text
+                  style={
+                    status === option
+                      ? styles.optionTextSelected
+                      : styles.optionText
+                  }
+                >
                   {option}
                 </Text>
               </TouchableOpacity>
@@ -269,19 +405,33 @@ const MembersScreen = () => {
         </BottomSheet>
 
         {/* Membership Bottom Sheet */}
-        <BottomSheet ref={membershipRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
+        <BottomSheet
+          ref={membershipRef}
+          index={-1}
+          snapPoints={snapPoints}
+          enablePanDownToClose
+        >
           <BottomSheetView style={styles.sheetContent}>
             <Text style={styles.sheetTitle}>Membership</Text>
-            {['All', 'Gym', 'PT', 'Guest Pass'].map((option) => (
+            {membershipOptions.map((option) => (
               <TouchableOpacity
                 key={option}
-                style={[styles.optionItem, membership === option && styles.optionSelected]}
+                style={[
+                  styles.optionItem,
+                  membership === option && styles.optionSelected,
+                ]}
                 onPress={() => {
                   setMembership(option);
                   membershipRef.current?.close();
                 }}
               >
-                <Text style={membership === option ? styles.optionTextSelected : styles.optionText}>
+                <Text
+                  style={
+                    membership === option
+                      ? styles.optionTextSelected
+                      : styles.optionText
+                  }
+                >
                   {option}
                 </Text>
               </TouchableOpacity>
@@ -289,49 +439,135 @@ const MembersScreen = () => {
           </BottomSheetView>
         </BottomSheet>
 
-        {/* Date & Branch Bottom Sheets (same as before) */}
-        <BottomSheet ref={dateRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
+        {/* Date Bottom Sheet */}
+        <BottomSheet
+          ref={dateRef}
+          index={-1}
+          snapPoints={snapPoints}
+          enablePanDownToClose
+        >
           <BottomSheetView style={styles.sheetContent}>
             <Text style={styles.sheetTitle}>Date Range</Text>
-            {['From - To', 'Last 7 Days', 'Last 30 Days', 'This Month'].map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[styles.optionItem, dateRange === option && styles.optionSelected]}
-                onPress={() => {
-                  setDateRange(option);
-                  dateRef.current?.close();
-                }}
-              >
-                <Text style={dateRange === option ? styles.optionTextSelected : styles.optionText}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </BottomSheetView>
-        </BottomSheet>
-
-        <BottomSheet ref={branchRef} index={-1} snapPoints={snapPoints} enablePanDownToClose>
-          <BottomSheetView style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Branch</Text>
-            {['All', 'DHA Phase 6', 'Gulberg', 'Bahria Town', 'Model Town'].map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[styles.optionItem, branch === option && styles.optionSelected]}
-                onPress={() => {
-                  setBranch(option);
-                  branchRef.current?.close();
-                }}
-              >
-                <Text style={branch === option ? styles.optionTextSelected : styles.optionText}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {['All Time', 'Last 7 Days', 'Last 30 Days', 'This Month'].map(
+              (option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.optionItem,
+                    dateRange === option && styles.optionSelected,
+                  ]}
+                  onPress={() => {
+                    setDateRange(option);
+                    dateRef.current?.close();
+                  }}
+                >
+                  <Text
+                    style={
+                      dateRange === option
+                        ? styles.optionTextSelected
+                        : styles.optionText
+                    }
+                  >
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ),
+            )}
           </BottomSheetView>
         </BottomSheet>
       </View>
     </>
   );
 };
+
+const cardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    marginBottom: 10,
+    padding: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E63946',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  avatarText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  infoCol: {
+    flex: 1,
+    marginRight: 8,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  membership: {
+    fontSize: 12,
+    color: '#E63946',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  meta: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginVertical: 10,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  phone: {
+    fontSize: 12,
+    color: '#666',
+    flex: 1,
+    marginRight: 8,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconBtn: {
+    backgroundColor: '#E63946',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default MembersScreen;

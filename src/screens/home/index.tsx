@@ -238,7 +238,7 @@ export default function DashboardScreen() {
 
                         <ProfileHeader
                             name={fullName}
-                            role={role || 'Staff'}
+                            role={firstName || 'Staff'}
                             branch={branchName || 'Main Branch'}
                             editIcon={Edit_fill}
                             avatar={avatarSource}

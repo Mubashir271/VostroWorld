@@ -52,7 +52,8 @@ interface UserProfile {
 interface UserState {
     token: string | null;
     appImage: string | null;
-    autoBackup: boolean;           // ← added
+    autoBackup: boolean;
+    biometricEnabled: boolean;
     profile: UserProfile | null;
     registrationData: {
         firstName: string;
@@ -78,6 +79,7 @@ const initialState: UserState = {
     token: null,
     appImage: null,
     autoBackup: true,
+    biometricEnabled: false,
     profile: null,
     registrationData: {
         firstName: '',
@@ -161,6 +163,10 @@ const userSlice = createSlice({
         logoutUser: (state) => {
             state.token = null;
             state.profile = null;
+            state.biometricEnabled = false;
+        },
+        setBiometricEnabled: (state, action: PayloadAction<boolean>) => {
+            state.biometricEnabled = action.payload;
         },
         updateRegistrationData: (state, action) => {
             state.registrationData = {
@@ -190,6 +196,7 @@ const userSlice = createSlice({
 export const {
     setUser,
     logoutUser,
+    setBiometricEnabled,
     updateRegistrationData,
     clearRegistrationData,
     updateAppImage,

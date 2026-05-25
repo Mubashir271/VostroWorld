@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -10,12 +10,20 @@ import {
     Image,
     ActivityIndicator,
     ScrollView,
+    Alert,
 } from 'react-native';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import CheckBox from '../../../components/Checkbox';
-import { useDispatch } from 'react-redux';
-import { setUser } from '../../../redux/slices/userSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, setBiometricEnabled } from '../../../redux/slices/userSlice';
+import { RootState } from '../../../redux/store';
 import api from '../../../api/service';
+import {
+    checkBiometricAvailability,
+    promptBiometric,
+    saveCredentials,
+    getCredentials,
+} from '../../../utils/biometrics';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -23,57 +31,62 @@ const Login = () => {
     const [remember, setRemember] = useState(false);
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [biometricReady, setBiometricReady] = useState(false);
 
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const { showSnackbar } = useSnackbarStore();
+    const biometricEnabled = useSelector((state: RootState) => state.user.biometricEnabled);
 
-    const handleLogin = async () => {
-        if (!email.trim() || !password.trim()) {
-            showSnackbar('Please enter email and password');
-            return;
-        }
+    // Check on mount whether biometric login is set up and ready
+    useEffect(() => {
+        const init = async () => {
+            try {
+                const { available } = await checkBiometricAvailability();
+                if (!available || !biometricEnabled) return;
+                const creds = await getCredentials();
+                setBiometricReady(!!creds);
+            } catch {
+                // biometrics not available — ignore
+            }
+        };
+        init();
+    }, [biometricEnabled]);
 
+    const doLogin = async (loginEmail: string, loginPassword: string) => {
         setLoading(true);
-
         try {
             const response = await api.post('/v1/auth/app-login', {
-                email: email.trim(),
-                password: password.trim(),
+                email: loginEmail.trim(),
+                password: loginPassword.trim(),
             });
 
-            // Full API response: { access_token, token_type, expires_in, user: { ... } }
             const { access_token, user } = response.data;
-
             if (!access_token) {
                 showSnackbar('Authentication failed: no token received.');
                 return;
             }
 
-            // Save complete token + full user object to Redux
-            dispatch(setUser({
-                token: access_token,
-                user, // entire user object from API saved as-is
-            }));
-
+            dispatch(setUser({ token: access_token, user }));
             showSnackbar('Login successful!');
             setTimeout(() => {
-                (navigation as any).replace('Verification');
+                (navigation as any).replace('Drawer');
             }, 500);
 
+            return true; // success
         } catch (error: any) {
             if (error.response) {
                 const { status, data } = error.response;
                 if (status === 401) {
                     showSnackbar('Invalid email or password.');
-                    return;
+                    return false;
                 }
                 if (status === 422 && data?.message) {
                     const msg = typeof data.message === 'object'
                         ? (Object.values(data.message).flat()[0] as string)
                         : data.message;
                     showSnackbar(msg || 'Validation error.');
-                    return;
+                    return false;
                 }
                 showSnackbar(data?.message || `Login failed (${status}).`);
             } else if (error.code === 'ECONNABORTED') {
@@ -81,8 +94,61 @@ const Login = () => {
             } else {
                 showSnackbar('Network error. Please check your connection.');
             }
+            return false;
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleLogin = async () => {
+        if (!email.trim() || !password.trim()) {
+            showSnackbar('Please enter email and password');
+            return;
+        }
+
+        const success = await doLogin(email, password);
+        if (!success) return;
+
+        // After first successful login, offer to enable biometric
+        try {
+            const { available } = await checkBiometricAvailability();
+            if (available && !biometricEnabled) {
+                Alert.alert(
+                    'Enable Biometric Login?',
+                    'Next time you can log in with your fingerprint or Face ID.',
+                    [
+                        { text: 'Skip', style: 'cancel' },
+                        {
+                            text: 'Enable',
+                            onPress: async () => {
+                                await saveCredentials(email.trim(), password.trim());
+                                dispatch(setBiometricEnabled(true));
+                            },
+                        },
+                    ],
+                );
+            }
+        } catch {
+            // biometrics check failed silently — don't block the login flow
+        }
+    };
+
+    const handleBiometricLogin = async () => {
+        if (!biometricReady) return;
+        try {
+            const { success } = await promptBiometric('Log in to Vostro');
+            if (!success) return;
+
+            const creds = await getCredentials();
+            if (!creds) {
+                showSnackbar('No saved credentials. Please log in manually.');
+                dispatch(setBiometricEnabled(false));
+                return;
+            }
+
+            await doLogin(creds.email, creds.password);
+        } catch {
+            showSnackbar('Biometric authentication failed. Please try again.');
         }
     };
 
@@ -199,12 +265,25 @@ const Login = () => {
                     </TouchableOpacity>
 
                     {/* Biometric Login */}
-                    <TouchableOpacity style={styles.biometricWrapper}>
+                    <TouchableOpacity
+                        style={[
+                            styles.biometricWrapper,
+                            !biometricReady && styles.biometricDisabled,
+                        ]}
+                        onPress={handleBiometricLogin}
+                        disabled={!biometricReady || loading}
+                        activeOpacity={biometricReady ? 0.7 : 1}
+                    >
                         <Image
                             source={require('../../../assets/icons/biomatric.png')}
-                            style={styles.fingerprintIcon}
+                            style={[
+                                styles.fingerprintIcon,
+                                !biometricReady && { opacity: 0.35 },
+                            ]}
                         />
-                        <Text style={styles.biometricText}>Biometric Login</Text>
+                        <Text style={[styles.biometricText, !biometricReady && { color: '#bbb' }]}>
+                            {biometricReady ? 'Biometric Login' : 'Biometric Login (not set up)'}
+                        </Text>
                     </TouchableOpacity>
                 </ScrollView>
             </View>
@@ -261,6 +340,7 @@ const styles = StyleSheet.create({
     loginBtnDisabled: { opacity: 0.7 },
     loginBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
     biometricWrapper: { marginTop: 40, alignItems: 'center' },
+    biometricDisabled: { opacity: 0.6 },
     fingerprintIcon: { width: 50, height: 50, marginBottom: 6 },
     biometricText: { fontWeight: '700' },
     supportText: { textAlign: 'center', paddingVertical: 15, color: '#666', fontSize: 12 },

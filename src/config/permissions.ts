@@ -23,7 +23,7 @@ export const TRAINER_ALLOWED_MENUS = [
 // Within HR Management, trainers can only see these children
 export const TRAINER_ALLOWED_HR_CHILDREN = [
   'Leave Applications',
-  // 'Loan Management',
+  'My Salary Slip',
 ];
 
 // Stack screen names that trainers are allowed to navigate to

@@ -519,6 +519,7 @@ import ProfileHeader from '../../components/ProfileHeader';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { logoutUser } from '../../redux/slices/userSlice';
+import { clearCredentials } from '../../utils/biometrics';
 import {
   isAdmin,
   TRAINER_ALLOWED_MENUS,
@@ -626,22 +627,69 @@ const MENU = [
   { title: 'My Commission', icon: 'cash-multiple',    screen: 'TrainerCommission' },
   { title: 'Roster',        icon: 'calendar-text',    screen: 'TrainerRoster' },
 
+  // ── Admin: Sales ────────────────────────────────────────────────────────────
+  {
+    title: 'Sales',
+    icon: 'store',
+    children: [
+      { title: 'View Clients',    screen: 'ViewClients' },
+      { title: 'Add Client',      screen: 'NewMemberRegistration' },
+      { title: 'Sell Package',    screen: 'NewPackage' },
+      { title: 'View Freezing',   screen: 'ViewFreezing' },
+      { title: 'Approvals',       screen: 'ApprovalsScreen' },
+      { title: 'Cafe Orders',     screen: 'Orders' },
+    ],
+  },
+
+  // ── Admin: HR Management ────────────────────────────────────────────────────
+  {
+    title: 'HR Management',
+    icon: 'briefcase-account',
+    children: [
+      { title: 'HR Dashboard',      screen: 'HRDashboard' },
+      { title: 'View Staff',        screen: 'ViewStaff' },
+      { title: 'Leave Applications',screen: 'LeaveApplications' },
+      // trainer-only
+      { title: 'My Salary Slip',    screen: 'MySalarySlip' },
+      // admin-only
+      { title: 'Salary Management', screen: 'SalaryManagement' },
+      { title: 'Staff Loans',       screen: 'StaffLoans' },
+      { title: 'Fines & Advances',  screen: 'StaffFinance' },
+    ],
+  },
+
+  // ── Admin: Finance ──────────────────────────────────────────────────────────
+  {
+    title: 'Finance',
+    icon: 'finance',
+    children: [
+      { title: 'Finance Dashboard', screen: 'FinanceDashboard' },
+      { title: 'Expenses',          screen: 'Expenses' },
+    ],
+  },
+
+  // ── Admin: Fitness ──────────────────────────────────────────────────────────
   {
     title: 'Fitness',
     icon: 'dumbbell',
     children: [
+      { title: 'PT Roster',                 screen: 'PTRoster' },
+      { title: 'GX Classes',               screen: 'GXClasses' },
       { title: 'Session Attendance Report', screen: 'SessionAttendanceReport' },
       { title: 'Session History',           screen: 'TrainerHistory' },
     ],
   },
 
+  // ── Admin: Reports ──────────────────────────────────────────────────────────
   {
-    title: 'HR Management',
-    icon: 'briefcase-account',
-    children: [
-      { title: 'Leave Applications', screen: 'LeaveApplications' },
-    ],
+    title: 'Reports',
+    icon: 'chart-bar',
+    screen: 'Reports',
   },
+
+  // ── Settings & Notifications ────────────────────────────────────────────────
+  { title: 'Settings',      icon: 'cog',          screen: 'Settings' },
+  { title: 'Notifications', icon: 'bell-outline',  screen: 'Notifications' },
 ]
 // ─── Navigation helper ───────────────────────────────────────────────────────
 
@@ -676,6 +724,7 @@ const filterMenuForRole = (
   userIsAdmin: boolean,
 ): typeof MENU => {
   if (userIsAdmin) {
+    // Admin: hide trainer-only top-level items
     return menu
       .filter(item => !ADMIN_HIDDEN_MENUS.includes(item.title))
       .map(item => {
@@ -687,11 +736,19 @@ const filterMenuForRole = (
             ),
           };
         }
+        if (item.title === 'HR Management' && item.children) {
+          return {
+            ...item,
+            children: item.children.filter(
+              c => c.title !== 'My Salary Slip',
+            ),
+          };
+        }
         return item;
       });
   }
 
-  // Trainer / non-admin: keep only allowed sections
+  // Trainer: keep only trainer-allowed sections
   return menu
     .filter(item => TRAINER_ALLOWED_MENUS.includes(item.title))
     .map(item => {
@@ -700,6 +757,14 @@ const filterMenuForRole = (
           ...item,
           children: item.children.filter(c =>
             TRAINER_ALLOWED_HR_CHILDREN.includes(c.title),
+          ),
+        };
+      }
+      if (item.title === 'Fitness' && item.children) {
+        return {
+          ...item,
+          children: item.children.filter(c =>
+            !['PT Roster', 'GX Classes'].includes(c.title),
           ),
         };
       }
@@ -735,11 +800,10 @@ const DrawerContent = (props: any) => {
 
   const handleLogout = () => {
     dispatch(logoutUser());
+    clearCredentials();
     navigation.replace('WelcomeAdmin');
   };
 
-  const toggleExpand = (title: string) =>
-    setExpanded(prev => (prev === title ? null : title));
 
   // ── Render ────────────────────────────────────────────────────────────────
 

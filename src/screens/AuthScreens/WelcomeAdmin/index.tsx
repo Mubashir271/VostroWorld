@@ -89,17 +89,17 @@ const WelcomeAdminScreen = ({ navigation }: any) => {
         </Text>
 
         {/* Divider */}
-        <View style={styles.divider}>
+        {/* <View style={styles.divider}>
           <View style={styles.line} />
           <Text style={styles.or}>OR</Text>
           <View style={styles.line} />
-        </View>
+        </View> */}
 
         {/* Social */}
-        <View style={styles.socialRow}>
+        {/* <View style={styles.socialRow}>
           <SocialButton label="Login with Google" icon={Google} />
           <SocialButton label="Login with Apple" icon={Apple} />
-        </View>
+        </View> */}
         </ScrollView>
       </View>
 

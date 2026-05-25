@@ -1,217 +1,160 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, FlatList } from 'react-native'
-import React, { useState } from 'react'
-import AppHeader from '../../../components/AppHeader'
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  StyleSheet, Text, View, TouchableOpacity, FlatList,
+  ActivityIndicator, RefreshControl,
+} from 'react-native';
+import { useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import AppHeader from '../../../components/AppHeader';
+import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import { RootState } from '../../../redux/store';
+import { getCafeOrders } from '../../../api/employeeDashboard';
 
 interface OrderData {
-  id: string;
-  orderNumber: string;
-  amount: number;
+  id: number;
+  branch_name: string;
+  client_first_name: string;
+  client_last_name: string;
+  price: number;
+  discount: number;
+  net_price: number;
+  total_received: string;
+  payment_method: string;
   status: string;
+  sale_type: string;
+  date: string;
+  note: string;
 }
+
+const fmt = (n: number) => `PKR ${Number(n || 0).toLocaleString()}`;
+
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  '1': { bg: '#E6F4EA', text: '#2E7D32' },
+  '0': { bg: '#FFEBEE', text: '#C62828' },
+};
 
 const Orders = () => {
   const navigation = useNavigation<any>();
+  const { profile } = useSelector((state: RootState) => state.user);
+  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
 
-  const [orders] = useState<OrderData[]>([
-    {
-      id: '1',
-      orderNumber: '1023',
-      amount: 25,
-      status: 'completed',
-    },
-    {
-      id: '2',
-      orderNumber: '1024',
-      amount: 15,
-      status: 'Pending',
-    },
-  ]);
+  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleOrderPress = (order: OrderData) => {
-    navigation.navigate('OrderDetail', { orderData: order });
-  };
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    try {
+      const res = await getCafeOrders({ branch_id: branchId, limit: 50 });
+      setOrders(res?.data?.data ?? []);
+    } catch {
+      // non-blocking
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [branchId]);
 
-  const renderOrderCard = (item: OrderData) => {
+  useEffect(() => { load(); }, [load]);
+
+  const renderOrderCard = ({ item }: { item: OrderData }) => {
+    const statusColor = STATUS_COLORS[item.status] ?? { bg: '#F5F5F5', text: '#666' };
+    const pending = (item.net_price || 0) - Number(item.total_received || 0);
     return (
       <TouchableOpacity
         style={styles.orderCard}
-        onPress={() => handleOrderPress(item)}
+        onPress={() => navigation.navigate('OrderDetail', { orderData: item })}
       >
-        <View style={styles.cardContent}>
-          <Text style={styles.orderNumber}>Order # {item.orderNumber}</Text>
-          <Text style={styles.orderMeta}>
-            ${item.amount} | {item.status}
-          </Text>
+        <View style={styles.cardLeft}>
+          <View style={styles.cardContent}>
+            <Text style={styles.orderNumber}>Order #{item.id}</Text>
+            <Text style={styles.clientName}>{item.client_first_name} {item.client_last_name}</Text>
+            <Text style={styles.orderMeta}>{item.payment_method} · {item.date}</Text>
+          </View>
         </View>
-        <Icon name="chevron-right" size={24} color="#999" />
+        <View style={styles.cardRight}>
+          <View style={[styles.badge, { backgroundColor: statusColor.bg }]}>
+            <Text style={[styles.badgeText, { color: statusColor.text }]}>
+              {item.status === '1' ? 'Completed' : 'Pending'}
+            </Text>
+          </View>
+          <Text style={styles.netPrice}>{fmt(item.net_price)}</Text>
+          {pending > 0 && (
+            <Text style={styles.pendingText}>Due: {fmt(pending)}</Text>
+          )}
+        </View>
+        <Icon name="chevron-right" size={20} color="#ccc" style={{ marginLeft: 4 }} />
       </TouchableOpacity>
     );
   };
 
   return (
-    <>
+    <View style={styles.container}>
       <AppHeader
-        title="Orders"
+        title="Cafe Orders"
         leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        rightIcon={<NotificationSVG width={24} height={24} />}
         onLeftPress={() => navigation.goBack()}
+        onRightPress={() => navigation.navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />
-      <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {/* Orders List */}
-          <View style={styles.ordersContainer}>
-            {orders.map((order) => (
-              <View key={order.id}>
-                {renderOrderCard(order)}
-              </View>
-            ))}
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#E63946" />
           </View>
-        </ScrollView>
+        ) : (
+          <FlatList
+            data={orders}
+            keyExtractor={item => String(item.id)}
+            renderItem={renderOrderCard}
+            contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />
+            }
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Icon name="coffee-off" size={48} color="#ccc" />
+                <Text style={styles.emptyText}>No orders found</Text>
+              </View>
+            }
+          />
+        )}
 
-        {/* Create New Order Button */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.createOrderButton}
             onPress={() => navigation.navigate('NewOrder')}
           >
+            <Icon name="plus" size={20} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.createOrderButtonText}>Create New Order</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-
-      {/* Bottom Tab Navigation */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={styles.tab}
-          onPress={() => {
-            navigation.goBack();
-          }}
-        >
-          <Icon name="home" size={24} color="#E10600" />
-          <Text style={styles.tabLabel}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.tab}
-        >
-          <Icon name="package-variant" size={24} color="#999" />
-          <Text style={styles.tabLabel}>Package</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.tab}
-        >
-          <Icon name="account-group" size={24} color="#999" />
-          <Text style={styles.tabLabel}>Members</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.tab}
-        >
-          <Icon name="chart-box" size={24} color="#999" />
-          <Text style={styles.tabLabel}>Reports</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.tab}
-        >
-          <Icon name="account" size={24} color="#999" />
-          <Text style={styles.tabLabel}>Account</Text>
-        </TouchableOpacity>
-      </View>
-    </>
-  )
-}
-
-export default Orders
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#F8F8F8' 
-  },
-  scroll: { 
-    flex: 1 
-  },
-  scrollContent: { 
-    paddingBottom: 20,
-    paddingTop: 16,
-  },
+  container:             { flex: 1, backgroundColor: '#F8F9FA' },
+  center:                { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  emptyText:             { color: '#999', marginTop: 12, fontSize: 14 },
+  orderCard:             { backgroundColor: '#fff', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#E63946', elevation: 2 },
+  cardLeft:              { flex: 1 },
+  cardContent:           { gap: 3 },
+  orderNumber:           { fontSize: 14, fontWeight: '700', color: '#1A1A1A' },
+  clientName:            { fontSize: 13, color: '#333', fontWeight: '500' },
+  orderMeta:             { fontSize: 12, color: '#888' },
+  cardRight:             { alignItems: 'flex-end', marginRight: 4 },
+  badge:                 { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 4 },
+  badgeText:             { fontSize: 11, fontWeight: '600' },
+  netPrice:              { fontSize: 14, fontWeight: '700', color: '#1A1A1A' },
+  pendingText:           { fontSize: 11, color: '#C62828', marginTop: 2 },
+  buttonContainer:       { position: 'absolute', bottom: 16, left: 16, right: 16 },
+  createOrderButton:     { backgroundColor: '#E63946', paddingVertical: 14, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  createOrderButtonText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+});
 
-  ordersContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderLeftWidth: 4,
-    borderLeftColor: '#E10600',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-
-  cardContent: {
-    flex: 1,
-    gap: 4,
-  },
-
-  orderNumber: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-
-  orderMeta: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '500',
-  },
-
-  buttonContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-
-  createOrderButton: {
-    backgroundColor: '#E10600',
-    paddingVertical: 12,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  createOrderButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#FFE5E5',
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#FFD9D9',
-  },
-
-  tab: {
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  tabLabel: {
-    fontSize: 11,
-    color: '#999',
-    marginTop: 4,
-  },
-})
+export default Orders;
