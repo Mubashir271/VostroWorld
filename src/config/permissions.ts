@@ -12,12 +12,10 @@ export const ROLES = {
 
 export const TRAINER_ALLOWED_MENUS = [
   'Dashboard',
-  'My Clients',
-  'Attendance',
   'My Commission',
-  'Roster',
-  'Fitness',
   'HR Management',
+  'Fitness',
+  'Notifications',
 ];
 
 // Within HR Management, trainers can only see these children
@@ -53,11 +51,8 @@ export const ADMIN_HIDDEN_MENUS = [
   'My Clients',
   'My Commission',
   'Roster',
-];
-
-// Children hidden from admin inside their parent section
-export const ADMIN_HIDDEN_FITNESS_CHILDREN = [
-  'Session History',
+  'Attendance',
+  'HR Management', // trainer-only HR section; admin uses 'Human Resource'
 ];
 
 export const isAdmin = (role?: string | null) => role === ROLES.ADMIN;

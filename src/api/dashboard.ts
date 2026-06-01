@@ -7,6 +7,23 @@ export const getMISDashboard = async (branchId: number) => {
     return response.data;
 };
 
+// Returns { all_clients, active_clients, inactive_clients, dormant_clients }
+export const getClientsCount = async (branchId?: number) => {
+    const res = await api.get('/v1/clients/count', {
+        params: branchId ? { branch_id: branchId } : {},
+    });
+    return res.data;
+};
+
+// Returns { immediate: [{ date, pending, Credit_Card, Online, Cash }], later: [] }
+export const getTodaySummary = async (branchId: number) => {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await api.get('/v1/summary', {
+        params: { branch_id: branchId, start_date: today, end_date: today },
+    });
+    return res.data;
+};
+
 export const getPackageCategories = async () => {
   const res = await api.get('/v1/package-categories');
   return res.data;

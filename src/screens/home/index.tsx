@@ -11,7 +11,7 @@ import {
     ActivityIndicator,
     RefreshControl
 } from 'react-native';
-import { Attendance, Cafe, Edit_fill, Features, Finance, Fitness, Freezing, ManageStaff, Members, NewRegistration, Notification, Package, Payments, Pending, ViewReports, Wallet } from '../../assets/icons';
+import { Attendance, Cafe, Edit_fill, Features, Finance, Fitness, ManageStaff, NewRegistration, Package, Payments, ViewReports } from '../../assets/icons';
 import AppHeader from '../../components/AppHeader';
 import { useNavigation } from '@react-navigation/native';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
@@ -19,42 +19,32 @@ import NotificationSVG from '../../assets/svg/NotificationSVG';
 import ProfileHeader from '../../components/ProfileHeader';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import { getMISDashboard } from '../../api/dashboard';
+import { getClientsCount, getTodaySummary } from '../../api/dashboard';
+import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
 import { isAdmin } from '../../config/permissions';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 // ──────────────────────────────────────────────
 // Reusable Components
 // ──────────────────────────────────────────────
 
 type StatCardProps = {
-    icon: ImageSourcePropType;
-    value: string | number;
     label: string;
-    trend?: string;
-    trendColor?: string;
-    backgroundColor?: string;
+    value: string | number;
+    iconName: string;
 };
 
-const StatCard = ({
-    icon,
-    value,
-    label,
-    trend,
-    trendColor = '#4CAF50',
-}: StatCardProps) => (
-    <View style={[styles.statCard]}>
-        <View style={styles.statTop}>
-            <View style={styles.statIconContainer}>
-                <Image source={icon} style={styles.icon} />
-                <Text style={styles.statValue}>{value}</Text>
-            </View>
-            {label && <Text style={styles.statLabel}>{label}</Text>}
-        </View>
-        {trend && (
-            <Text style={[styles.statTrend, { color: trendColor }]}>
-                {trend}
+const StatCard = ({ label, value, iconName }: StatCardProps) => (
+    <View style={styles.statCard}>
+        <View style={styles.statCardLeft}>
+            <Text style={styles.statLabel}>{label}</Text>
+            <Text style={styles.statValue}>
+                {typeof value === 'number' ? value.toLocaleString() : value}
             </Text>
-        )}
+        </View>
+        <View style={styles.statIconCircle}>
+            <Icon name={iconName} size={22} color="#fff" />
+        </View>
     </View>
 );
 
@@ -81,7 +71,7 @@ const QuickAction = ({ icon, label, onPress }: QuickActionProps) => (
 // ──────────────────────────────────────────────
 
 export default function DashboardScreen() {
-    const navigation = useNavigation();
+    const navigation = useNavigation() as any;
 
     const { profile, appImage } = useSelector(
         (state: RootState) => state.user
@@ -106,91 +96,65 @@ export default function DashboardScreen() {
         profile?.username ||
         fullName;
 
-    const [dashboard, setDashboard] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const userIsAdmin = isAdmin(profile?.role || profile?.type);
 
-    useEffect(() => {
-        fetchDashboard();
-    }, []);
+    // ── Admin stats ───────────────────────────────────────────────────────────
+    const [clientsAll, setClientsAll] = useState({ all: 0, active: 0, inactive: 0, dormant: 0 });
+    const [clientsF11, setClientsF11] = useState(0);
+    const [clientsG13, setClientsG13] = useState(0);
+    const [todaySales, setTodaySales] = useState(0);
+
+    // ── Trainer (employee) stats ──────────────────────────────────────────────
+    const [empStats, setEmpStats] = useState({
+        currentSalary: 0, pendingRequests: 0, dutySlotsCount: 0,
+        leaveBalance: 0, approvedDocs: 0, todayAttendance: null as any,
+    });
+
+    useEffect(() => { fetchDashboard(); }, []);
 
     const fetchDashboard = async () => {
         try {
             setLoading(true);
-
-            if (!branchId) {
-                console.log('Branch ID missing');
-                return;
+            if (userIsAdmin) {
+                await Promise.all([fetchClientStats(), fetchTodaySales()]);
+            } else if (branchId && profile?.id) {
+                const stats = await getEmployeeDashboardStats({
+                    branch_id: branchId,
+                    user_id: profile.id,
+                });
+                setEmpStats(stats);
             }
-
-            const res = await getMISDashboard(branchId);
-
-            const mappedDashboard = {
-                total_members: res?.totalStaff || 0,
-
-                total_revenue: res?.salenet_today || '0',
-
-                attendance_percentage:
-                    res?.totalStaff > 0
-                        ? Math.round(
-                            (res?.presentStaff / res?.totalStaff) * 100
-                        )
-                        : 0,
-
-                present_members: res?.presentStaff || 0,
-
-                gym_capacity:
-                    res?.totalStaff > 0
-                        ? Math.round(
-                            ((res?.morning_SevnToTwlv +
-                                res?.after_twlvTofive +
-                                res?.even_fiveToeleven) /
-                                res?.totalStaff) *
-                            100
-                        )
-                        : 0,
-
-                current_members:
-                    (res?.morning_SevnToTwlv || 0) +
-                    (res?.after_twlvTofive || 0) +
-                    (res?.even_fiveToeleven || 0),
-
-                new_registrations: res?.saleqty_today || 0,
-
-                today_sales: res?.saleprice_today || '0',
-
-                today_net_sales: res?.salenet_today || '0',
-
-                today_expense: res?.today_expense || '0',
-
-                male_members: res?.totalMales || 0,
-
-                female_members: res?.totalFemales || 0,
-
-                pt_sales: res?.ptnsalenet_today || '0',
-
-                cafe_sales: res?.csalenet_today || '0',
-            };
-
-            console.log('MIS DASHBOARD => ', res);
-
-            // setDashboard(res);
-
-            setDashboard(mappedDashboard);
         } catch (error: any) {
-            console.log(
-                'MIS DASHBOARD ERROR => ',
-                error?.response?.data || error.message
-            );
+            console.log('DASHBOARD ERROR =>', error?.response?.data || error.message);
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchClientStats = async () => {
+        const [all, f11, g13] = await Promise.all([
+            getClientsCount(),
+            getClientsCount(15),   // F-11
+            getClientsCount(1),    // G-13
+        ]);
+        setClientsAll({ all: all?.all_clients || 0, active: all?.active_clients || 0, inactive: all?.inactive_clients || 0, dormant: all?.dormant_clients || 0 });
+        setClientsF11(f11?.all_clients || 0);
+        setClientsG13(g13?.all_clients || 0);
+    };
+
+    const fetchTodaySales = async () => {
+        if (!branchId) return;
+        const res = await getTodaySummary(branchId);
+        const row = res?.immediate?.[0];
+        if (row) setTodaySales((row.pending || 0) + (row.Credit_Card || 0) + (row.Online || 0) + (row.Cash || 0));
+    };
+
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
         fetchDashboard().then(() => setRefreshing(false));
-    }, [branchId]);
+    }, [branchId, userIsAdmin]);
 
     const avatarSource = appImage
         ? { uri: appImage }
@@ -233,160 +197,131 @@ export default function DashboardScreen() {
                             />
                         }
                     >
-                        {/* Header / Welcome */}
-                        <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
+                        {userIsAdmin ? (
+                            /* ── ADMIN DASHBOARD ─────────────────────────────── */
+                            <>
+                                <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
+                                <ProfileHeader
+                                    name={fullName}
+                                    role={role || 'Admin'}
+                                    branch={branchName || 'Main Branch'}
+                                    editIcon={Edit_fill}
+                                    avatar={avatarSource}
+                                    onEditPress={() => console.log('Edit Pressed')}
+                                />
 
-                        <ProfileHeader
-                            name={fullName}
-                            role={firstName || 'Staff'}
-                            branch={branchName || 'Main Branch'}
-                            editIcon={Edit_fill}
-                            avatar={avatarSource}
-                            onEditPress={() => console.log('Edit Pressed')}
-                        />
+                                {/* Stats Grid */}
+                                <View style={styles.statsGrid}>
+                                    <StatCard label="Total Clients"    value={clientsAll.all}     iconName="account-group" />
+                                    <StatCard label="F-11 Clients"     value={clientsF11}          iconName="account" />
+                                    <StatCard label="G-13 Clients"     value={clientsG13}          iconName="account" />
+                                    <StatCard label="Active Clients"   value={clientsAll.active}   iconName="account-check" />
+                                    <StatCard label="Inactive Clients" value={clientsAll.inactive} iconName="account-off" />
+                                    <StatCard label="Dormant Clients"  value={clientsAll.dormant}  iconName="account-clock" />
+                                </View>
+                                <View style={[styles.statCard, styles.todaySalesCard]}>
+                                    <View style={styles.statCardLeft}>
+                                        <Text style={styles.statLabel}>Today Sales</Text>
+                                        <Text style={styles.statValue}>PKR {todaySales.toLocaleString()}</Text>
+                                    </View>
+                                    <View style={styles.statIconCircle}>
+                                        <Icon name="trending-up" size={22} color="#fff" />
+                                    </View>
+                                </View>
 
-
-                        {/* Stats Row */}
-                        <View style={styles.statsRow}>
-                            <StatCard
-                                icon={Members}
-                                value={dashboard?.total_members || 0}
-                                label="Total members active"
-                                trend="+12 this month"
-                            />
-                            <StatCard
-                                icon={Wallet}
-                                value={`PKR ${dashboard?.total_revenue || 0}`}
-                                trend="vs Yesterday"
-                            // trendColor="#10b981"
-
-                            />
-                        </View>
-
-                        {/* Secondary Stats */}
-                        <View style={styles.secondaryStats}>
-                            <StatCard
-                                icon={Pending}
-                                value="Pending Approvals"
-                                trend="View All >"
-                                backgroundColor="#fefce8"
-                            />
-                            <StatCard
-                                icon={Attendance}
-                                value={`${dashboard?.attendance_percentage || 0}% Attendance`}
-                                trend={`${dashboard?.present_members || 0}/${dashboard?.total_members || 0} Members`}
-                                backgroundColor="#ecfdf5"
-                            />
-                        </View>
-
-                        <View style={styles.secondaryStats}>
-                            <StatCard
-                                icon={Pending}
-                                value={`${dashboard?.gym_capacity || 0}%`}
-                                trend={`Current members: ${dashboard?.current_members || 0} / ${dashboard?.total_members || 0}`}
-                                label="Gym Capacity Today"
-                                backgroundColor="#fefce8"
-                            />
-                            <StatCard
-                                icon={NewRegistration}
-                                value={dashboard?.new_registrations || 0}
-                                label="New Registrations"
-                                backgroundColor="#ecfdf5"
-                                trend='This Week >'
-                            />
-                        </View>
-
-
-                        {/* Quick Actions Grid */}
-                        <View style={styles.quickActionsGrid}>
-                            <QuickAction
-                                icon={NewRegistration}
-                                label="New Member Registrations"
-                                onPress={() => navigation.navigate('Members')}
-                            />
-                            <QuickAction
-                                icon={Package}
-                                label="Create Package"
-                                onPress={() => navigation.navigate('Package')}
-                            />
-                            <QuickAction
-                                icon={Attendance}
-                                label="View Attendance"
-                                onPress={() => navigation.navigate('AttendanceScreen')}
-                            />
-                            <QuickAction
-                                icon={ViewReports}
-                                label="View Reports"
-                                onPress={() => navigation.navigate('Reports')}
-                            />
-                            <QuickAction 
-                            icon={ManageStaff} 
-                            label="Manage Staff" 
-                            onPress={() => navigation.navigate('TrainerHome')}
-                            />
-                            <QuickAction
-                                icon={Finance}
-                                label="View Finance"
-                                onPress={() => navigation.navigate('Reports')}
-                            />
-                            {/* <QuickAction icon={Cafe} label="Cafe Operations" /> */}
-                            <QuickAction icon={Fitness} label="Create Fitness Plan" />
-                            <QuickAction icon={Payments} label="Process Payments" />
-                            <QuickAction icon={Features} label="All Features" />
-                        </View>
-
-                        {/* Recent Activities */}
-                        <View style={styles.recentSection}>
-                            <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionTitle}>Recent Activities</Text>
-                                <TouchableOpacity>
-                                    <Text style={styles.viewAll}>View all activities {'>'}</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            {dashboard?.recent_activities?.length > 0 ? (
-                                dashboard.recent_activities.map(
-                                    (item: any, index: number) => (
-                                        <View style={styles.activityItem} key={index}>
-                                            <View style={styles.activityIcon}>
-                                                <Image
-                                                    source={
-                                                        item?.type === 'payment'
-                                                            ? Payments
-                                                            : item?.type === 'registration'
-                                                                ? NewRegistration
-                                                                : item?.type === 'freeze'
-                                                                    ? Freezing
-                                                                    : Notification
-                                                    }
-                                                    style={styles.icon}
-                                                />
-                                            </View>
-
-                                            <View style={styles.activityContent}>
-                                                <Text style={styles.activityText}>
-                                                    {item?.title ||
-                                                        item?.message ||
-                                                        'Activity'}
-                                                </Text>
-
-                                                <Text style={styles.activityTime}>
-                                                    {item?.time ||
-                                                        item?.created_at ||
-                                                        ''}
-                                                </Text>
+                                {/* Quick Actions */}
+                                <View style={styles.quickActionsGrid}>
+                                    <QuickAction icon={NewRegistration} label="New Registration"   onPress={() => navigation.navigate('NewMemberRegistration')} />
+                                    <QuickAction icon={Package}         label="Sell Package"        onPress={() => navigation.navigate('NewPackage')} />
+                                    <QuickAction icon={Attendance}      label="View Attendance"     onPress={() => navigation.navigate('AttendanceScreen')} />
+                                    <QuickAction icon={ViewReports}     label="View Reports"        onPress={() => navigation.navigate('Reports')} />
+                                    <QuickAction icon={ManageStaff}     label="Manage Staff"        onPress={() => navigation.navigate('ViewStaff')} />
+                                    <QuickAction icon={Finance}         label="Finance Dashboard"   onPress={() => navigation.navigate('FinanceDashboard')} />
+                                    <QuickAction icon={Fitness}         label="PT Roster"           onPress={() => navigation.navigate('PTRoster')} />
+                                    <QuickAction icon={Payments}        label="Approvals"           onPress={() => navigation.navigate('ApprovalsScreen')} />
+                                    <QuickAction icon={Features}        label="All Features"        onPress={() => navigation.openDrawer()} />
+                                </View>
+                            </>
+                        ) : (
+                            /* ── TRAINER / EMPLOYEE DASHBOARD ───────────────── */
+                            <>
+                                {/* Employee profile card */}
+                                <View style={styles.empCard}>
+                                    <View style={styles.empCardMain}>
+                                        <Text style={styles.empCardBadge}>EMPLOYEE DASHBOARD</Text>
+                                        <View style={styles.empCardRow}>
+                                            <Image source={avatarSource} style={styles.empAvatar} />
+                                            <View style={styles.empCardInfo}>
+                                                <Text style={styles.empName}>{fullName}</Text>
+                                                <Text style={styles.empDesc}>Profile, leave requests, salary & HR approvals</Text>
+                                                <View style={styles.empTags}>
+                                                    {[profile?.designation, profile?.department, branchName].filter(Boolean).map((tag: string) => (
+                                                        <View key={tag} style={styles.empTag}>
+                                                            <Text style={styles.empTagText}>{tag}</Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
                                             </View>
                                         </View>
-                                    )
-                                )
-                            ) : (
-                                <View style={styles.activityItem}>
-                                    <Text style={styles.activityText}>
-                                        No recent activities found
-                                    </Text>
+                                    </View>
+
+                                    {/* Attendance & ID panel */}
+                                    <View style={styles.empAttendPanel}>
+                                        <View style={styles.empAttendBox}>
+                                            <Text style={styles.empAttendLine}>Today: {new Date().toLocaleDateString()}</Text>
+                                            <Text style={styles.empAttendLine}>Check In:  {empStats.todayAttendance?.checkin_time_12h  || '—'}</Text>
+                                            <Text style={styles.empAttendLine}>Check Out: {empStats.todayAttendance?.checkout_time_12h || '—'}</Text>
+                                            <Text style={[styles.empAttendLine, { color: empStats.todayAttendance ? '#22c55e' : '#ef4444', fontWeight: '600' }]}>
+                                                Status: {empStats.todayAttendance ? 'Present' : 'Absent'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.empAttendBox}>
+                                            <Text style={styles.empAttendLine}>Employee ID: {profile?.uid || '—'}</Text>
+                                            <Text style={styles.empAttendLine}>Joining: {profile?.joining || profile?.joiningDate || '—'}</Text>
+                                        </View>
+                                    </View>
                                 </View>
-                            )}
-                        </View>
+
+                                {/* Stat cards — horizontal scroll */}
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.empStatsScroll}>
+                                    {[
+                                        { label: 'Current Salary',     value: `Rs ${empStats.currentSalary.toLocaleString()}`, sub: 'Latest payroll snapshot',      icon: 'cash' },
+                                        { label: 'Pending Requests',   value: empStats.pendingRequests,                        sub: 'Duty-hour requests awaiting',   icon: 'clock-alert' },
+                                        { label: 'Duty Slots',         value: empStats.dutySlotsCount,                         sub: 'Active work days',              icon: 'calendar-clock' },
+                                        { label: 'Leave Balance',      value: empStats.leaveBalance,                           sub: 'Remaining leave days',          icon: 'calendar-minus' },
+                                        { label: 'Approved Documents', value: empStats.approvedDocs,                           sub: 'Verified staff documents',      icon: 'file-check' },
+                                    ].map(item => (
+                                        <View key={item.label} style={styles.empStatCard}>
+                                            <Text style={styles.empStatLabel}>{item.label}</Text>
+                                            <Text style={styles.empStatValue}>{item.value}</Text>
+                                            <Text style={styles.empStatSub}>{item.sub}</Text>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+
+                                {/* Tab quick actions */}
+                                <View style={styles.empTabsGrid}>
+                                    {[
+                                        { label: 'Profile',                   icon: 'account',          screen: 'Account' },
+                                        { label: 'Attendance',                icon: 'calendar-check',   screen: 'AttendanceScreen' },
+                                        { label: 'Duty Hours',                icon: 'clock-outline',    screen: 'TrainerDutyHoursScreen' },
+                                        { label: 'Salary',                    icon: 'cash',             screen: 'MySalarySlip' },
+                                        { label: 'Leave',                     icon: 'calendar-minus',   screen: 'LeaveApplications' },
+                                        { label: 'Qualifications',            icon: 'school',           screen: 'Qualifications' },
+                                        { label: 'Documents',                 icon: 'file-document',    screen: 'TrainerDocuments' },
+                                    ].map(tab => (
+                                        <TouchableOpacity
+                                            key={tab.label}
+                                            style={styles.empTabBtn}
+                                            onPress={() => navigation.navigate(tab.screen as any)}
+                                        >
+                                            <Icon name={tab.icon} size={20} color="#E63946" />
+                                            <Text style={styles.empTabLabel}>{tab.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
 
                         <View style={{ height: 40 }} />
                     </ScrollView>
@@ -457,119 +392,136 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#0284c7',
     },
-    statsRow: {
+    // ── Stats grid (3-column, matches website) ────────────────────────────────
+    statsGrid: {
         flexDirection: 'row',
-        // paddingHorizontal: 16,
-        gap: 8,
-        marginVertical: 8,
+        flexWrap: 'wrap',
+        gap: 10,
+        marginTop: 16,
     },
-
+    todaySalesRow: {
+        marginTop: 10,
+        marginBottom: 16,
+    },
+    todaySalesCard: {
+        width: '100%',
+        marginTop: 10,
+        marginBottom: 16,
+    },
     statCard: {
-        flex: 1,
-        padding: 16,
-        borderRadius: 16,
+        width: '31.5%',           // 3 per row with gap
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         elevation: 2,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        backgroundColor: "#FFFFFF",
-
-        // Flex layout to push trend to bottom
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        minHeight: 120, // optional: ensure enough height for space-between to work
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
     },
-
-    statTop: {
-        // This wraps the icon + value + label
+    statCardLeft: {
+        flex: 1,
     },
-
-    statTrend: {
-        fontSize: 13,
-        fontWeight: '600',
-        marginTop: 10,
-        borderTopColor: '#D9D9D9',
-        borderTopWidth: 1,
-        paddingTop: 6,
-        textAlign: 'left',
-    },
-
-    // statCard: {
-    //     flex: 1,
-    //     padding: 16,
-    //     borderRadius: 16,
-    //     elevation: 2,
-    //     shadowColor: '#000',
-    //     shadowOffset: { width: 0, height: 2 },
-    //     shadowOpacity: 0.1,
-    //     shadowRadius: 4,
-    //     backgroundColor: "#FFFFFF",
-    // },
-    statIconContainer: {
-        marginBottom: 12,
-        gap: 4,
-        flexDirection: 'row'
+    statLabel: {
+        fontSize: 11,
+        color: '#64748b',
+        marginBottom: 4,
     },
     statValue: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#0f172a',
-        marginBottom: 4,
+        color: '#E63946',
     },
-    statLabel: {
-        fontSize: 14,
-        color: '#475569',
-    },
-    // statTrend: {
-    //     fontSize: 13,
-    //     fontWeight: '600',
-    //     marginTop: 10,
-    //     borderTopColor: '#D9D9D9',
-    //     borderTopWidth: 1
-    // },
-    secondaryStats: {
-        flexDirection: 'row',
-        // paddingHorizontal: 16,
-        gap: 12,
-        marginVertical: 12,
-    },
-    capacityRow: {
-        flexDirection: 'row',
-        // paddingHorizontal: 16,
-        gap: 12,
-        marginVertical: 8,
-    },
-    capacityCard: {
-        flex: 1,
-        backgroundColor: '#eff6ff',
-        padding: 20,
-        borderRadius: 16,
+    statIconCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#E63946',
+        justifyContent: 'center',
         alignItems: 'center',
+        marginLeft: 6,
     },
-    capacityValue: {
-        fontSize: 36,
-        fontWeight: 'bold',
-        color: '#1d4ed8',
+    // ── Trainer employee dashboard ────────────────────────────────────────────
+    empCard: {
+        backgroundColor: '#fff',
+        borderRadius: 14,
+        padding: 16,
+        marginTop: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
     },
-    capacityLabel: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1e293b',
-        marginTop: 4,
+    empCardMain: { marginBottom: 12 },
+    empCardBadge: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#E63946',
+        letterSpacing: 1,
+        marginBottom: 10,
     },
-    capacitySub: {
-        fontSize: 13,
-        color: '#64748b',
-        marginTop: 4,
+    empCardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    empAvatar: { width: 60, height: 60, borderRadius: 30 },
+    empCardInfo: { flex: 1 },
+    empName: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 4 },
+    empDesc: { fontSize: 12, color: '#64748b', marginBottom: 8 },
+    empTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    empTag: {
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 20,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
     },
-    newRegCard: {
-        flex: 1,
-        backgroundColor: '#f0fdfa',
-        padding: 20,
-        borderRadius: 16,
+    empTagText: { fontSize: 11, color: '#334155' },
+    empAttendPanel: { gap: 8 },
+    empAttendBox: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 8,
+        padding: 10,
+    },
+    empAttendLine: { fontSize: 12, color: '#475569', lineHeight: 20 },
+    empStatsScroll: { marginTop: 16, marginBottom: 4, paddingBottom: 6 },
+    empStatCard: {
+        width: 148,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 14,
+        marginRight: 10,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    empStatLabel: { fontSize: 11, color: '#64748b', marginBottom: 6 },
+    empStatValue: { fontSize: 20, fontWeight: '700', color: '#1e293b', marginBottom: 4 },
+    empStatSub: { fontSize: 10, color: '#94a3b8' },
+    empTabsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginTop: 16,
+    },
+    empTabBtn: {
+        width: '30%',
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        paddingVertical: 14,
         alignItems: 'center',
+        gap: 6,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
     },
+    empTabLabel: { fontSize: 11, color: '#334155', fontWeight: '500', textAlign: 'center' },
+
     newRegValue: {
         fontSize: 36,
         fontWeight: 'bold',

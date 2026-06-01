@@ -344,6 +344,60 @@ export const getAnnouncements = async (params: {
   return res.data;
 };
 
+// ── Employee Dashboard Stats (parallel fetch for trainer home screen) ─────────
+
+export const getEmployeeDashboardStats = async (params: {
+  branch_id: number;
+  user_id: number;
+}) => {
+  const today = new Date().toISOString().split('T')[0];
+
+  const [salary, dutyRequests, dutySlots, leaveQuota, documents, attendance] =
+    await Promise.all([
+      getMySalarySlip(params),
+      api.get('/v1/hr/employee-duty-hour-requests/index', {
+        params: { ...params, limit: 100 },
+      }),
+      api.get('/v1/staff-timing/index', {
+        params: { branch_id: params.branch_id, staff_id: params.user_id, status: 1, limit: 999999 },
+      }),
+      api.get('/v1/hr/leaves-quota/index', {
+        params: { ...params, status: 1, limit: 100 },
+      }),
+      api.get('/v1/hr/staff-documents/index', {
+        params: { ...params, approval_status: 'Approved', status: 1, limit: 100 },
+      }),
+      getAttendanceList({
+        branch_id: params.branch_id,
+        member_id: params.user_id,
+        start_date: today,
+        end_date: today,
+        limit: 1,
+      }),
+    ]);
+
+  const currentSalary = salary?.data?.[0]?.salary || 0;
+
+  const allDutyRequests: any[] = dutyRequests?.data?.data?.data ?? dutyRequests?.data?.data ?? [];
+  const pendingRequests = allDutyRequests.filter((r: any) => r.approval_status === 'Pending').length;
+
+  const dutySlotList: any[] = dutySlots?.data?.data?.data ?? dutySlots?.data?.data ?? [];
+  const dutySlotsCount = dutySlotList.length;
+
+  const quotaList: any[] = leaveQuota?.data?.data ?? leaveQuota?.data ?? [];
+  const leaveBalance = quotaList.reduce(
+    (sum: number, q: any) => sum + Math.max(0, (q.number_of_leaves || 0) - (q.leaves_taken || 0)),
+    0,
+  );
+
+  const docList: any[] = documents?.data?.data ?? documents?.data ?? [];
+  const approvedDocs = docList.length;
+
+  const todayAttendance = attendance?.data?.data?.[0] ?? null;
+
+  return { currentSalary, pendingRequests, dutySlotsCount, leaveBalance, approvedDocs, todayAttendance };
+};
+
 // ── HR Dashboard ──────────────────────────────────────────────────────────────
 
 export const getHRDashboard = async (params: {

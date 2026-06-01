@@ -301,7 +301,7 @@ import MySalarySlip from '../../screens/MySalarySlip';
 import StaffLoans from '../../screens/StaffLoans';
 import StaffFinance from '../../screens/StaffFinance';
 
-// ── New Admin screens ─────────────────────────────────────────────────────────
+// ── Admin screens ─────────────────────────────────────────────────────────────
 import ViewClients from '../../screens/Sales/ViewClients';
 import ViewFreezing from '../../screens/Sales/ViewFreezing';
 import ApprovalsScreen from '../../screens/Sales/Approvals';
@@ -311,6 +311,21 @@ import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
 import Expenses from '../../screens/Finance/Expenses';
 import GXClasses from '../../screens/Fitness/GXClasses';
 import PTRoster from '../../screens/Fitness/PTRoster';
+
+// ── Trainer feature screens ───────────────────────────────────────────────────
+import TrainerDutyHours from '../../screens/trainer/TrainerDutyHours';
+import QualificationsScreen from '../../screens/trainer/QualificationsScreen';
+import TrainerDocumentsScreen from '../../screens/trainer/TrainerDocumentsScreen';
+import SessionTrackerScreen from '../../screens/trainer/SessionTrackerScreen';
+import SOPsScreen from '../../screens/trainer/SOPsScreen';
+
+// ── Reports (reused from ReportsStack) ────────────────────────────────────────
+import TransactionReportScreen from '../../screens/reports/TransactionReport';
+import CafeReportScreen from '../../screens/reports/CafeReports';
+import SalesReportScreen from '../../screens/reports/SalesReport';
+
+// ── Coming Soon placeholder ───────────────────────────────────────────────────
+import ComingSoon from '../../screens/ComingSoon';
 
 const Stack = createStackNavigator();
 
@@ -368,6 +383,15 @@ const AppNavigator = () => {
                 <Stack.Screen name="Drawer" component={DrawerNavigation} />
 
                 {/* ── Trainer-allowed screens (no guard) ── */}
+                <Stack.Screen name="TrainerDutyHoursScreen" component={TrainerDutyHours} />
+                <Stack.Screen name="Qualifications" component={QualificationsScreen} />
+                <Stack.Screen name="TrainerDocuments" component={TrainerDocumentsScreen} />
+                <Stack.Screen name="SOPs" component={SOPsScreen} />
+                <Stack.Screen name="SessionTracker" component={SessionTrackerScreen} />
+                <Stack.Screen name="PersonalTrainerDiary" component={ComingSoon} />
+                <Stack.Screen name="ViewFitnessPlans" component={ComingSoon} />
+                <Stack.Screen name="AddFitnessPlan" component={ComingSoon} />
+                <Stack.Screen name="ManageExercises" component={ComingSoon} />
                 <Stack.Screen name="Notifications" component={NotificationScreen} />
                 <Stack.Screen name="LeaveApplications" component={LeaveApplications} />
                 <Stack.Screen name="ApplyLeave" component={ApplyLeave} />
@@ -402,16 +426,142 @@ const AppNavigator = () => {
                 <Stack.Screen name="StaffLoans" component={protect(StaffLoans)} />
                 <Stack.Screen name="StaffFinance" component={protect(StaffFinance)} />
 
-                {/* ── New admin screens ── */}
+                {/* ── Admin: Sales ── */}
                 <Stack.Screen name="ViewClients" component={protect(ViewClients)} />
                 <Stack.Screen name="ViewFreezing" component={protect(ViewFreezing)} />
                 <Stack.Screen name="ApprovalsScreen" component={protect(ApprovalsScreen)} />
+                <Stack.Screen name="ClientsReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalesSessionReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="MembershipPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="GymPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="TrainerPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="BootcampPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="PhysiotherapyPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="MassageChair" component={protect(ComingSoon)} />
+                <Stack.Screen name="SmallPTGroupPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="CFTPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="GeneralPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="DetailedPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="Categories" component={protect(ComingSoon)} />
+                <Stack.Screen name="SubCategories" component={protect(ComingSoon)} />
+                <Stack.Screen name="ManageTowels" component={protect(ComingSoon)} />
+                <Stack.Screen name="AssignCards" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewCards" component={protect(ComingSoon)} />
+                <Stack.Screen name="ManageBranches" component={protect(ComingSoon)} />
+
+                {/* ── Admin: Human Resource ── */}
                 <Stack.Screen name="HRDashboard" component={protect(HRDashboard)} />
                 <Stack.Screen name="ViewStaff" component={protect(ViewStaff)} />
+                <Stack.Screen name="DetailedHRReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddStaff" component={protect(ComingSoon)} />
+                <Stack.Screen name="StaffPromotion" component={protect(ComingSoon)} />
+                <Stack.Screen name="StaffAdvances" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalaryComponent" component={protect(ComingSoon)} />
+                <Stack.Screen name="StaffCommissions" component={protect(ComingSoon)} />
+                <Stack.Screen name="SessionPortalHR" component={protect(ComingSoon)} />
+                <Stack.Screen name="StaffDutyHours" component={protect(ComingSoon)} />
+                <Stack.Screen name="EmployeeAttendance" component={protect(ComingSoon)} />
+                <Stack.Screen name="PTAttendance" component={protect(ComingSoon)} />
+                <Stack.Screen name="LeaveQuota" component={protect(ComingSoon)} />
+                <Stack.Screen name="LetterManagement" component={protect(ComingSoon)} />
+                <Stack.Screen name="ResourceManager" component={protect(ComingSoon)} />
+
+                {/* ── Admin: Cafe ── */}
+                <Stack.Screen name="CafeDashboard" component={protect(ComingSoon)} />
+                <Stack.Screen name="CafeCategories" component={protect(ComingSoon)} />
+                <Stack.Screen name="CafeProducts" component={protect(ComingSoon)} />
+                <Stack.Screen name="CafeDeposits" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddClientsDeposit" component={protect(ComingSoon)} />
+                <Stack.Screen name="ClientsAvailableBalance" component={protect(ComingSoon)} />
+                <Stack.Screen name="DepositsHistory" component={protect(ComingSoon)} />
+                <Stack.Screen name="CafeSalesReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="ManagementPendings" component={protect(ComingSoon)} />
+
+                {/* ── Admin: Reports ── */}
+                <Stack.Screen name="ClientsReports" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalesReport" component={protect(SalesReportScreen)} />
+                <Stack.Screen name="DetailedSalesReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="MISReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalesByServices" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalesExpenseDaily" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalesByBootcamp" component={protect(ComingSoon)} />
+                <Stack.Screen name="CafeReports" component={protect(CafeReportScreen)} />
+                <Stack.Screen name="TransactionReport" component={protect(TransactionReportScreen)} />
+                <Stack.Screen name="StaffAttendanceReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="ClientsAttendance" component={protect(ComingSoon)} />
+                <Stack.Screen name="FootfallReport" component={protect(ComingSoon)} />
+
+                {/* ── Admin: Finance ── */}
                 <Stack.Screen name="FinanceDashboard" component={protect(FinanceDashboard)} />
                 <Stack.Screen name="Expenses" component={protect(Expenses)} />
+                <Stack.Screen name="AddExpense" component={protect(ComingSoon)} />
+                <Stack.Screen name="DailyExpense" component={protect(ComingSoon)} />
+                <Stack.Screen name="DailyExpenseReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="PaidExpenseReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddCashInHand" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewCashInHand" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddCharity" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewCharityLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddOfficeCash" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewOfficeLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddBankCash" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewBankLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddPettyCash" component={protect(ComingSoon)} />
+                <Stack.Screen name="PettyCashLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddG13Cash" component={protect(ComingSoon)} />
+                <Stack.Screen name="G13CashLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddLiabilities" component={protect(ComingSoon)} />
+                <Stack.Screen name="PayLiabilities" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewLiabilitiesLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddKeene" component={protect(ComingSoon)} />
+                <Stack.Screen name="KeeneLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="Assets" component={protect(ComingSoon)} />
+                <Stack.Screen name="BalanceSheet" component={protect(ComingSoon)} />
+                <Stack.Screen name="DailySalesCounter" component={protect(ComingSoon)} />
+                <Stack.Screen name="CafeSalesExpenseReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="DailyOfficeClosing" component={protect(ComingSoon)} />
+                <Stack.Screen name="BankDetails" component={protect(ComingSoon)} />
+
+                {/* ── Admin: Fitness ── */}
                 <Stack.Screen name="GXClasses" component={protect(GXClasses)} />
                 <Stack.Screen name="PTRoster" component={protect(PTRoster)} />
+                <Stack.Screen name="TrainerDiary" component={protect(ComingSoon)} />
+                {/* PersonalTrainerDiary registered as trainer-allowed above */}
+                <Stack.Screen name="PTSalesReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="SwitchBookingTime" component={protect(ComingSoon)} />
+                <Stack.Screen name="TrainerAppointments" component={protect(ComingSoon)} />
+                <Stack.Screen name="SessionAttendance" component={protect(ComingSoon)} />
+                <Stack.Screen name="NewPTBookings" component={protect(ComingSoon)} />
+                <Stack.Screen name="NewPTClients" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddGXSlots" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddGXClass" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXTrainers" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXSlotsList" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXBookings" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXAppointments" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXAttendance" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXAttendanceReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="BefitList" component={protect(ComingSoon)} />
+                <Stack.Screen name="BefitBookings" component={protect(ComingSoon)} />
+                <Stack.Screen name="BefitAppointments" component={protect(ComingSoon)} />
+                <Stack.Screen name="BefitAttendance" component={protect(ComingSoon)} />
+                <Stack.Screen name="BefitAttendanceReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="SPTList" component={protect(ComingSoon)} />
+                <Stack.Screen name="SPTBookings" component={protect(ComingSoon)} />
+                <Stack.Screen name="SPTAppointments" component={protect(ComingSoon)} />
+                <Stack.Screen name="SPTAttendance" component={protect(ComingSoon)} />
+                <Stack.Screen name="SPTAttendanceReport" component={protect(ComingSoon)} />
+                {/* ViewFitnessPlans, AddFitnessPlan, ManageExercises registered as trainer-allowed above */}
+                <Stack.Screen name="TimeSlots" component={protect(ComingSoon)} />
+                <Stack.Screen name="ManageAvailability" component={protect(ComingSoon)} />
+
+                {/* ── Admin: Nutrition ── */}
+                <Stack.Screen name="NutritionPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddMealsPlan" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewMealsPlan" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddNutritionAssessments" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewNutritionAssessments" component={protect(ComingSoon)} />
             </Stack.Navigator>
         </View>
     );
