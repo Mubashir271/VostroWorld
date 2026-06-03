@@ -114,15 +114,15 @@ const MENU = [
   { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
 
   // ── Trainer-only (hidden from admin by ADMIN_HIDDEN_MENUS) ────────────────
-  { title: 'My Commission', icon: 'cash-multiple', screen: 'TrainerCommission' },
-  {
-    title: 'HR Management',
-    icon: 'briefcase-account',
-    children: [
-      { title: 'Leave Applications', screen: 'LeaveApplications' },
-      { title: 'My Salary Slip',     screen: 'MySalarySlip' },
-    ],
-  },
+  // { title: 'My Commission', icon: 'cash-multiple', screen: 'TrainerCommission' },
+  // {
+  //   title: 'HR Management',
+  //   icon: 'briefcase-account',
+  //   children: [
+  //     { title: 'Leave Applications', screen: 'LeaveApplications' },
+  //     { title: 'My Salary Slip',     screen: 'MySalarySlip' },
+  //   ],
+  // },
 
   // ── Admin: Sales ──────────────────────────────────────────────────────────
   {

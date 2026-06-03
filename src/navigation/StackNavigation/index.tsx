@@ -319,10 +319,19 @@ import TrainerDocumentsScreen from '../../screens/trainer/TrainerDocumentsScreen
 import SessionTrackerScreen from '../../screens/trainer/SessionTrackerScreen';
 import SOPsScreen from '../../screens/trainer/SOPsScreen';
 
-// ── Reports (reused from ReportsStack) ────────────────────────────────────────
+// ── Reports ───────────────────────────────────────────────────────────────────
 import TransactionReportScreen from '../../screens/reports/TransactionReport';
 import CafeReportScreen from '../../screens/reports/CafeReports';
 import SalesReportScreen from '../../screens/reports/SalesReport';
+import MISReportScreen from '../../screens/reports/MISReport';
+import DetailedSalesReportScreen from '../../screens/reports/DetailedSalesReport';
+import ClientsReportScreen from '../../screens/reports/ClientsReport';
+import SalesByServicesScreen from '../../screens/reports/SalesByServices';
+import SalesExpenseDailyScreen from '../../screens/reports/SalesExpenseDaily';
+import SalesByBootcampScreen from '../../screens/reports/SalesByBootcamp';
+import StaffAttendanceReportScreen from '../../screens/reports/StaffAttendanceReport';
+import ClientsAttendanceScreen from '../../screens/reports/ClientsAttendance';
+import FootfallReportScreen from '../../screens/reports/FootfallReport';
 
 // ── Coming Soon placeholder ───────────────────────────────────────────────────
 import ComingSoon from '../../screens/ComingSoon';
@@ -479,18 +488,18 @@ const AppNavigator = () => {
                 <Stack.Screen name="ManagementPendings" component={protect(ComingSoon)} />
 
                 {/* ── Admin: Reports ── */}
-                <Stack.Screen name="ClientsReports" component={protect(ComingSoon)} />
+                <Stack.Screen name="ClientsReports" component={protect(ClientsReportScreen)} />
                 <Stack.Screen name="SalesReport" component={protect(SalesReportScreen)} />
-                <Stack.Screen name="DetailedSalesReport" component={protect(ComingSoon)} />
-                <Stack.Screen name="MISReport" component={protect(ComingSoon)} />
-                <Stack.Screen name="SalesByServices" component={protect(ComingSoon)} />
-                <Stack.Screen name="SalesExpenseDaily" component={protect(ComingSoon)} />
-                <Stack.Screen name="SalesByBootcamp" component={protect(ComingSoon)} />
+                <Stack.Screen name="DetailedSalesReport" component={protect(DetailedSalesReportScreen)} />
+                <Stack.Screen name="MISReport" component={protect(MISReportScreen)} />
+                <Stack.Screen name="SalesByServices" component={protect(SalesByServicesScreen)} />
+                <Stack.Screen name="SalesExpenseDaily" component={protect(SalesExpenseDailyScreen)} />
+                <Stack.Screen name="SalesByBootcamp" component={protect(SalesByBootcampScreen)} />
                 <Stack.Screen name="CafeReports" component={protect(CafeReportScreen)} />
                 <Stack.Screen name="TransactionReport" component={protect(TransactionReportScreen)} />
-                <Stack.Screen name="StaffAttendanceReport" component={protect(ComingSoon)} />
-                <Stack.Screen name="ClientsAttendance" component={protect(ComingSoon)} />
-                <Stack.Screen name="FootfallReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="StaffAttendanceReport" component={protect(StaffAttendanceReportScreen)} />
+                <Stack.Screen name="ClientsAttendance" component={protect(ClientsAttendanceScreen)} />
+                <Stack.Screen name="FootfallReport" component={protect(FootfallReportScreen)} />
 
                 {/* ── Admin: Finance ── */}
                 <Stack.Screen name="FinanceDashboard" component={protect(FinanceDashboard)} />
