@@ -319,6 +319,17 @@ import TrainerDocumentsScreen from '../../screens/trainer/TrainerDocumentsScreen
 import SessionTrackerScreen from '../../screens/trainer/SessionTrackerScreen';
 import SOPsScreen from '../../screens/trainer/SOPsScreen';
 
+// ── Cafe Operations ───────────────────────────────────────────────────────────
+import CafeDashboardScreen from '../../screens/CafeOperations/CafeDashboard';
+import CafeCategoriesScreen from '../../screens/CafeOperations/CafeCategories';
+import CafeProductsScreen from '../../screens/CafeOperations/CafeProducts';
+import CafeDepositsScreen from '../../screens/CafeOperations/CafeDeposits';
+import AddClientsDepositScreen from '../../screens/CafeOperations/AddClientsDeposit';
+import ClientsAvailableBalanceScreen from '../../screens/CafeOperations/ClientsAvailableBalance';
+import DepositsHistoryScreen from '../../screens/CafeOperations/DepositsHistory';
+import CafeSalesReportScreen from '../../screens/CafeOperations/CafeSalesReport';
+import ManagementPendingsScreen from '../../screens/CafeOperations/ManagementPendings';
+
 // ── Reports ───────────────────────────────────────────────────────────────────
 import TransactionReportScreen from '../../screens/reports/TransactionReport';
 import CafeReportScreen from '../../screens/reports/CafeReports';
@@ -477,15 +488,15 @@ const AppNavigator = () => {
                 <Stack.Screen name="ResourceManager" component={protect(ComingSoon)} />
 
                 {/* ── Admin: Cafe ── */}
-                <Stack.Screen name="CafeDashboard" component={protect(ComingSoon)} />
-                <Stack.Screen name="CafeCategories" component={protect(ComingSoon)} />
-                <Stack.Screen name="CafeProducts" component={protect(ComingSoon)} />
-                <Stack.Screen name="CafeDeposits" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddClientsDeposit" component={protect(ComingSoon)} />
-                <Stack.Screen name="ClientsAvailableBalance" component={protect(ComingSoon)} />
-                <Stack.Screen name="DepositsHistory" component={protect(ComingSoon)} />
-                <Stack.Screen name="CafeSalesReport" component={protect(ComingSoon)} />
-                <Stack.Screen name="ManagementPendings" component={protect(ComingSoon)} />
+                <Stack.Screen name="CafeDashboard" component={protect(CafeDashboardScreen)} />
+                <Stack.Screen name="CafeCategories" component={protect(CafeCategoriesScreen)} />
+                <Stack.Screen name="CafeProducts" component={protect(CafeProductsScreen)} />
+                <Stack.Screen name="CafeDeposits" component={protect(CafeDepositsScreen)} />
+                <Stack.Screen name="AddClientsDeposit" component={protect(AddClientsDepositScreen)} />
+                <Stack.Screen name="ClientsAvailableBalance" component={protect(ClientsAvailableBalanceScreen)} />
+                <Stack.Screen name="DepositsHistory" component={protect(DepositsHistoryScreen)} />
+                <Stack.Screen name="CafeSalesReport" component={protect(CafeSalesReportScreen)} />
+                <Stack.Screen name="ManagementPendings" component={protect(ManagementPendingsScreen)} />
 
                 {/* ── Admin: Reports ── */}
                 <Stack.Screen name="ClientsReports" component={protect(ClientsReportScreen)} />

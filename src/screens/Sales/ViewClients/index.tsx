@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, TextInput,
+  View, Text, StyleSheet, TouchableOpacity,
+  ActivityIndicator, RefreshControl, TextInput, ScrollView,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import AppHeader from '../../../components/AppHeader';
+import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
 import { getClientsList } from '../../../api/employeeDashboard';
 
@@ -23,32 +24,35 @@ interface Client {
   membership_type: Array<{ get_package_name?: { name: string } }>;
 }
 
-const FILTER_TABS = ['Active', 'Inactive', 'Dormant'];
+const CLIENT_TYPES = ['All', 'Active', 'Inactive', 'Dormant'];
+
+const clientStatus = (c: Client) => {
+  if (c.status === '1' || c.status === 'Active' || c.status === 'active') return 'Active';
+  if (c.status === 'Dormant' || c.status === 'dormant') return 'Dormant';
+  return 'Inactive';
+};
+
+const PAGE_SIZE = 25;
 
 const ViewClients = () => {
-  const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const navigation   = useNavigation<any>();
+  const { profile }  = useSelector((state: RootState) => state.user);
+  const branchId     = profile?.branchId ?? 1;
 
-  const [clients, setClients] = useState<Client[]>([]);
-  const [filtered, setFiltered] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [clients, setClients]       = useState<Client[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('Active');
-
-  const clientStatus = (c: Client) => {
-    if (c.status === '1' || c.status === 'Active' || c.status === 'active') return 'Active';
-    if (c.status === 'Dormant' || c.status === 'dormant') return 'Dormant';
-    return 'Inactive';
-  };
+  const [search, setSearch]         = useState('');
+  const [clientType, setClientType] = useState('All');
+  const [typeDropOpen, setTypeDropOpen] = useState(false);
+  const [activePage, setActivePage]     = useState(1);
+  const [inactivePage, setInactivePage] = useState(1);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const res = await getClientsList({ branch_id: branchId, limit: 200, page: 1 });
-      const data: Client[] = res?.data?.data ?? [];
-      setClients(data);
+      const res = await getClientsList({ branch_id: branchId, limit: 500, page: 1 });
+      setClients(res?.data?.data ?? []);
     } catch {
       setClients([]);
     } finally {
@@ -59,161 +63,255 @@ const ViewClients = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    let list = clients.filter(c => clientStatus(c) === activeTab);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(c =>
-        `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
-        c.uid?.toLowerCase().includes(q) ||
-        c.phone?.includes(q) ||
-        c.email?.toLowerCase().includes(q),
-      );
-    }
-    setFiltered(list);
-  }, [search, clients, activeTab]);
+  // Reset pages when filter/search changes
+  useEffect(() => { setActivePage(1); setInactivePage(1); }, [search, clientType]);
 
-  const renderItem = ({ item }: { item: Client }) => {
-    const fullName = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() || 'Unknown';
-    const pkgName = item.membership_type?.[0]?.get_package_name?.name ?? 'No Membership';
-    const status = clientStatus(item);
-    const badgeStyle = status === 'Active' ? styles.activeBadge : styles.inactiveBadge;
+  const filtered = clients.filter(c => {
+    const matchType = clientType === 'All' || clientStatus(c) === clientType;
+    if (!search.trim()) return matchType;
+    const q = search.toLowerCase();
+    const name = `${c.first_name ?? ''} ${c.last_name ?? ''}`.toLowerCase();
+    return matchType && (
+      name.includes(q) ||
+      (c.uid ?? '').toLowerCase().includes(q) ||
+      (c.phone ?? '').includes(search) ||
+      (c.email ?? '').toLowerCase().includes(q)
+    );
+  });
+
+  const activeList   = filtered.filter(c => clientStatus(c) === 'Active');
+  const inactiveList = filtered.filter(c => clientStatus(c) !== 'Active');
+
+  const renderRow = (item: Client, globalIndex: number, pageIndex: number) => {
+    const name = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() || '—';
+    const membership = item.membership_type?.[0]?.get_package_name?.name ?? 'N/A';
     return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{fullName.charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.clientName}>{fullName}</Text>
-            <Text style={styles.membershipId}>ID: {item.uid || item.id}</Text>
-          </View>
-          <View style={[styles.statusBadge, badgeStyle]}>
-            <Text style={styles.statusText}>{status}</Text>
-          </View>
+      <TouchableOpacity
+        key={item.id}
+        onPress={() => navigation.navigate('NewMemberRegistration', { clientId: item.id })}
+      >
+        <View style={[tbl.dataRow, pageIndex % 2 === 1 && tbl.dataRowAlt]}>
+          <Text style={[tbl.cell, tbl.cellMuted, { width: 38 }]}>{globalIndex + 1}</Text>
+          <Text style={[tbl.cell, { width: 70 }]} numberOfLines={1}>{item.branches_name ?? 'F 11'}</Text>
+          <Text style={[tbl.cell, tbl.cellRed, { width: 140 }]} numberOfLines={1}>{name}</Text>
+          <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>{item.uid ?? '—'}</Text>
+          <Text style={[tbl.cell, { width: 160 }]} numberOfLines={1}>{item.email ?? '—'}</Text>
+          <Text style={[tbl.cell, { width: 120 }]} numberOfLines={1}>{item.phone ?? '—'}</Text>
+          <Text style={[tbl.cell, { width: 70 }]} numberOfLines={1}>{item.gender ?? '—'}</Text>
+          <Text style={[tbl.cell, { width: 160 }]} numberOfLines={1}>{membership}</Text>
         </View>
-        <View style={styles.cardDetails}>
-          <View style={styles.detailRow}>
-            <Icon name="phone" size={14} color="#888" />
-            <Text style={styles.detailText}>{item.phone || 'N/A'}</Text>
-          </View>
-          {item.email ? (
-            <View style={styles.detailRow}>
-              <Icon name="email" size={14} color="#888" />
-              <Text style={styles.detailText} numberOfLines={1}>{item.email}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const TableSection = ({
+    title, data, page, setPage,
+  }: { title: string; data: Client[]; page: number; setPage: (p: number) => void }) => {
+    const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+    const pageData   = data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const startIdx   = (page - 1) * PAGE_SIZE;
+
+    return (
+      <View style={styles.section}>
+        {/* Section header with count */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <Text style={styles.sectionCount}>{data.length} record{data.length !== 1 ? 's' : ''}</Text>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator>
+          <View>
+            <View style={tbl.headerRow}>
+              <Text style={[tbl.headerCell, { width: 38 }]}>Sr#</Text>
+              <Text style={[tbl.headerCell, { width: 70 }]}>Branch</Text>
+              <Text style={[tbl.headerCell, { width: 140 }]}>Name</Text>
+              <Text style={[tbl.headerCell, { width: 100 }]}>Membership ID</Text>
+              <Text style={[tbl.headerCell, { width: 160 }]}>Email</Text>
+              <Text style={[tbl.headerCell, { width: 120 }]}>Phone</Text>
+              <Text style={[tbl.headerCell, { width: 70 }]}>Gender</Text>
+              <Text style={[tbl.headerCell, { width: 160 }]}>Membership</Text>
             </View>
-          ) : null}
-          <View style={styles.detailRow}>
-            <Icon name="tag" size={14} color="#888" />
-            <Text style={styles.detailText}>{pkgName}</Text>
+            {data.length === 0
+              ? <View style={styles.noRecord}><Text style={styles.noRecordText}>No Record Found</Text></View>
+              : pageData.map((c, i) => renderRow(c, startIdx + i, i))}
           </View>
-        </View>
+        </ScrollView>
+
+        {/* Pagination bar */}
+        {data.length > PAGE_SIZE && (
+          <View style={pg.bar}>
+            <TouchableOpacity
+              style={[pg.btn, page === 1 && pg.btnDisabled]}
+              onPress={() => setPage(1)}
+              disabled={page === 1}
+            >
+              <Icon name="chevron-double-left" size={14} color={page === 1 ? '#ccc' : '#555'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[pg.btn, page === 1 && pg.btnDisabled]}
+              onPress={() => setPage(page - 1)}
+              disabled={page === 1}
+            >
+              <Icon name="chevron-left" size={14} color={page === 1 ? '#ccc' : '#555'} />
+            </TouchableOpacity>
+
+            <Text style={pg.info}>Page <Text style={pg.infoB}>{page}</Text> of <Text style={pg.infoB}>{totalPages}</Text></Text>
+
+            <TouchableOpacity
+              style={[pg.btn, page === totalPages && pg.btnDisabled]}
+              onPress={() => setPage(page + 1)}
+              disabled={page === totalPages}
+            >
+              <Icon name="chevron-right" size={14} color={page === totalPages ? '#ccc' : '#555'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[pg.btn, page === totalPages && pg.btnDisabled]}
+              onPress={() => setPage(totalPages)}
+              disabled={page === totalPages}
+            >
+              <Icon name="chevron-double-right" size={14} color={page === totalPages ? '#ccc' : '#555'} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#333" />
+    <View style={styles.container}>
+      <AppHeader
+        title="View Clients"
+        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        rightIcon={<NotificationSVG width={24} height={24} />}
+        onLeftPress={() => navigation.goBack()}
+        onRightPress={() => navigation.navigate('Notifications')}
+        backgroundColor="#FFE5E5"
+      />
+
+      <View style={styles.toolbar}>
+        {/* Client type filter */}
+        <TouchableOpacity style={styles.typeBtn} onPress={() => setTypeDropOpen(v => !v)}>
+          <Text style={styles.typeBtnText}>{clientType === 'All' ? 'Select Client Type' : clientType}</Text>
+          <Icon name={typeDropOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#555" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>View Clients</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('NewMemberRegistration')}>
-          <Icon name="account-plus" size={24} color="#E63946" />
+
+        {/* Search */}
+        <View style={styles.searchBar}>
+          <Icon name="magnify" size={16} color="#999" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search name, ID, phone..."
+            placeholderTextColor="#aaa"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Icon name="close-circle" size={15} color="#bbb" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Add New Client */}
+        <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('NewMemberRegistration')}>
+          <Icon name="plus" size={16} color="#FFF" />
+          <Text style={styles.addBtnText}>Add New Client</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchRow}>
-        <Icon name="magnify" size={20} color="#888" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, ID, phone..."
-          value={search}
-          onChangeText={setSearch}
-          placeholderTextColor="#aaa"
-        />
-        {search ? (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Icon name="close-circle" size={18} color="#aaa" />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* Filter Tabs */}
-      <View style={styles.tabRow}>
-        {FILTER_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Type dropdown */}
+      {typeDropOpen && (
+        <View style={styles.typeMenu}>
+          {CLIENT_TYPES.map(t => (
+            <TouchableOpacity
+              key={t}
+              style={[styles.typeMenuItem, clientType === t && styles.typeMenuItemActive]}
+              onPress={() => { setClientType(t); setTypeDropOpen(false); }}
+            >
+              <Text style={[styles.typeMenuItemText, clientType === t && styles.typeMenuItemTextActive]}>{t}</Text>
+              {clientType === t && <Icon name="check" size={14} color="#E63946" />}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#E63946" />
         </View>
       ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item, i) => String(item.id ?? i)}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Icon name="account-off" size={48} color="#ddd" />
-              <Text style={styles.emptyText}>No clients found</Text>
-            </View>
-          }
-        />
-      )}
+        >
+          {(clientType === 'All' || clientType === 'Active') && (
+            <TableSection
+              title="Active Clients"
+              data={activeList}
+              page={activePage}
+              setPage={setActivePage}
+            />
+          )}
 
-      <View style={styles.countBar}>
-        <Text style={styles.countText}>{filtered.length} client{filtered.length !== 1 ? 's' : ''}</Text>
-      </View>
-    </SafeAreaView>
+          {(clientType === 'All' || clientType === 'Inactive' || clientType === 'Dormant') && (
+            <TableSection
+              title={clientType === 'Dormant' ? 'Dormant Clients' : 'Inactive Clients'}
+              data={inactiveList}
+              page={inactivePage}
+              setPage={setInactivePage}
+            />
+          )}
+
+          <Text style={styles.countNote}>
+            {filtered.length} client{filtered.length !== 1 ? 's' : ''} shown
+          </Text>
+        </ScrollView>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', margin: 12, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#333' },
-  tabRow: { flexDirection: 'row', paddingHorizontal: 12, marginBottom: 8 },
-  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8, marginHorizontal: 3, backgroundColor: '#eee' },
-  activeTab: { backgroundColor: '#E63946' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#666' },
-  activeTabText: { color: '#fff' },
-  list: { paddingHorizontal: 12, paddingBottom: 80 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#E63946', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  cardInfo: { flex: 1 },
-  clientName: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
-  membershipId: { fontSize: 12, color: '#888', marginTop: 2 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  activeBadge: { backgroundColor: '#E8F5E9' },
-  inactiveBadge: { backgroundColor: '#FFF3E0' },
-  statusText: { fontSize: 11, fontWeight: '700', color: '#2E7D32' },
-  cardDetails: { gap: 4 },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  detailText: { fontSize: 13, color: '#555', flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 15, color: '#aaa', marginTop: 12 },
-  countBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', padding: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#eee' },
-  countText: { fontSize: 13, color: '#888', fontWeight: '600' },
+  container:           { flex: 1, backgroundColor: '#F7F8FA' },
+  toolbar:             { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE', flexWrap: 'wrap' },
+  typeBtn:             { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#FAFAFA' },
+  typeBtnText:         { fontSize: 13, color: '#333' },
+  searchBar:           { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#FAFAFA', minWidth: 120 },
+  searchInput:         { flex: 1, fontSize: 13, color: '#1A1A1A', padding: 0 },
+  addBtn:              { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#E63946', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
+  addBtnText:          { fontSize: 13, color: '#FFF', fontWeight: '700' },
+  typeMenu:            { backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE', elevation: 4 },
+  typeMenuItem:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  typeMenuItemActive:  { backgroundColor: '#FFF5F5' },
+  typeMenuItemText:    { fontSize: 14, color: '#333' },
+  typeMenuItemTextActive: { color: '#E63946', fontWeight: '600' },
+  center:              { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll:              { padding: 12, paddingBottom: 30 },
+  section:             { marginBottom: 16, backgroundColor: '#FFF', borderRadius: 12, overflow: 'hidden', elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6 },
+  sectionHeader:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  sectionTitle:        { fontSize: 14, fontWeight: '700', color: '#1A1A1A' },
+  sectionCount:        { fontSize: 12, color: '#888' },
+  noRecord:            { paddingVertical: 24, alignItems: 'center' },
+  noRecordText:        { fontSize: 13, color: '#999' },
+  countNote:           { textAlign: 'center', fontSize: 12, color: '#aaa', marginTop: 4 },
+});
+
+const tbl = StyleSheet.create({
+  headerRow:  { flexDirection: 'row', backgroundColor: '#C0392B', paddingVertical: 10, paddingHorizontal: 6 },
+  headerCell: { fontSize: 11, fontWeight: '700', color: '#FFF', paddingHorizontal: 4 },
+  dataRow:    { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 6, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  dataRowAlt: { backgroundColor: '#FBF8F8' },
+  cell:       { fontSize: 12, color: '#1A1A1A', paddingHorizontal: 4, alignSelf: 'center' },
+  cellMuted:  { color: '#888' },
+  cellRed:    { color: '#C0392B', fontWeight: '600' },
+});
+
+const pg = StyleSheet.create({
+  bar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F0F0F0', backgroundColor: '#FAFAFA' },
+  btn:        { width: 32, height: 32, borderRadius: 6, borderWidth: 1, borderColor: '#E0E0E0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
+  btnDisabled:{ backgroundColor: '#F5F5F5', borderColor: '#EEE' },
+  info:       { fontSize: 13, color: '#555', paddingHorizontal: 8 },
+  infoB:      { fontWeight: '700', color: '#1A1A1A' },
 });
 
 export default ViewClients;
