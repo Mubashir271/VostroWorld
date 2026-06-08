@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Modal } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch } from 'react-native'
 import React, { useState } from 'react'
 import AppHeader from '../../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';

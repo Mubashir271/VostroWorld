@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,17 +17,17 @@ import { useNavigation } from '@react-navigation/native';
 
 const TrainerHistory = () => {
   const dispatch = useDispatch<any>();
-  const { history, loading } = useSelector((state: RootState) => state.trainer);
+  const { history } = useSelector((state: RootState) => state.trainer);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
 
-  const loadHistory = () => {
+  const loadHistory = useCallback(() => {
     dispatch(fetchTrainerHistory({ limit: 20 }));
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [loadHistory]);
 
   const onRefresh = () => {
     setRefreshing(true);

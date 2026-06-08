@@ -6,11 +6,9 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Switch,
   Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AppHeader from '../../components/AppHeader';
@@ -55,7 +53,6 @@ const NewMemberRegistrationScreen = () => {
   };
 
   const nextStep = () => currentStep < 4 && setCurrentStep(currentStep + 1);
-  const prevStep = () => currentStep > 1 && setCurrentStep(currentStep - 1);
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
 

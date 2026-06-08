@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Image, ImageSourcePropType } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, Image, ImageSourcePropType } from 'react-native';
 
 interface SocialButtonProps {
   label: string;

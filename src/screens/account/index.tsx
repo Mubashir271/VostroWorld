@@ -2,10 +2,9 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, RefreshCon
 import React, { useCallback, useState } from 'react'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { useNavigation } from '@react-navigation/native';
-import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { useSelector, useDispatch } from 'react-redux';
+import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
 import { logoutUser } from '../../redux/slices/userSlice';
 

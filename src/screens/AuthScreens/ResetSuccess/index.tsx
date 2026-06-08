@@ -1,31 +1,11 @@
-import { Image, ImageBackground, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import React, { useState } from 'react'
-import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
+import { Image, ImageBackground, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import React from 'react'
 import { useNavigation } from '@react-navigation/native';
-import PrimaryButton from '../../../components/PrimaryButton';
 import { resetToLogin } from '../../../utils/navigationActions';
 import Footer from '../../../components/Footer';
 
 const ResetSuccess = () => {
-    const { showSnackbar } = useSnackbarStore();
     const navigation = useNavigation<any>();
-
-    // State to hold answers for each question
-    const [answers, setAnswers] = useState({
-        firstSchool: '',
-        childhoodFood: '',
-        birthCity: '',
-    });
-
-    const handleChange = (key: string, value: string) => {
-        setAnswers((prev) => ({ ...prev, [key]: value }));
-    };
-
-    const handleSubmit = () => {
-        showSnackbar('Answers submitted');
-        // You can also navigate to the next screen here
-    };
-
 
     return (
         <KeyboardAvoidingView style={styles.container}>

@@ -1,9 +1,8 @@
-import { Image, ImageBackground, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Image, ImageBackground, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import React, { useState } from 'react'
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import { useNavigation } from '@react-navigation/native';
 import PrimaryButton from '../../../components/PrimaryButton';
-import { resetToLogin } from '../../../utils/navigationActions';
 import CheckboxItem from '../../../components/CheckboxItem';
 
 const ForgotPassword = () => {

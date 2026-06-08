@@ -53,7 +53,7 @@ import {Provider} from 'react-redux';
 import {persistor, store} from './src/redux/store';
 import {PersistGate} from 'redux-persist/integration/react';
 import {NavigationContainer} from '@react-navigation/native';
-import {LogBox, StatusBar} from 'react-native';
+import {LogBox} from 'react-native';
 import AppNavigator from './src/navigation/StackNavigation';
 import GlobalSnackbar from './src/redux/GlobalSnackbar';
 LogBox.ignoreAllLogs();

@@ -10,9 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SocialButton } from '../../../components/SocialButton';
 import { Feature } from '../../../components/Feature';
-import { Apple, Control, Dashboard, Google, Security } from '../../../assets/icons';
+import { Control, Dashboard, Security } from '../../../assets/icons';
 
 
 const WelcomeAdminScreen = ({ navigation }: any) => {

@@ -64,7 +64,7 @@ export default function SessionTrackerScreen() {
   useEffect(() => {
     setLoading(true);
     fetchClients().finally(() => setLoading(false));
-  }, []);
+  }, [fetchClients]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -95,7 +95,7 @@ export default function SessionTrackerScreen() {
       });
       Alert.alert('Saved', `Session marked as ${status}`);
       fetchClients();
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to mark session');
     } finally {
       setMarking(null);

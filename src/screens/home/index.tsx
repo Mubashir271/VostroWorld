@@ -1,5 +1,5 @@
 // DashboardScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -11,7 +11,7 @@ import {
     ActivityIndicator,
     RefreshControl
 } from 'react-native';
-import { Attendance, Cafe, Edit_fill, Features, Finance, Fitness, ManageStaff, NewRegistration, Package, Payments, ViewReports } from '../../assets/icons';
+import { Attendance, Edit_fill, Features, Finance, Fitness, ManageStaff, NewRegistration, Package, Payments, ViewReports } from '../../assets/icons';
 import AppHeader from '../../components/AppHeader';
 import { useNavigation } from '@react-navigation/native';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
@@ -92,10 +92,6 @@ export default function DashboardScreen() {
         profile?.branchName ||
         (branchId ? `Branch ${branchId}` : 'Main Branch');
 
-    const username =
-        profile?.username ||
-        fullName;
-
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const userIsAdmin = isAdmin(profile?.role || profile?.type);
@@ -112,9 +108,25 @@ export default function DashboardScreen() {
         leaveBalance: 0, approvedDocs: 0, todayAttendance: null as any,
     });
 
-    useEffect(() => { fetchDashboard(); }, []);
+    const fetchClientStats = useCallback(async () => {
+        const [all, f11, g13] = await Promise.all([
+            getClientsCount(),
+            getClientsCount(15),   // F-11
+            getClientsCount(1),    // G-13
+        ]);
+        setClientsAll({ all: all?.all_clients || 0, active: all?.active_clients || 0, inactive: all?.inactive_clients || 0, dormant: all?.dormant_clients || 0 });
+        setClientsF11(f11?.all_clients || 0);
+        setClientsG13(g13?.all_clients || 0);
+    }, []);
 
-    const fetchDashboard = async () => {
+    const fetchTodaySales = useCallback(async () => {
+        if (!branchId) return;
+        const res = await getTodaySummary(branchId);
+        const row = res?.immediate?.[0];
+        if (row) setTodaySales((row.pending || 0) + (row.Credit_Card || 0) + (row.Online || 0) + (row.Cash || 0));
+    }, [branchId]);
+
+    const fetchDashboard = useCallback(async () => {
         try {
             setLoading(true);
             if (userIsAdmin) {
@@ -131,30 +143,14 @@ export default function DashboardScreen() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userIsAdmin, branchId, profile?.id, fetchClientStats, fetchTodaySales]);
 
-    const fetchClientStats = async () => {
-        const [all, f11, g13] = await Promise.all([
-            getClientsCount(),
-            getClientsCount(15),   // F-11
-            getClientsCount(1),    // G-13
-        ]);
-        setClientsAll({ all: all?.all_clients || 0, active: all?.active_clients || 0, inactive: all?.inactive_clients || 0, dormant: all?.dormant_clients || 0 });
-        setClientsF11(f11?.all_clients || 0);
-        setClientsG13(g13?.all_clients || 0);
-    };
-
-    const fetchTodaySales = async () => {
-        if (!branchId) return;
-        const res = await getTodaySummary(branchId);
-        const row = res?.immediate?.[0];
-        if (row) setTodaySales((row.pending || 0) + (row.Credit_Card || 0) + (row.Online || 0) + (row.Cash || 0));
-    };
+    useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
         fetchDashboard().then(() => setRefreshing(false));
-    }, [branchId, userIsAdmin]);
+    }, [fetchDashboard]);
 
     const avatarSource = appImage
         ? { uri: appImage }

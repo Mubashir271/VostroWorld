@@ -212,7 +212,7 @@ export const RegistrationScreen = () => {
             )}
 
             {/* Add more steps as needed */}
-            // 3. Render Logic for Step 2
+            {/* 3. Render Logic for Step 2 */}
             {step === 2 && (
                 <View>
                     <Text style={styles.title}>Work Information</Text>

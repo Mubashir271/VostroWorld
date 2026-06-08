@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert,
@@ -7,7 +7,6 @@ import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../components/AppHeader';
-import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
 import api from '../../api/service';
@@ -42,9 +41,7 @@ export default function QualificationsScreen() {
     start_date: '', end_date: '', description: '',
   });
 
-  useEffect(() => { fetchEntries(); }, []);
-
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/v1/hr/employee-profile-entries/index', {
@@ -56,7 +53,9 @@ export default function QualificationsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [branchId, userId]);
+
+  useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
   const handleSave = async () => {
     if (!form.title.trim() || !form.organization.trim()) {
@@ -71,7 +70,7 @@ export default function QualificationsScreen() {
       Alert.alert('Saved', 'Record saved successfully');
       setForm({ entry_type: 'Qualification', title: '', organization: '', location: '', start_date: '', end_date: '', description: '' });
       fetchEntries();
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to save record');
     } finally {
       setSaving(false);

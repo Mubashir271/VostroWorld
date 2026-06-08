@@ -1,7 +1,5 @@
-import { Dimensions, FlatList, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Check } from "../assets/icons";
-
-const width = Dimensions.get("screen");
 export const SelectionModal = ({ visible, title, options, selectedValue, onSelect, onClose }: any) => (
   <Modal visible={visible} transparent animationType="slide">
     <Pressable style={styles.modalOverlay} onPress={onClose}>

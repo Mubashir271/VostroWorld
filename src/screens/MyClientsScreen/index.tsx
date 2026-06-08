@@ -205,7 +205,7 @@ const MyClientsScreen = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [branchId]);
+    }, [branchId, dispatch]);
 
     useEffect(() => { fetchClients(); }, [fetchClients]);
 

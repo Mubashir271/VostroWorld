@@ -13,7 +13,7 @@ interface EmailTemplate {
 
 const EmailTemplates = () => {
   const navigation = useNavigation();
-  const [templates, setTemplates] = useState<EmailTemplate[]>([
+  const [templates] = useState<EmailTemplate[]>([
     {
       id: '1',
       title: 'Welcome Email',

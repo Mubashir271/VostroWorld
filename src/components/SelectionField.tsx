@@ -1,7 +1,7 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Down, Error } from '../assets/icons/index';
 
-export const SelectionField = ({ label, value, placeholder, onPress, error, icon: Icon }: any) => (
+export const SelectionField = ({ label, value, placeholder, onPress, error }: any) => (
     <View style={styles.fieldContainer}>
         <View style={styles.labelRow}>
             <Text style={styles.label}>{label}</Text>

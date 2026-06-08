@@ -21,7 +21,7 @@ const GlobalSnackbar = () => {
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, dispatch, fadeAnim]);
 
   useEffect(() => {
     const keyboardDidShow = (e: any) => {
@@ -37,7 +37,7 @@ const GlobalSnackbar = () => {
       showListener.remove();
       hideListener.remove();
     };
-  }, []);
+  }, [translateY]);
 
   if (!visible) return null;
 

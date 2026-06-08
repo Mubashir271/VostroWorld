@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import React from 'react'
 
 const Hafsa = () => {
@@ -10,5 +10,3 @@ const Hafsa = () => {
 }
 
 export default Hafsa
-
-const styles = StyleSheet.create({})

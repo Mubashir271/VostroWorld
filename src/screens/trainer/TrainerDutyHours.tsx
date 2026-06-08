@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert,
@@ -7,7 +7,6 @@ import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../components/AppHeader';
-import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
 import api from '../../api/service';
@@ -36,9 +35,7 @@ export default function TrainerDutyHours() {
   const [reason, setReason]     = useState('');
   const [showPicker, setShowPicker] = useState(false);
 
-  useEffect(() => { fetchSlots(); }, []);
-
-  const fetchSlots = async () => {
+  const fetchSlots = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/v1/staff-timing/index', {
@@ -51,7 +48,9 @@ export default function TrainerDutyHours() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [branchId, userId]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
 
   const handleSubmit = async () => {
     if (!selectedSlot) { Alert.alert('Select a slot first'); return; }
@@ -69,7 +68,7 @@ export default function TrainerDutyHours() {
       });
       Alert.alert('Success', 'Request submitted successfully');
       setSelectedSlot(null); setReqStart(''); setReqEnd(''); setReason('');
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to submit request');
     } finally {
       setSubmitting(false);

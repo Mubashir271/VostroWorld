@@ -1,11 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 
 import { TextInputWithLabel } from '../../../components/TextInputWithLabel';
 import { PasswordStrength } from '../../../components/PasswordStrength.tsx';
 import { getPasswordStrength } from '../../../utils/password';
 import { PasswordRules } from '../../../components/PasswordRules.tsx';
-import { Error } from '../../../assets/icons/index.ts';
 import PasswordTips from '../../../components/PasswordTips.tsx';
 
 interface Step3CredentialsProps {
@@ -15,10 +14,6 @@ interface Step3CredentialsProps {
 
 export const Step3Credentials = ({ password, onPasswordChange }: Step3CredentialsProps) => {
     const [username, setUsername] = useState('');
-    const [securityAnswer, setSecurityAnswer] = useState('');
-    const [selectedQuestion, setSelectedQuestion] = useState('');
-
-    const questions = ["What's your pet's name?", "Street you grew up on?"];
 
     const strength = useMemo(() => getPasswordStrength(password), [password]);
 

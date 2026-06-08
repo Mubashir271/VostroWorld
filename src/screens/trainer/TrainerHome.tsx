@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,21 +8,21 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTrainerClients, submitMarkAttendance } from '../../redux/slices/trainerSlice';
+import { fetchTrainerClients } from '../../redux/slices/trainerSlice';
 import { RootState } from '../../redux/store';
 import AppHeader from '../../components/AppHeader';
 
 const TrainerHome = ({ navigation }: any) => {
   const dispatch = useDispatch();
-  const { clients, loading, error } = useSelector((state: RootState) => state.trainer);
+  const { clients, loading } = useSelector((state: RootState) => state.trainer);
+
+  const loadClients = useCallback(() => {
+    dispatch(fetchTrainerClients({ check_date: new Date().toISOString().split('T')[0] }) as any);
+  }, [dispatch]);
 
   useEffect(() => {
     loadClients();
-  }, []);
-
-  const loadClients = () => {
-    dispatch(fetchTrainerClients({ check_date: new Date().toISOString().split('T')[0] }) as any);
-  };
+  }, [loadClients]);
 
   const handleMarkAttendance = (client: any) => {
     navigation.navigate('MarkAttendance', { client });

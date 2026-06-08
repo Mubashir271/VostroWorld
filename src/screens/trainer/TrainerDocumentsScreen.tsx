@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert,
@@ -8,7 +8,6 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AppHeader from '../../components/AppHeader';
-import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
 import api from '../../api/service';
@@ -50,9 +49,7 @@ export default function TrainerDocumentsScreen() {
     description: '',
   });
 
-  useEffect(() => { fetchDocs(); }, []);
-
-  const fetchDocs = async () => {
+  const fetchDocs = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/v1/hr/staff-documents/index', {
@@ -64,7 +61,9 @@ export default function TrainerDocumentsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [branchId, userId]);
+
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
   const pickFile = () => {
     launchImageLibrary({ mediaType: 'mixed', quality: 0.8 }, response => {
@@ -94,7 +93,7 @@ export default function TrainerDocumentsScreen() {
       setFile(null);
       setForm({ document_category: 'CNIC', subject: '', document_code: '', issue_date: new Date().toISOString().split('T')[0], description: '' });
       fetchDocs();
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to upload document');
     } finally {
       setUploading(false);

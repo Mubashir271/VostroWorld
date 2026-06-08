@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl,
@@ -38,16 +38,16 @@ const TrainerRoster = () => {
   const [packageStatus, setPackageStatus] = useState<number | undefined>(1);
   const [refreshing,    setRefreshing]    = useState(false);
 
-  const load = (status?: number | undefined) => {
+  const load = useCallback((status?: number | undefined) => {
     dispatch(fetchTrainerRoster({
       branch_id:      branchId,
       trainer_id:     trainerId,
       package_status: status,
       limit:          50,
     }));
-  };
+  }, [dispatch, branchId, trainerId]);
 
-  useEffect(() => { load(packageStatus); }, []);
+  useEffect(() => { load(packageStatus); }, [load, packageStatus]);
 
   const onRefresh = async () => {
     setRefreshing(true);

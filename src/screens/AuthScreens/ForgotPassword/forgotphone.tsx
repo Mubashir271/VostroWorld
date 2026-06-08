@@ -1,6 +1,5 @@
 import React from 'react';
-import { Image, ImageBackground, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import VerificationCodeInput from '../../../components/VerificationCodeInput';
+import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import { useNavigation } from '@react-navigation/native';
 import ForgotCodeInput from '../../../components/ForgotCodeInput';

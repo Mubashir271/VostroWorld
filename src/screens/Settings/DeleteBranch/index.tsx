@@ -13,7 +13,7 @@ const DeleteBranch = () => {
   const [address2, setAddress2] = useState('This is test mail');
   const [managerSchedule, setManagerSchedule] = useState('Operating Hours');
   const [isDateTimePickerVisible, setDateTimePickerVisibility] = useState(false);
-  const [scheduleTime, setScheduleTime] = useState<Date | null>(null);
+  const [, setScheduleTime] = useState<Date | null>(null);
 
   const handleSave = () => {
     if (!branchName || !address1 || !address2) {
@@ -21,10 +21,6 @@ const DeleteBranch = () => {
       return;
     }
     Alert.alert('Success', 'Branch deleted successfully!');
-  };
-
-  const handleCancel = () => {
-    navigation.goBack();
   };
 
   const handleAddSchedule = () => {

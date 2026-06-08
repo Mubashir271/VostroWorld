@@ -3,24 +3,13 @@ import React, { useState } from 'react'
 import AppHeader from '../../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 
-interface OrderData {
-  id: string;
-  orderNumber: string;
-  amount: number;
-  status: string;
-}
-
 const NewOrder = () => {
   const navigation = useNavigation();
-  const route = useRoute();
   const dispatch = useDispatch();
-  const orderData = (route.params as any)?.orderData as OrderData || {
-    orderNumber: 'NEW',
-  };
 
   const [selectedItems, setSelectedItems] = useState<string[]>(['Coffee x2', 'Sandwich x1']);
   const [showItemInput, setShowItemInput] = useState(false);

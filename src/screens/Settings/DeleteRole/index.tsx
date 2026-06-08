@@ -9,7 +9,7 @@ const DeleteRole = () => {
   const navigation = useNavigation();
   const [roleName, setRoleName] = useState('abc@gamil.com');
   const [description, setDescription] = useState('This is test mail');
-  const [permissions, setPermissions] = useState('Open Permission Matrix');
+  const [permissions] = useState('Open Permission Matrix');
 
   const handleContinue = () => {
     if (!roleName || !description) {

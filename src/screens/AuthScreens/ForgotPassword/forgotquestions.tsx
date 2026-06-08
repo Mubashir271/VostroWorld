@@ -1,9 +1,8 @@
-import { Image, ImageBackground, StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, KeyboardAvoidingView } from 'react-native';
+import { Image, ImageBackground, StyleSheet, Text, View, TextInput, ScrollView, KeyboardAvoidingView } from 'react-native';
 import React, { useState } from 'react';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import { useNavigation } from '@react-navigation/native';
 import PrimaryButton from './../../../components/PrimaryButton';
-import { resetToLogin } from '../../../utils/navigationActions';
 
 
 const Forgotquestions = () => {

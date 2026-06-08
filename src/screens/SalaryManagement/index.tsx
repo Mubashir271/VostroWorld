@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, FlatList,
   ActivityIndicator, RefreshControl, TextInput,
 } from 'react-native';
 import { useSelector } from 'react-redux';

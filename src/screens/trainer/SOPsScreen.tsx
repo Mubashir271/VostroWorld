@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl,
@@ -48,7 +48,7 @@ export default function SOPsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected]   = useState<SOP | null>(null);
 
-  const fetchSops = async () => {
+  const fetchSops = useCallback(async () => {
     try {
       const res = await api.get('/v1/fitness/sops/index', {
         params: { branch_id: branchId, status: 1, limit: 100, page: 1 },
@@ -57,12 +57,12 @@ export default function SOPsScreen() {
     } catch (e) {
       console.log('SOPs error:', e);
     }
-  };
+  }, [branchId]);
 
   useEffect(() => {
     setLoading(true);
     fetchSops().finally(() => setLoading(false));
-  }, []);
+  }, [fetchSops]);
 
   const onRefresh = () => {
     setRefreshing(true);

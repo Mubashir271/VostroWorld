@@ -4,10 +4,7 @@ import {
     View,
     Text,
     TouchableOpacity,
-    ScrollView,
-    SafeAreaView,
     Image,
-    Linking,
 } from 'react-native';
 import { Edit, Warning } from '../../../assets/icons';
 import CheckBox from '../../../components/Checkbox';

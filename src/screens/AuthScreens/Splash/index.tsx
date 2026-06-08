@@ -27,7 +27,7 @@ const Splash = ({ navigation }: { navigation: any }) => {
         navigation.replace('WelcomeAdmin'); // Go to welcome if not logged in
       }
     });
-  }, [token, navigation]);
+  }, [token, navigation, progress]);
 
   const widthInterpolated = progress.interpolate({
     inputRange: [0, 1],

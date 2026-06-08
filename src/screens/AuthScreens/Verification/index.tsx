@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Image,
   ImageBackground,
-  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
@@ -16,8 +15,6 @@ import Footer from '../../../components/Footer';
 import { resetToLogin } from '../../../utils/navigationActions';
 
 type Method = 'sms' | 'email' | 'security';
-
-const { width } = Dimensions.get('window');
 
 const VerificationMethod = () => {
   const navigation = useNavigation<any>();

@@ -161,7 +161,7 @@ const AttendanceScreen = () => {
         } finally {
             setLoadingSummary(false);
         }
-    }, [branchId]);
+    }, [branchId, dispatch]);
 
     // ── Fetch records ──────────────────────────────────────────────────────────
     const fetchRecords = useCallback(async () => {
@@ -203,7 +203,7 @@ const AttendanceScreen = () => {
         } finally {
             setLoadingRecords(false);
         }
-    }, [branchId, userId, startDate, endDate]);
+    }, [branchId, userId, startDate, endDate, dispatch]);
 
     useEffect(() => {
         fetchSummary();

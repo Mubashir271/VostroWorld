@@ -16,7 +16,7 @@ import AppHeader from '../../components/AppHeader';
 const MarkAttendance = ({ route, navigation }: any) => {
   const { client } = route.params;
   const dispatch = useDispatch<any>();
-  const { takenSlots, loading } = useSelector((state: RootState) => state.trainer);
+  const { loading } = useSelector((state: RootState) => state.trainer);
 
   const [staffStatus, setStaffStatus] = useState<'Delivered' | 'No Show' | 'Cancel'>('Delivered');
   const [clientStatus, setClientStatus] = useState<'Delivered' | 'No Show' | 'Cancel'>('Delivered');
@@ -26,7 +26,7 @@ const MarkAttendance = ({ route, navigation }: any) => {
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     dispatch(fetchTakenSlots(today));
-  }, []);
+  }, [dispatch]);
 
   const handleSubmit = () => {
     const payload = {

@@ -6,11 +6,9 @@ import {
     TouchableOpacity,
     TextInput,
     Dimensions,
-    Image,
     NativeSyntheticEvent,
     TextInputKeyPressEventData,
 } from 'react-native';
-import PrimaryButton from './PrimaryButton';
 
 interface VerificationCodeInputProps {
     phoneOrEmail: string;
@@ -27,7 +25,7 @@ const ForgotCodeInput: React.FC<VerificationCodeInputProps> = ({
     resendDelaySeconds = 30,
     codeExpireSeconds = 20,
 }) => {
-    const [resendTimer, setResendTimer] = useState(resendDelaySeconds);
+    const [, setResendTimer] = useState(resendDelaySeconds);
     const [expireTimer, setExpireTimer] = useState(codeExpireSeconds);
     const [code, setCode] = useState<string[]>(Array(6).fill(''));
 

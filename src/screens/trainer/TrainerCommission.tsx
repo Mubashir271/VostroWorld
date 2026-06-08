@@ -15,7 +15,7 @@ const TrainerCommission = () => {
 
   useEffect(() => {
     dispatch(fetchTrainerCommission({}));
-  }, []);
+  }, [dispatch]);
 
   return (
     <View style={styles.container}>
