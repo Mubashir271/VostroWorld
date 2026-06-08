@@ -78,8 +78,8 @@ const LeaveApplications = () => {
   const dispatch   = useDispatch<any>();
   const { profile } = useSelector((state: RootState) => state.user);
 
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
-  const userId   = profile?.id ?? profile?.user_id;
+  const branchId = profile?.branchId ?? 1;
+  const userId   = profile?.id ?? 0;
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [quotas, setQuotas]       = useState<QuotaItem[]>([]);

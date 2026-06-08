@@ -32,7 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 const Expenses = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);

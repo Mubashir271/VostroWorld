@@ -124,9 +124,9 @@ const AttendanceScreen = () => {
     const { profile } = useSelector((state: RootState) => state.user);
     const dispatch = useDispatch();
 
-    const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
-    const userId   = profile?.id ?? profile?.user_id;
-    const navigation = useNavigation();
+    const branchId = profile?.branchId ?? 1;
+    const userId   = profile?.id ?? 0;
+    const navigation = useNavigation<any>();
 
     const [summary, setSummary]             = useState<AttendanceSummary | null>(null);
     const [records, setRecords]             = useState<AttendanceRecord[]>([]);

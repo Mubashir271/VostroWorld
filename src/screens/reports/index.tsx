@@ -58,7 +58,7 @@ const REPORTS = [
   },
 ];
 
-const ReportCard = ({ item, navigation }) => {
+const ReportCard = ({ item, navigation }: { item: any; navigation: any }) => {
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -88,7 +88,7 @@ const ReportCard = ({ item, navigation }) => {
   );
 };
 
-const ReportsScreen = ({ navigation }) => {
+const ReportsScreen = ({ navigation }: { navigation: any }) => {
   return (
     <>
           <AppHeader

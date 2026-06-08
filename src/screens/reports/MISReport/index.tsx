@@ -60,7 +60,7 @@ const KVRow = ({ label, value, redValue }: { label: string; value: any; redValue
 const MISReportScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
   const branchName = profile?.branchName ?? `Branch ${branchId}`;
 
   const [data, setData] = useState<any>(null);

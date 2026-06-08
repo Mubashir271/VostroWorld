@@ -73,6 +73,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  info: { flex: 1 },
   clientName: { fontSize: 18, fontWeight: '700' },
   package: { color: '#666', marginVertical: 4 },
   sessions: { color: '#0284c7', fontWeight: '600' },

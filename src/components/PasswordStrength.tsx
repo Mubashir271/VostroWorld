@@ -9,7 +9,7 @@ interface Props {
 }
 
 export const PasswordStrength: React.FC<Props> = ({ strength }) => {
- const progressMap: Record<Strength, string> = {
+ const progressMap: Record<Strength, `${number}%`> = {
   None: '0%',
   Weak: '33%',
   Medium: '66%',

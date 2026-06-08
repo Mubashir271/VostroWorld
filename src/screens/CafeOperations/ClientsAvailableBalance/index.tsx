@@ -16,7 +16,7 @@ const fmtRs = (val: any) => `Rs ${parseFloat(val ?? 0).toLocaleString()}/-`;
 const ClientsAvailableBalance = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
 
   const [rows, setRows]         = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);

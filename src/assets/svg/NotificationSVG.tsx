@@ -1,6 +1,6 @@
 import * as React from "react";
 import Svg, { Rect, Path } from "react-native-svg";
-const NotificationSVG = (props) => (
+const NotificationSVG = (props: any) => (
   <Svg
     id="collecticon-"
     xmlns="http://www.w3.org/2000/svg"

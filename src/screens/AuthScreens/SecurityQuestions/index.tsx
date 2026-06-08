@@ -9,7 +9,7 @@ import { resetToLogin } from '../../../utils/navigationActions';
 
 const SecurityQuestions = () => {
     const { showSnackbar } = useSnackbarStore();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     
     // Get user data from Redux
     const { firstName, lastName } = useSelector((state: RootState) => state.user.registrationData);

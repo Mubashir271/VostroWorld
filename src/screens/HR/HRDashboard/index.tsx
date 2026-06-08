@@ -43,7 +43,7 @@ const StatCard = ({ icon, label, value, color }: { icon: string; label: string; 
 const HRDashboard = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
 
   const [data, setData] = useState<HRData | null>(null);
   const [loading, setLoading] = useState(true);

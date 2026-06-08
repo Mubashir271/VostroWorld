@@ -283,7 +283,6 @@ const styles = StyleSheet.create({
     strengthFill: {
         height: '100%',
         borderRadius: 3,
-        transition: 'width 0.3s ease',
     },
     strengthLabels: {
         flexDirection: 'row',
@@ -331,6 +330,9 @@ const styles = StyleSheet.create({
     },
     buttonContainer: {
         marginTop: 25,
+    },
+    scrollContent: {
+        paddingBottom: 20,
     },
 });
 

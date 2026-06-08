@@ -44,7 +44,7 @@ export const RegistrationScreen = () => {
     const [employment, setEmployment] = useState('Full-time');
     const [joiningDate, setJoiningDate] = useState<Date | undefined>(undefined);
     const [lang, setLang] = useState('English');
-    const [modalConfig, setModalConfig] = useState({ visible: false, type: '', title: '', options: [] });
+    const [modalConfig, setModalConfig] = useState<{ visible: boolean; type: string; title: string; options: any[] }>({ visible: false, type: '', title: '', options: [] });
 
     // Step 3 - Credentials
     const [password, setPassword] = useState('');

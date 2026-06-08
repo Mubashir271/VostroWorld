@@ -26,7 +26,7 @@ interface FreezingRecord {
 const ViewFreezing = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
 
   const [records, setRecords] = useState<FreezingRecord[]>([]);
   const [filtered, setFiltered] = useState<FreezingRecord[]>([]);

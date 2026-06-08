@@ -1,6 +1,6 @@
 import * as React from "react";
 import Svg, { Path } from "react-native-svg";
-const BurgerSVG = (props) => (
+const BurgerSVG = (props: any) => (
   <Svg
     width="20px"
     height="20px"

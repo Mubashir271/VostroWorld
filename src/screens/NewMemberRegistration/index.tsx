@@ -18,7 +18,7 @@ import NotificationSVG from '../../assets/svg/NotificationSVG';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
 const NewMemberRegistrationScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [currentStep, setCurrentStep] = useState(1);
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 

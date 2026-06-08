@@ -291,7 +291,7 @@ const Settings = () => {
                 {item.toggle ? (
                   <Switch
                     value={autoBackup}
-                    onValueChange={(val) => dispatch(setAutoBackup(val))}
+                    onValueChange={(val) => { dispatch(setAutoBackup(val)); }}
                     trackColor={{ false: '#ccc', true: '#E10600' }}
                     thumbColor={autoBackup ? '#E10600' : '#f4f3f4'}
                   />

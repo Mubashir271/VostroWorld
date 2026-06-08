@@ -20,7 +20,7 @@ type Method = 'sms' | 'email' | 'security';
 const { width } = Dimensions.get('window');
 
 const VerificationMethod = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [selected, setSelected] = useState<Method | null>(null);
   
   // Get user data from Redux

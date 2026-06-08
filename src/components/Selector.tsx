@@ -27,7 +27,7 @@ export const Selector: React.FC<SelectorProps> = ({
 
       {/* Options */}
       <View style={styles.optionsRow}>
-        {options.map(option => (
+        {options.map((option: any) => (
           <CheckBox
             key={option}
             checked={selected === option}

@@ -8,7 +8,7 @@ import Footer from '../../../components/Footer';
 
 const ResetSuccess = () => {
     const { showSnackbar } = useSnackbarStore();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
 
     // State to hold answers for each question
     const [answers, setAnswers] = useState({

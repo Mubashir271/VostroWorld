@@ -476,7 +476,7 @@ const filterMenuForRole = (
 const DrawerContent = (props: any) => {
   const { navigation } = props;
   const dispatch = useDispatch();
-  const [expanded, setExpanded] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [active, setActive] = React.useState('Dashboard');
 
   const { profile, appImage } = useSelector((state: RootState) => state.user);
@@ -580,7 +580,7 @@ const DrawerContent = (props: any) => {
   const renderMenuItem = (item: any, level = 0, parentKey = '') => {
     const key = parentKey ? `${parentKey}.${item.title}` : item.title;
 
-    const isOpen = expanded === key;
+    const isOpen = expanded.has(key);
     const isActive = active === item.title;
     const hasChildren = item.children?.length > 0;
 
@@ -595,7 +595,11 @@ const DrawerContent = (props: any) => {
           ]}
           onPress={() => {
             if (hasChildren) {
-              setExpanded(prev => (prev === key ? null : key));
+              setExpanded(prev => {
+                const next = new Set(prev);
+                next.has(key) ? next.delete(key) : next.add(key);
+                return next;
+              });
             } else {
               setActive(item.title);
               navigateTo(navigation, item.screen ?? item.title);

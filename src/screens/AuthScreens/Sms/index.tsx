@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 
 const SMS = () => {
     const { showSnackbar } = useSnackbarStore();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
 
     // Get phone from Redux
     const profile = useSelector((state: RootState) => state.user.profile);

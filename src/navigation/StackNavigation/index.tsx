@@ -347,6 +347,11 @@ import FootfallReportScreen from '../../screens/reports/FootfallReport';
 // ── Coming Soon placeholder ───────────────────────────────────────────────────
 import ComingSoon from '../../screens/ComingSoon';
 
+// ── Nutrition screens ─────────────────────────────────────────────────────────
+import NutritionPackagesScreen from '../../screens/Nutrition/NutritionPackages';
+import AddMealsPlanScreen from '../../screens/Nutrition/AddMealsPlan';
+import ViewMealsPlanScreen from '../../screens/Nutrition/ViewMealsPlan';
+
 const Stack = createStackNavigator();
 
 // ─── ProtectedScreen ──────────────────────────────────────────────────────────
@@ -577,9 +582,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="ManageAvailability" component={protect(ComingSoon)} />
 
                 {/* ── Admin: Nutrition ── */}
-                <Stack.Screen name="NutritionPackages" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddMealsPlan" component={protect(ComingSoon)} />
-                <Stack.Screen name="ViewMealsPlan" component={protect(ComingSoon)} />
+                <Stack.Screen name="NutritionPackages" component={protect(NutritionPackagesScreen)} />
+                <Stack.Screen name="AddMealsPlan" component={protect(AddMealsPlanScreen)} />
+                <Stack.Screen name="ViewMealsPlan" component={protect(ViewMealsPlanScreen)} />
                 <Stack.Screen name="AddNutritionAssessments" component={protect(ComingSoon)} />
                 <Stack.Screen name="ViewNutritionAssessments" component={protect(ComingSoon)} />
             </Stack.Navigator>

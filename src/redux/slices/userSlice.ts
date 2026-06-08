@@ -201,6 +201,7 @@ export const {
     clearRegistrationData,
     updateAppImage,
     clearAppImage,
+    setAutoBackup,
     persistUser,
 } = userSlice.actions;
 

@@ -304,7 +304,7 @@ const tbl = StyleSheet.create({
   cell:       { fontSize: 12, color: '#1A1A1A', paddingHorizontal: 4, alignSelf: 'center' },
   cellMuted:  { color: '#888' },
   cellRed:    { color: '#C0392B', fontWeight: '600' },
-});
+ });
 
 const pg = StyleSheet.create({
   bar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F0F0F0', backgroundColor: '#FAFAFA' },

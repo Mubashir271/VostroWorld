@@ -23,7 +23,7 @@ const AccountScreen = () => {
       // Example:
       // await dispatch(getProfile());
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
     } catch (error) {
       console.log('Refresh error:', error);
     } finally {

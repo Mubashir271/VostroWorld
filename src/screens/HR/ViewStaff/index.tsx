@@ -36,7 +36,7 @@ const DEPT_COLORS: Record<string, string> = {
 const ViewStaff = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [filtered, setFiltered] = useState<StaffMember[]>([]);

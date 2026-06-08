@@ -26,7 +26,7 @@ const display = (iso: string) => {
 const SalesReportScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
 
   const [data, setData]         = useState<any[]>([]);
   const [loading, setLoading]   = useState(false);

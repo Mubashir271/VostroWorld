@@ -13,22 +13,16 @@ const api = axios.create({
     },
 });
 
-// ✅ Auto attach token from Redux
-api.interceptors.request.use((config) => {
-    const token = store.getState().user.token;   // Get token from Redux
+api.interceptors.request.use(
+  (config) => {
+    const token = store.getState().user.token;
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
-    return config;
-});
-// src/api/service.ts
-
-api.interceptors.request.use(
-  (config) => {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📤 API REQUEST');
     console.log('Method :', config.method?.toUpperCase());
-    console.log('URL    :', config.baseURL + config.url);
+    console.log('URL    :', (config.baseURL ?? '') + (config.url ?? ''));
     console.log('Params :', JSON.stringify(config.params, null, 2));
     console.log('Body   :', JSON.stringify(config.data, null, 2));
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

@@ -70,7 +70,7 @@ const VerificationCodeInput: React.FC<VerificationCodeInputProps> = ({
         code.map((digit, i) => (
             <TextInput
                 key={i}
-                ref={(ref) => (inputsRef.current[i] = ref)}
+                ref={(ref) => { inputsRef.current[i] = ref; }}
                 value={digit}
                 onChangeText={(text) => handleChangeText(text, i)}
                 onKeyPress={(e) => handleKeyPress(e, i)}

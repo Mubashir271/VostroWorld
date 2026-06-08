@@ -30,7 +30,7 @@ const StatCard = ({ icon, label, value, color, onPress }: StatCardProps) => (
 const CafeDashboard = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? profile?.branch_id ?? 1;
+  const branchId = profile?.branchId ?? 1;
 
   const [data, setData]           = useState<any>(null);
   const [loading, setLoading]     = useState(true);

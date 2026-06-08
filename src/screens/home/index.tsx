@@ -255,7 +255,7 @@ export default function DashboardScreen() {
                                                 <Text style={styles.empName}>{fullName}</Text>
                                                 <Text style={styles.empDesc}>Profile, leave requests, salary & HR approvals</Text>
                                                 <View style={styles.empTags}>
-                                                    {[profile?.designation, profile?.department, branchName].filter(Boolean).map((tag: string) => (
+                                                    {[(profile as any)?.designation ?? profile?.role, (profile as any)?.department, branchName].filter(Boolean).map((tag: string) => (
                                                         <View key={tag} style={styles.empTag}>
                                                             <Text style={styles.empTagText}>{tag}</Text>
                                                         </View>
@@ -277,7 +277,7 @@ export default function DashboardScreen() {
                                         </View>
                                         <View style={styles.empAttendBox}>
                                             <Text style={styles.empAttendLine}>Employee ID: {profile?.uid || '—'}</Text>
-                                            <Text style={styles.empAttendLine}>Joining: {profile?.joining || profile?.joiningDate || '—'}</Text>
+                                            <Text style={styles.empAttendLine}>Joining: {profile?.joining || '—'}</Text>
                                         </View>
                                     </View>
                                 </View>

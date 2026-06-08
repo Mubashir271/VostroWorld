@@ -167,7 +167,7 @@ const MyClientsScreen = () => {
     const dispatch = useDispatch();
     const navigation = useNavigation<any>();
 
-    const branchId = profile?.branchId ?? profile?.branch_id;
+    const branchId = profile?.branchId ?? 1;
 
     const [clients, setClients]               = useState<TrainerClient[]>([]);
     const [loading, setLoading]               = useState(true);
