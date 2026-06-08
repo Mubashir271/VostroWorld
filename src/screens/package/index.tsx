@@ -318,6 +318,7 @@ const PackageScreen: React.FC = () => {
           </View>
         ) : (
           <FlatList
+            style={styles.list}
             data={filtered}
             keyExtractor={item => String(item.id)}
             renderItem={renderItem}
@@ -424,6 +425,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#FFF', fontWeight: '700' },
 
   // List
+  list: { flex: 1 },
   listContent: { padding: 14, paddingBottom: 30 },
 
   // Package card

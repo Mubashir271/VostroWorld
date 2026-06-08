@@ -326,6 +326,7 @@ const MembersScreen = () => {
           </View>
         ) : (
           <FlatList
+            style={styles.list}
             data={filteredMembers}
             keyExtractor={(item) => String(item.id)}
             renderItem={renderItem}
