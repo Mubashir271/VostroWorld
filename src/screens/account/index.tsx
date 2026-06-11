@@ -121,10 +121,10 @@ const AccountScreen = () => {
         title="My Account"
         // leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
         leftIcon={<BurgerSVG width={24} height={24} />}
-        rightIcon={<Icon name="pencil" size={24} color="#1A1A1A" />}
+        rightIcon={<Icon name="cog-outline" size={24} color="#1A1A1A" />}
         // onLeftPress={() => navigation.goBack()}
         onLeftPress={() => navigation.openDrawer()}
-        onRightPress={() => console.log('Edit Account')}
+        onRightPress={() => navigation.navigate('Settings')}
         backgroundColor="#FFE5E5"
       />
       <View style={styles.container}>

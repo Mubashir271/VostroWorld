@@ -56,13 +56,14 @@ import {NavigationContainer} from '@react-navigation/native';
 import {LogBox} from 'react-native';
 import AppNavigator from './src/navigation/StackNavigation';
 import GlobalSnackbar from './src/redux/GlobalSnackbar';
+import {navigationRef} from './src/utils/navigationRef';
 LogBox.ignoreAllLogs();
 export default function App() {
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <GestureHandlerRootView>
-          <NavigationContainer>
+          <NavigationContainer ref={navigationRef}>
             <GlobalSnackbar />
             {/* <StatusBar barStyle="dark-content" backgroundColor="#fff" /> */}
             <AppNavigator />;

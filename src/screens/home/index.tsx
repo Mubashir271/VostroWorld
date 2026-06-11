@@ -9,7 +9,8 @@ import {
     ImageSourcePropType,
     Image,
     ActivityIndicator,
-    RefreshControl
+    RefreshControl,
+    Dimensions
 } from 'react-native';
 import { Attendance, Edit_fill, Features, Finance, Fitness, ManageStaff, NewRegistration, Package, Payments, ViewReports } from '../../assets/icons';
 import AppHeader from '../../components/AppHeader';
@@ -28,6 +29,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 // Reusable Components
 // ──────────────────────────────────────────────
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Baseline of 375 (standard small-phone width) keeps text/icons proportionate across devices
+const scale = (size: number) => (SCREEN_WIDTH / 375) * size;
+
 type StatCardProps = {
     label: string;
     value: string | number;
@@ -37,13 +42,13 @@ type StatCardProps = {
 const StatCard = ({ label, value, iconName }: StatCardProps) => (
     <View style={styles.statCard}>
         <View style={styles.statCardLeft}>
-            <Text style={styles.statLabel}>{label}</Text>
-            <Text style={styles.statValue}>
+            <Text style={styles.statLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+            <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {typeof value === 'number' ? value.toLocaleString() : value}
             </Text>
         </View>
         <View style={styles.statIconCircle}>
-            <Icon name={iconName} size={22} color="#fff" />
+            <Icon name={iconName} size={scale(20)} color="#fff" />
         </View>
     </View>
 );
@@ -405,10 +410,10 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     statCard: {
-        width: '31.5%',           // 3 per row with gap
+        width: '30%',             // 3 per row, leaves room for the 10dp gaps
         backgroundColor: '#fff',
         borderRadius: 12,
-        padding: 12,
+        padding: scale(10),
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -420,25 +425,25 @@ const styles = StyleSheet.create({
     },
     statCardLeft: {
         flex: 1,
+        marginRight: scale(4),
     },
     statLabel: {
-        fontSize: 11,
+        fontSize: scale(10.5),
         color: '#64748b',
-        marginBottom: 4,
+        marginBottom: scale(4),
     },
     statValue: {
-        fontSize: 18,
+        fontSize: scale(17),
         fontWeight: '700',
         color: '#E63946',
     },
     statIconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: scale(34),
+        height: scale(34),
+        borderRadius: scale(17),
         backgroundColor: '#E63946',
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 6,
     },
     // ── Trainer employee dashboard ────────────────────────────────────────────
     empCard: {

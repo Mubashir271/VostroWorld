@@ -17,6 +17,9 @@ import CurrencyModal from './CurrencyModal'
 
 type RootStackParamList = {
   DeleteBranch: undefined
+  ListBranches: undefined
+  AddBranch: undefined
+  BranchManagerAssignment: undefined
   DeleteRole: undefined
   SMTP: undefined
   EmailTemplates: undefined
@@ -207,7 +210,10 @@ const Settings = () => {
                 key={index}
                 style={[styles.settingRow, index === branchesItems.length - 1 && styles.lastRow]}
                 onPress={() => {
-                  if (item.label === 'Delete branch') navigation.navigate('DeleteBranch')
+                  if (item.label === 'List of branches')          navigation.navigate('ListBranches')
+                  if (item.label === 'Add branch')                 navigation.navigate('AddBranch')
+                  if (item.label === 'Delete branch')              navigation.navigate('DeleteBranch')
+                  if (item.label === 'Branch manager assignment')  navigation.navigate('BranchManagerAssignment')
                 }}
               >
                 <View style={{ flex: 1 }}>

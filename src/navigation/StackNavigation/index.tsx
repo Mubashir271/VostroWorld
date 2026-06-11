@@ -271,6 +271,9 @@ import Settings from '../../screens/Settings';
 import SMTP from '../../screens/Settings/smtp';
 import DeleteRole from '../../screens/Settings/DeleteRole';
 import DeleteBranch from '../../screens/Settings/DeleteBranch';
+import ListBranches from '../../screens/Settings/ListBranches';
+import AddBranch from '../../screens/Settings/AddBranch';
+import BranchManagerAssignment from '../../screens/Settings/BranchManagerAssignment';
 import PermissionMatrix from '../../screens/Settings/PermissionMatrix';
 import EmailTemplates from '../../screens/Settings/EmailTemplates';
 import DatabaseBackup from '../../screens/Settings/DatabaseBackup';
@@ -318,6 +321,9 @@ import QualificationsScreen from '../../screens/trainer/QualificationsScreen';
 import TrainerDocumentsScreen from '../../screens/trainer/TrainerDocumentsScreen';
 import SessionTrackerScreen from '../../screens/trainer/SessionTrackerScreen';
 import SOPsScreen from '../../screens/trainer/SOPsScreen';
+import ViewFitnessPlans from '../../screens/trainer/ViewFitnessPlans';
+import AddFitnessPlan from '../../screens/trainer/AddFitnessPlan';
+import ManageExercises from '../../screens/trainer/ManageExercises';
 
 // ── Cafe Operations ───────────────────────────────────────────────────────────
 import CafeDashboardScreen from '../../screens/CafeOperations/CafeDashboard';
@@ -413,10 +419,10 @@ const AppNavigator = () => {
                 <Stack.Screen name="TrainerDocuments" component={TrainerDocumentsScreen} />
                 <Stack.Screen name="SOPs" component={SOPsScreen} />
                 <Stack.Screen name="SessionTracker" component={SessionTrackerScreen} />
-                <Stack.Screen name="PersonalTrainerDiary" component={ComingSoon} />
-                <Stack.Screen name="ViewFitnessPlans" component={ComingSoon} />
-                <Stack.Screen name="AddFitnessPlan" component={ComingSoon} />
-                <Stack.Screen name="ManageExercises" component={ComingSoon} />
+                <Stack.Screen name="PersonalTrainerDiary" component={TrainerRoster} />
+                <Stack.Screen name="ViewFitnessPlans" component={ViewFitnessPlans} />
+                <Stack.Screen name="AddFitnessPlan" component={AddFitnessPlan} />
+                <Stack.Screen name="ManageExercises" component={ManageExercises} />
                 <Stack.Screen name="Notifications" component={NotificationScreen} />
                 <Stack.Screen name="LeaveApplications" component={LeaveApplications} />
                 <Stack.Screen name="ApplyLeave" component={ApplyLeave} />
@@ -440,6 +446,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="SMTP" component={protect(SMTP)} />
                 <Stack.Screen name="DeleteRole" component={protect(DeleteRole)} />
                 <Stack.Screen name="DeleteBranch" component={protect(DeleteBranch)} />
+                <Stack.Screen name="ListBranches" component={protect(ListBranches)} />
+                <Stack.Screen name="AddBranch" component={protect(AddBranch)} />
+                <Stack.Screen name="BranchManagerAssignment" component={protect(BranchManagerAssignment)} />
                 <Stack.Screen name="PermissionMatrix" component={protect(PermissionMatrix)} />
                 <Stack.Screen name="EmailTemplates" component={protect(EmailTemplates)} />
                 <Stack.Screen name="DatabaseBackup" component={protect(DatabaseBackup)} />

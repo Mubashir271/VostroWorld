@@ -1,6 +1,9 @@
 // src/api/service.js
 import axios from 'axios';
 import { store } from '../redux/store';   // ← Import your Redux store
+import { logoutUser } from '../redux/slices/userSlice';
+import { showSnackbar } from '../redux/slices/snackbarSlice';
+import { resetToLoginFromRef } from '../utils/navigationRef';
 
 export const BASE_URL = 'https://api.vostro-new.com/public/api';
 
@@ -52,6 +55,13 @@ api.interceptors.response.use(
     console.log('Message:', error.message);
     console.log('Data   :', JSON.stringify(error.response?.data, null, 2));
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    if (error.response?.status === 401) {
+      store.dispatch(logoutUser());
+      store.dispatch(showSnackbar({ message: 'Session expired. Please login again.', type: 'error' }));
+      resetToLoginFromRef();
+    }
+
     return Promise.reject(error);
   }
 );
