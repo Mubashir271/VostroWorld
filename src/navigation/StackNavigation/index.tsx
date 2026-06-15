@@ -80,12 +80,18 @@ import AssignCards from '../../screens/Sales/AssignCards';
 import ManageTowels from '../../screens/Sales/ManageTowels';
 import MembershipPackages from '../../screens/Sales/MembershipPackages';
 import GymPackages from '../../screens/Sales/GymPackages';
+import TrainerPackages from '../../screens/Sales/TrainerPackages';
+import BootcampPackages from '../../screens/Sales/BootcampPackages';
+import PhysiotherapyPackages from '../../screens/Sales/PhysiotherapyPackages';
 import HRDashboard from '../../screens/HR/HRDashboard';
 import ViewStaff from '../../screens/HR/ViewStaff';
 import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
 import Expenses from '../../screens/Finance/Expenses';
+import ViewCashInHand from '../../screens/Finance/ViewCashInHand';
 import GXClasses from '../../screens/Fitness/GXClasses';
 import PTRoster from '../../screens/Fitness/PTRoster';
+import TimeSlotsScreen from '../../screens/Fitness/TimeSlots';
+import ManageAvailabilityScreen from '../../screens/Fitness/ManageAvailability';
 
 // ── Trainer feature screens ───────────────────────────────────────────────────
 import TrainerDutyHours from '../../screens/trainer/TrainerDutyHours';
@@ -115,6 +121,7 @@ import SalesReportScreen from '../../screens/reports/SalesReport';
 import MISReportScreen from '../../screens/reports/MISReport';
 import DetailedSalesReportScreen from '../../screens/reports/DetailedSalesReport';
 import ClientsReportScreen from '../../screens/reports/ClientsReport';
+import SalesClientsReportScreen from '../../screens/Sales/ClientsReport';
 import SalesByServicesScreen from '../../screens/reports/SalesByServices';
 import SalesExpenseDailyScreen from '../../screens/reports/SalesExpenseDaily';
 import SalesByBootcampScreen from '../../screens/reports/SalesByBootcamp';
@@ -129,6 +136,18 @@ import ComingSoon from '../../screens/ComingSoon';
 import NutritionPackagesScreen from '../../screens/Nutrition/NutritionPackages';
 import AddMealsPlanScreen from '../../screens/Nutrition/AddMealsPlan';
 import ViewMealsPlanScreen from '../../screens/Nutrition/ViewMealsPlan';
+import ViewNutritionAssessmentsScreen from '../../screens/Nutrition/ViewNutritionAssessments';
+import NutritionAppointmentsScreen from '../../screens/Nutrition/NutritionAppointments';
+import NutritionDashboardScreen from '../../screens/Nutrition/NutritionDashboard';
+import ClientsDetailsScreen from '../../screens/Nutrition/ClientsDetails';
+import DietPlanIssuedScreen from '../../screens/Nutrition/DietPlanIssued';
+import HealthCampsScreen from '../../screens/Nutrition/HealthCamps';
+import ReferralSheetScreen from '../../screens/Nutrition/ReferralSheet';
+import ViewAssessmentQuestionnaireScreen from '../../screens/Nutrition/ViewAssessmentQuestionnaire';
+import AddAssessmentQuestionnaireScreen from '../../screens/Nutrition/AddAssessmentQuestionnaire';
+import AddNutritionAppointmentScreen from '../../screens/Nutrition/AddNutritionAppointment';
+import AddNutritionAssessmentsScreen from '../../screens/Nutrition/AddNutritionAssessments';
+import AddDietPlanIssuedScreen from '../../screens/Nutrition/AddDietPlanIssued';
 
 const Stack = createStackNavigator();
 
@@ -236,13 +255,13 @@ const AppNavigator = () => {
                 <Stack.Screen name="ViewClients" component={protect(ViewClients)} />
                 <Stack.Screen name="ViewFreezing" component={protect(ViewFreezing)} />
                 <Stack.Screen name="ApprovalsScreen" component={protect(ApprovalsScreen)} />
-                <Stack.Screen name="ClientsReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="ClientsReport" component={protect(SalesClientsReportScreen)} />
                 <Stack.Screen name="SalesSessionReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="MembershipPackages" component={protect(MembershipPackages)} />
-`                <Stack.Screen name="GymPackages" component={protect(GymPackages)} />`
-                <Stack.Screen name="TrainerPackages" component={protect(ComingSoon)} />
-                <Stack.Screen name="BootcampPackages" component={protect(ComingSoon)} />
-                <Stack.Screen name="PhysiotherapyPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="GymPackages" component={protect(GymPackages)} />
+                <Stack.Screen name="TrainerPackages" component={protect(TrainerPackages)} />
+                <Stack.Screen name="BootcampPackages" component={protect(BootcampPackages)} />
+                <Stack.Screen name="PhysiotherapyPackages" component={protect(PhysiotherapyPackages)} />
                 <Stack.Screen name="MassageChair" component={protect(ComingSoon)} />
                 <Stack.Screen name="SmallPTGroupPackages" component={protect(ComingSoon)} />
                 <Stack.Screen name="GXPackages" component={protect(ComingSoon)} />
@@ -306,7 +325,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="DailyExpenseReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="PaidExpenseReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="AddCashInHand" component={protect(ComingSoon)} />
-                <Stack.Screen name="ViewCashInHand" component={protect(ComingSoon)} />
+                <Stack.Screen name="ViewCashInHand" component={protect(ViewCashInHand)} />
                 <Stack.Screen name="AddCharity" component={protect(ComingSoon)} />
                 <Stack.Screen name="ViewCharityLedger" component={protect(ComingSoon)} />
                 <Stack.Screen name="AddOfficeCash" component={protect(ComingSoon)} />
@@ -359,15 +378,25 @@ const AppNavigator = () => {
                 <Stack.Screen name="SPTAttendance" component={protect(ComingSoon)} />
                 <Stack.Screen name="SPTAttendanceReport" component={protect(ComingSoon)} />
                 {/* ViewFitnessPlans, AddFitnessPlan, ManageExercises registered as trainer-allowed above */}
-                <Stack.Screen name="TimeSlots" component={protect(ComingSoon)} />
-                <Stack.Screen name="ManageAvailability" component={protect(ComingSoon)} />
+                <Stack.Screen name="TimeSlots" component={protect(TimeSlotsScreen)} />
+                <Stack.Screen name="ManageAvailability" component={protect(ManageAvailabilityScreen)} />
 
                 {/* ── Admin: Nutrition ── */}
                 <Stack.Screen name="NutritionPackages" component={protect(NutritionPackagesScreen)} />
                 <Stack.Screen name="AddMealsPlan" component={protect(AddMealsPlanScreen)} />
                 <Stack.Screen name="ViewMealsPlan" component={protect(ViewMealsPlanScreen)} />
-                <Stack.Screen name="AddNutritionAssessments" component={protect(ComingSoon)} />
-                <Stack.Screen name="ViewNutritionAssessments" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddNutritionAssessments" component={protect(AddNutritionAssessmentsScreen)} />
+                <Stack.Screen name="ViewNutritionAssessments" component={protect(ViewNutritionAssessmentsScreen)} />
+                <Stack.Screen name="NutritionAppointments" component={protect(NutritionAppointmentsScreen)} />
+                <Stack.Screen name="AddNutritionAppointment" component={protect(AddNutritionAppointmentScreen)} />
+                <Stack.Screen name="NutritionDashboard" component={protect(NutritionDashboardScreen)} />
+                <Stack.Screen name="ClientsDetails" component={protect(ClientsDetailsScreen)} />
+                <Stack.Screen name="AddAssessmentQuestionnaire" component={protect(AddAssessmentQuestionnaireScreen)} />
+                <Stack.Screen name="ViewAssessmentQuestionnaire" component={protect(ViewAssessmentQuestionnaireScreen)} />
+                <Stack.Screen name="AddDietPlanIssued" component={protect(AddDietPlanIssuedScreen)} />
+                <Stack.Screen name="ViewDietPlanIssued" component={protect(DietPlanIssuedScreen)} />
+                <Stack.Screen name="HealthCamps" component={protect(HealthCampsScreen)} />
+                <Stack.Screen name="ReferralSheet" component={protect(ReferralSheetScreen)} />
             </Stack.Navigator>
         </View>
     );

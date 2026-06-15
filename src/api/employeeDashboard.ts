@@ -154,6 +154,9 @@ export const getClientsList = async (params: {
   branch_id: number;
   status?: string;
   search?: string;
+  gender?: string;
+  start_date?: string;
+  end_date?: string;
   limit?: number;
   page?: number;
 }) => {
@@ -461,10 +464,10 @@ export const addExpense = async (payload: {
 
 export const getCashInHand = async (params: {
   branch_id: number;
-  limit?: number;
-  page?: number;
+  from_date: string;
+  to_date: string;
 }) => {
-  const res = await api.get('/v1/cash-in-hand/get', { params });
+  const res = await api.get('/v1/finance/cash-in-hand/getCashInHandRecords', { params });
   return res.data;
 };
 

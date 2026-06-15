@@ -414,6 +414,19 @@ const MENU = [
           { title: 'View Nutrition Assessments', screen: 'ViewNutritionAssessments' },
         ],
       },
+      { title: 'Clients Details', screen: 'ClientsDetails' },
+      { title: 'Dashboard', screen: 'NutritionDashboard' },
+      { title: 'Appointments', screen: 'NutritionAppointments' },
+      { title: 'Diet Plan Issued', screen: 'ViewDietPlanIssued' },
+      { title: 'Health Camps', screen: 'HealthCamps' },
+      { title: 'Referral Sheet', screen: 'ReferralSheet' },
+      {
+        title: 'Assessment Questionnaire',
+        children: [
+          { title: 'Add Questionnaire', screen: 'AddAssessmentQuestionnaire' },
+          { title: 'View Questionnaire', screen: 'ViewAssessmentQuestionnaire' },
+        ],
+      },
     ],
   },
 

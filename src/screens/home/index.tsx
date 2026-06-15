@@ -204,7 +204,7 @@ export default function DashboardScreen() {
                                 <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
                                 <ProfileHeader
                                     name={fullName}
-                                    role={role || 'Admin'}
+                                    role={firstName || 'Admin'}
                                     branch={branchName || 'Main Branch'}
                                     editIcon={Edit_fill}
                                     avatar={avatarSource}

@@ -66,7 +66,7 @@ export default function App() {
           <NavigationContainer ref={navigationRef}>
             <GlobalSnackbar />
             {/* <StatusBar barStyle="dark-content" backgroundColor="#fff" /> */}
-            <AppNavigator />;
+            <AppNavigator />
           </NavigationContainer>
         </GestureHandlerRootView>
       </PersistGate>

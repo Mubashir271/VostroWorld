@@ -13,11 +13,12 @@ import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
 interface MealPlan {
-  id: number;
-  branch_name?: string;
-  client_name: string;
+  uuid: string;
+  client_id: number;
   start_date: string;
   end_date: string;
+  client_detail?: { client_name: string };
+  branch_detail?: { name: string };
 }
 
 const fmt = (d: Date) =>
@@ -53,8 +54,6 @@ const ViewMealsPlan = () => {
       const res = await getMealPlans({
         branch_id: branchId,
         client_name: clientName.trim() || undefined,
-        start_date: startDate,
-        end_date: endDate,
         limit: 100,
       });
       const data = res.data?.data?.data ?? res.data?.data ?? res.data ?? [];
@@ -176,10 +175,10 @@ const ViewMealsPlan = () => {
                   </View>
                 ) : (
                   records.map((item, i) => (
-                    <View key={item.id ?? i} style={[tbl.dataRow, i % 2 === 1 && tbl.dataRowAlt]}>
+                    <View key={item.uuid ?? i} style={[tbl.dataRow, i % 2 === 1 && tbl.dataRowAlt]}>
                       <Text style={[tbl.cell, { width: 48 }]}>{i + 1}</Text>
-                      <Text style={[tbl.cell, { width: 120 }]} numberOfLines={1}>{item.branch_name ?? branchName}</Text>
-                      <Text style={[tbl.cell, tbl.cellRed, { width: 160 }]} numberOfLines={1}>{item.client_name ?? '—'}</Text>
+                      <Text style={[tbl.cell, { width: 120 }]} numberOfLines={1}>{item.branch_detail?.name ?? branchName}</Text>
+                      <Text style={[tbl.cell, tbl.cellRed, { width: 160 }]} numberOfLines={1}>{item.client_detail?.client_name ?? '—'}</Text>
                       <Text style={[tbl.cell, { width: 120 }]}>{display(item.start_date)}</Text>
                       <Text style={[tbl.cell, { width: 120 }]}>{display(item.end_date)}</Text>
                       <View style={[tbl.cell, { width: 80, flexDirection: 'row', gap: 8 }]}>

@@ -21,16 +21,12 @@ interface Client {
   gender: string;
   status: string;
   branches_name: string;
+  address: string;
+  city: string;
   membership_type: Array<{ get_package_name?: { name: string } }>;
 }
 
-const CLIENT_TYPES = ['All', 'Active', 'Inactive', 'Dormant'];
-
-const clientStatus = (c: Client) => {
-  if (c.status === '1' || c.status === 'Active' || c.status === 'active') return 'Active';
-  if (c.status === 'Dormant' || c.status === 'dormant') return 'Dormant';
-  return 'Inactive';
-};
+const CLIENT_TYPES = ['All', 'Male', 'Female', 'Others'];
 
 const PAGE_SIZE = 25;
 
@@ -39,7 +35,8 @@ const ViewClients = () => {
   const { profile }  = useSelector((state: RootState) => state.user);
   const branchId     = profile?.branchId ?? 1;
 
-  const [clients, setClients]       = useState<Client[]>([]);
+  const [activeClients, setActiveClients]     = useState<Client[]>([]);
+  const [inactiveClients, setInactiveClients] = useState<Client[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]         = useState('');
@@ -51,10 +48,15 @@ const ViewClients = () => {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const res = await getClientsList({ branch_id: branchId, limit: 500, page: 1 });
-      setClients(res?.data?.data ?? []);
+      const [activeRes, inactiveRes] = await Promise.all([
+        getClientsList({ branch_id: branchId, status: '1', limit: 500, page: 1 }),
+        getClientsList({ branch_id: branchId, status: '0', limit: 500, page: 1 }),
+      ]);
+      setActiveClients(activeRes?.data?.data ?? []);
+      setInactiveClients(inactiveRes?.data?.data ?? []);
     } catch {
-      setClients([]);
+      setActiveClients([]);
+      setInactiveClients([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -66,8 +68,9 @@ const ViewClients = () => {
   // Reset pages when filter/search changes
   useEffect(() => { setActivePage(1); setInactivePage(1); }, [search, clientType]);
 
-  const filtered = clients.filter(c => {
-    const matchType = clientType === 'All' || clientStatus(c) === clientType;
+  const applyFilter = (data: Client[]) => data.filter(c => {
+    const matchType = clientType === 'All' || (c.gender ?? '').toLowerCase() === clientType.toLowerCase()
+      || (clientType === 'Others' && !['male', 'female'].includes((c.gender ?? '').toLowerCase()));
     if (!search.trim()) return matchType;
     const q = search.toLowerCase();
     const name = `${c.first_name ?? ''} ${c.last_name ?? ''}`.toLowerCase();
@@ -79,8 +82,8 @@ const ViewClients = () => {
     );
   });
 
-  const activeList   = filtered.filter(c => clientStatus(c) === 'Active');
-  const inactiveList = filtered.filter(c => clientStatus(c) !== 'Active');
+  const activeList   = applyFilter(activeClients);
+  const inactiveList = applyFilter(inactiveClients);
 
   const renderRow = (item: Client, globalIndex: number, pageIndex: number) => {
     const name = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() || '—';
@@ -99,6 +102,8 @@ const ViewClients = () => {
           <Text style={[tbl.cell, { width: 120 }]} numberOfLines={1}>{item.phone ?? '—'}</Text>
           <Text style={[tbl.cell, { width: 70 }]} numberOfLines={1}>{item.gender ?? '—'}</Text>
           <Text style={[tbl.cell, { width: 160 }]} numberOfLines={1}>{membership}</Text>
+          <Text style={[tbl.cell, { width: 160 }]} numberOfLines={1}>{item.address || '—'}</Text>
+          <Text style={[tbl.cell, { width: 110 }]} numberOfLines={1}>{item.city || '—'}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -130,6 +135,8 @@ const ViewClients = () => {
               <Text style={[tbl.headerCell, { width: 120 }]}>Phone</Text>
               <Text style={[tbl.headerCell, { width: 70 }]}>Gender</Text>
               <Text style={[tbl.headerCell, { width: 160 }]}>Membership</Text>
+              <Text style={[tbl.headerCell, { width: 160 }]}>Address</Text>
+              <Text style={[tbl.headerCell, { width: 110 }]}>City</Text>
             </View>
             {data.length === 0
               ? <View style={styles.noRecord}><Text style={styles.noRecordText}>No Record Found</Text></View>
@@ -244,26 +251,22 @@ const ViewClients = () => {
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
         >
-          {(clientType === 'All' || clientType === 'Active') && (
-            <TableSection
-              title="Active Clients"
-              data={activeList}
-              page={activePage}
-              setPage={setActivePage}
-            />
-          )}
+          <TableSection
+            title="Active Clients"
+            data={activeList}
+            page={activePage}
+            setPage={setActivePage}
+          />
 
-          {(clientType === 'All' || clientType === 'Inactive' || clientType === 'Dormant') && (
-            <TableSection
-              title={clientType === 'Dormant' ? 'Dormant Clients' : 'Inactive Clients'}
-              data={inactiveList}
-              page={inactivePage}
-              setPage={setInactivePage}
-            />
-          )}
+          <TableSection
+            title="Inactive Clients"
+            data={inactiveList}
+            page={inactivePage}
+            setPage={setInactivePage}
+          />
 
           <Text style={styles.countNote}>
-            {filtered.length} client{filtered.length !== 1 ? 's' : ''} shown
+            {activeList.length + inactiveList.length} client{activeList.length + inactiveList.length !== 1 ? 's' : ''} shown
           </Text>
         </ScrollView>
       )}

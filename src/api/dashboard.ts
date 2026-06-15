@@ -29,6 +29,26 @@ export const getPackageCategories = async () => {
   return res.data;
 };
 
+// category: 1=Gym, 2=PT/Trainer, 3=Guest Pass, 4=Small Group PT, 5=Nutrition,
+// 6=Registration, 7=Bootcamp, 8=Freezing, 9=General, 10=Cafe, 11=CFT/Academy,
+// 12=Massage Chair, 13=Cafe Deposits, 14=Physiotherapy, 15=GX
+export const getPackages = async (params: {
+  branch_id: number;
+  category: number;
+  status?: number;
+}) => {
+  try {
+    const res = await api.get('/v1/packages/get', { params });
+    return res.data;
+  } catch (e: any) {
+    // 404 "No record found" just means an empty list for these filters.
+    if (e?.response?.status === 404) {
+      return { status: true, data: { data: [] } };
+    }
+    throw e;
+  }
+};
+
 // /v1/generate-sales-report is broken server-side (Package::orderDetail() missing).
 // We call /v1/transaction-report instead and aggregate items by package to match
 // the expected shape: { status, total_price, total_discount, total_net_price, data[] }
