@@ -17,20 +17,11 @@ Cross-reference of [PENDING_SCREENS.md](PENDING_SCREENS.md) (currently
 
 ---
 
-## Sales (10)
+## Sales (1 remaining, 9 of 10 implemented — see [PENDING_SCREENS.md](PENDING_SCREENS.md))
 
 | Screen | Status | API(s) | Notes |
 |---|---|---|---|
-| TrainerPackages | ✅ | `GET /packages/get?category=2` | Same pattern as `GymPackages`/`MembershipPackages` — view wired, Add/Update mock |
-| BootcampPackages | ✅ | `GET /packages/get?category=7` | Same pattern |
-| PhysiotherapyPackages | ✅ | `GET /packages/get?category=14` | Same pattern |
-| MassageChair | ✅ | `GET /packages/get?category=12` | Same pattern |
-| SmallPTGroupPackages | ✅ | `GET /packages/get?category=4` | Same pattern |
-| GXPackages | ✅ | `GET /packages/gx` or `GET /packages/get?category=15` | Same pattern |
-| CFTPackages | ✅ | `GET /packages/get?category=11` | Same pattern |
-| GeneralPackages | ✅ | `GET /packages/get?category=9` | Same pattern |
-| DetailedPackages | ✅ | `GET /packages/all-with-categories` | All packages grouped by category |
-| SalesSessionReport | ✅ | `GET /orders-detail/detailed-sales-report` or `GET /session-detail-report` | Already used in `reports.ts` for other reports |
+| SalesSessionReport | ✅ Ready | `GET /orders-detail/detailed-sales-report` or `GET /session-detail-report` | Already used in `reports.ts` for other reports — not yet implemented |
 
 ---
 
@@ -123,7 +114,7 @@ Cross-reference of [PENDING_SCREENS.md](PENDING_SCREENS.md) (currently
 
 | Status | Sales | HR | Finance | Fitness | Total |
 |---|---|---|---|---|---|
-| ✅ Ready | 10 | 7 | 13 | 10 | **40** |
+| ✅ Ready | 1 | 7 | 13 | 10 | **31** |
 | ⚠️ Partial | 0 | 3 | 13 | 13 | **29** |
 | ❌ Not ready | 0 | 3 | 0 | 2 | **5** |
 

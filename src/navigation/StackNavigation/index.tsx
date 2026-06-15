@@ -83,6 +83,12 @@ import GymPackages from '../../screens/Sales/GymPackages';
 import TrainerPackages from '../../screens/Sales/TrainerPackages';
 import BootcampPackages from '../../screens/Sales/BootcampPackages';
 import PhysiotherapyPackages from '../../screens/Sales/PhysiotherapyPackages';
+import MassageChair from '../../screens/Sales/MassageChair';
+import SmallPTGroupPackages from '../../screens/Sales/SmallPTGroupPackages';
+import GXPackages from '../../screens/Sales/GXPackages';
+import CFTPackages from '../../screens/Sales/CFTPackages';
+import GeneralPackages from '../../screens/Sales/GeneralPackages';
+import DetailedPackages from '../../screens/Sales/DetailedPackages';
 import HRDashboard from '../../screens/HR/HRDashboard';
 import ViewStaff from '../../screens/HR/ViewStaff';
 import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
@@ -262,12 +268,12 @@ const AppNavigator = () => {
                 <Stack.Screen name="TrainerPackages" component={protect(TrainerPackages)} />
                 <Stack.Screen name="BootcampPackages" component={protect(BootcampPackages)} />
                 <Stack.Screen name="PhysiotherapyPackages" component={protect(PhysiotherapyPackages)} />
-                <Stack.Screen name="MassageChair" component={protect(ComingSoon)} />
-                <Stack.Screen name="SmallPTGroupPackages" component={protect(ComingSoon)} />
-                <Stack.Screen name="GXPackages" component={protect(ComingSoon)} />
-                <Stack.Screen name="CFTPackages" component={protect(ComingSoon)} />
-                <Stack.Screen name="GeneralPackages" component={protect(ComingSoon)} />
-                <Stack.Screen name="DetailedPackages" component={protect(ComingSoon)} />
+                <Stack.Screen name="MassageChair" component={protect(MassageChair)} />
+                <Stack.Screen name="SmallPTGroupPackages" component={protect(SmallPTGroupPackages)} />
+                <Stack.Screen name="GXPackages" component={protect(GXPackages)} />
+                <Stack.Screen name="CFTPackages" component={protect(CFTPackages)} />
+                <Stack.Screen name="GeneralPackages" component={protect(GeneralPackages)} />
+                <Stack.Screen name="DetailedPackages" component={protect(DetailedPackages)} />
                 <Stack.Screen name="Categories" component={protect(Categories)} />
                 <Stack.Screen name="SubCategories" component={protect(SubCategories)} />
                 <Stack.Screen name="ManageTowels" component={protect(ManageTowels)} />

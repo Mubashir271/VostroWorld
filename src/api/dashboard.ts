@@ -36,6 +36,7 @@ export const getPackages = async (params: {
   branch_id: number;
   category: number;
   status?: number;
+  limit?: number;
 }) => {
   try {
     const res = await api.get('/v1/packages/get', { params });
@@ -44,6 +45,19 @@ export const getPackages = async (params: {
     // 404 "No record found" just means an empty list for these filters.
     if (e?.response?.status === 404) {
       return { status: true, data: { data: [] } };
+    }
+    throw e;
+  }
+};
+
+// Returns { status, data: [...flat list of all packages with category info...], message }
+export const getAllPackagesWithCategories = async (branchId: number) => {
+  try {
+    const res = await api.get('/v1/packages/all-with-categories', { params: { branch_id: branchId } });
+    return res.data;
+  } catch (e: any) {
+    if (e?.response?.status === 404) {
+      return { status: true, data: [] };
     }
     throw e;
   }
