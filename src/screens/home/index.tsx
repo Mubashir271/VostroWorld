@@ -131,9 +131,9 @@ export default function DashboardScreen() {
         if (row) setTodaySales((row.pending || 0) + (row.Credit_Card || 0) + (row.Online || 0) + (row.Cash || 0));
     }, [branchId]);
 
-    const fetchDashboard = useCallback(async () => {
+    const fetchDashboard = useCallback(async (isRefresh = false) => {
         try {
-            setLoading(true);
+            if (!isRefresh) setLoading(true);
             if (userIsAdmin) {
                 await Promise.all([fetchClientStats(), fetchTodaySales()]);
             } else if (branchId && profile?.id) {
@@ -146,7 +146,7 @@ export default function DashboardScreen() {
         } catch (error: any) {
             console.log('DASHBOARD ERROR =>', error?.response?.data || error.message);
         } finally {
-            setLoading(false);
+            if (!isRefresh) setLoading(false);
         }
     }, [userIsAdmin, branchId, profile?.id, fetchClientStats, fetchTodaySales]);
 
@@ -154,7 +154,7 @@ export default function DashboardScreen() {
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
-        fetchDashboard().then(() => setRefreshing(false));
+        fetchDashboard(true).then(() => setRefreshing(false));
     }, [fetchDashboard]);
 
     const avatarSource = appImage

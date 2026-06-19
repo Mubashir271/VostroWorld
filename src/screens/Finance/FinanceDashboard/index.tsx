@@ -189,7 +189,7 @@ const FinanceDashboard = () => {
           <Text style={styles.sectionTitle}>Finance Actions</Text>
           <View style={styles.actionsGrid}>
             {[
-              { icon: 'plus-circle', label: 'Add Expense', screen: 'Expenses' },
+              { icon: 'plus-circle', label: 'Add Expense', screen: 'AddExpense' },
               { icon: 'cash', label: 'Cash In Hand', screen: 'ViewCashInHand' },
               { icon: 'bank', label: 'Bank Ledger', screen: 'FinanceDashboard' },
               { icon: 'scale-balance', label: 'Balance Sheet', screen: 'FinanceDashboard' },

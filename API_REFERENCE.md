@@ -10,6 +10,9 @@ from:
 - `PT-API-DOC.pdf` (Downloads) — PT/Trainer Portal (Role 9) + Employee
   Dashboard (HR self-service & approvals)
 
+
+  Admin login: f11@vostroworld.com
+  vostro@8402
 **Base URL:** `https://api.vostro-new.com/public/api/v1` (prod) /
 `https://dev-api.vostro-new.com/public/api/v1` (dev)
 
@@ -216,13 +219,21 @@ CRUD pattern: `POST .../add`, `GET .../get`, `PUT .../update/{id}`, `PUT .../del
 | `/finance/transactions/sales-counter-balance` | GET | Counter balance detail | — |
 | `/finance/transactions/fetch-expense-detail` | GET | Expense breakdown | — |
 | `/finance/transactions/get-bank-balance-detail` | GET | Bank balance transactions | — |
-| `/finance/office-cash-flow/get`, `/current-balance`, `/office-cash-balance` | GET | Office cash transactions | — |
+| `/v1/finance/office-cash-flow/get` | GET | Office cash transactions. No per-row balance — opening balance in `opening_balance.balance`, compute running balance client-side | ✅ `employeeDashboard.ts` (`getOfficeCashLedger`) |
+| `/v1/finance/office-cash-flow/current-balance` | GET | **Broken** — always returns `{"balance":"0"}` regardless of branch/date | ⚠️ avoid |
+| `/v1/finance/office-cash-flow/office-cash-balance` | GET | Correct current total (`totalBalance`, `lastCreditAmount`, `lastDebitAmount`) — use this instead of `current-balance` | ✅ `employeeDashboard.ts` (`getOfficeCashBalance`) |
+| `/v1/finance/office-cash-flow/add` | POST | Add entry. Required: `branch_id`, `amount`, `type`. Optional: `resource`, `bank_account_id`, `date`, `description`, `is_petty_cash`. **`type`/`resource` are not enum-validated** — any string is accepted, so a minimal payload succeeds instead of erroring | ✅ `employeeDashboard.ts` (`addOfficeCashEntry`, wired but submission disabled in `AddOfficeCash` screen pending confirmation) |
+| `/v1/finance/office-cash-flow/delete/{id}` | PUT | Soft delete. Confirmed working (204) | ✅ `employeeDashboard.ts` (`deleteOfficeCashEntry`) |
 | `/finance/cash-in-hand/getCashInHandRecords`, `/fetch-opening-balance` | GET | Petty cash in hand | ✅ `employeeDashboard.ts` (`getCashInHandRecords`) |
+| `/v1/finance/cash-in-hand/add`, `/update/{id}` | POST/PUT | Add/update daily cash-in-hand snapshot (Bank Funds/Charity Cash/GST Cash/Cash in Hand). Only `branch_id`/`date` required | ✅ `employeeDashboard.ts` (`addCashInHandEntry`, `updateCashInHandEntry` — wired, used by `DailyExpense`, not yet live-tested) |
 | `/finance/bank-ledger/get`, `/current-balance` | GET | Bank ledger entries | — |
 | `/finance/petty-cash-ledger/get` | GET | Petty cash ledger | — |
 | `/finance/keene-ledger/get` | GET | Keene ledger | — |
 | `/finance/liability-ledger/get`, `/current-balance` | GET | Liability ledger | — |
-| `/finance/charity/get`, `/current-balance` | GET | Charity fund | — |
+| `/v1/finance/charity/get` | GET | Charity fund. Returns per-row running balances (`f_cash_balance`/`w_cash_balance`/`total_charity`) + `opening_balance` block. `date` is a UTC timestamp at Asia/Karachi midnight — shift +5h before extracting the calendar date | ✅ `employeeDashboard.ts` (`getCharityLedger`) |
+| `/v1/finance/charity/current-balance` | GET | Confirmed working — `f_cash_balance`/`w_cash_balance`/`total_charity` | ✅ `employeeDashboard.ts` (`getCharityBalance`) |
+| `/v1/finance/charity/add` | POST | Required: `branch_id`, `date`, `type` (`Credit`/`Debit`/`Transfer`), `amount`, `person` (`Faisal`/`Waqas`, case-sensitive) for Credit/Debit or `from_person`/`to_person` for Transfer. Strictly enum-validated (unlike office-cash-flow) | ✅ `employeeDashboard.ts` (`addCharityEntry`) |
+| `/v1/finance/charity/delete/{id}` | PUT | **Broken** — 500s, backend missing `deleted_by` column on the `charity` table | ⚠️ `employeeDashboard.ts` (`deleteCharityEntry`, wired but server-side bug) |
 | `/finance/g-thirteen/get` | GET | G-13 tax records | — |
 | `/finance/liabilities` | CRUD | Liability records | — |
 | `/finance/liability-installments` (`/due-amount`, `/pay`) | — | Installment payments | — |

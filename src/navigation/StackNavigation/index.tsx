@@ -91,9 +91,31 @@ import GeneralPackages from '../../screens/Sales/GeneralPackages';
 import DetailedPackages from '../../screens/Sales/DetailedPackages';
 import HRDashboard from '../../screens/HR/HRDashboard';
 import ViewStaff from '../../screens/HR/ViewStaff';
+import EmployeeAttendance from '../../screens/HR/EmployeeAttendance';
+import StaffDutyHours from '../../screens/HR/StaffDutyHours';
+import PTAttendance from '../../screens/HR/PTAttendance';
+import SessionPortalHR from '../../screens/HR/SessionPortalHR';
+import StaffCommissions from '../../screens/HR/StaffCommissions';
+import SalaryComponent from '../../screens/HR/SalaryComponent';
+import LeaveQuota from '../../screens/HR/LeaveQuota';
 import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
 import Expenses from '../../screens/Finance/Expenses';
+import AddExpense from '../../screens/Finance/AddExpense';
 import ViewCashInHand from '../../screens/Finance/ViewCashInHand';
+import KeeneLedger from '../../screens/Finance/KeeneLedger';
+import AddKeene from '../../screens/Finance/AddKeene';
+import AddLiabilities from '../../screens/Finance/AddLiabilities';
+import PayLiabilities from '../../screens/Finance/PayLiabilities';
+import ViewLiabilitiesLedger from '../../screens/Finance/ViewLiabilitiesLedger';
+import AddG13Cash from '../../screens/Finance/AddG13Cash';
+import G13CashLedger from '../../screens/Finance/G13CashLedger';
+import AddPettyCash from '../../screens/Finance/AddPettyCash';
+import PettyCashLedger from '../../screens/Finance/PettyCashLedger';
+import AddCharity from '../../screens/Finance/AddCharity';
+import ViewCharityLedger from '../../screens/Finance/ViewCharityLedger';
+import DailyExpense from '../../screens/Finance/DailyExpense';
+import AddOfficeCash from '../../screens/Finance/AddOfficeCash';
+import ViewOfficeLedger from '../../screens/Finance/ViewOfficeLedger';
 import GXClasses from '../../screens/Fitness/GXClasses';
 import PTRoster from '../../screens/Fitness/PTRoster';
 import TimeSlotsScreen from '../../screens/Fitness/TimeSlots';
@@ -288,13 +310,13 @@ const AppNavigator = () => {
                 <Stack.Screen name="AddStaff" component={protect(ComingSoon)} />
                 <Stack.Screen name="StaffPromotion" component={protect(ComingSoon)} />
                 <Stack.Screen name="StaffAdvances" component={protect(ComingSoon)} />
-                <Stack.Screen name="SalaryComponent" component={protect(ComingSoon)} />
-                <Stack.Screen name="StaffCommissions" component={protect(ComingSoon)} />
-                <Stack.Screen name="SessionPortalHR" component={protect(ComingSoon)} />
-                <Stack.Screen name="StaffDutyHours" component={protect(ComingSoon)} />
-                <Stack.Screen name="EmployeeAttendance" component={protect(ComingSoon)} />
-                <Stack.Screen name="PTAttendance" component={protect(ComingSoon)} />
-                <Stack.Screen name="LeaveQuota" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalaryComponent" component={protect(SalaryComponent)} />
+                <Stack.Screen name="StaffCommissions" component={protect(StaffCommissions)} />
+                <Stack.Screen name="SessionPortalHR" component={protect(SessionPortalHR)} />
+                <Stack.Screen name="StaffDutyHours" component={protect(StaffDutyHours)} />
+                <Stack.Screen name="EmployeeAttendance" component={protect(EmployeeAttendance)} />
+                <Stack.Screen name="PTAttendance" component={protect(PTAttendance)} />
+                <Stack.Screen name="LeaveQuota" component={protect(LeaveQuota)} />
                 <Stack.Screen name="LetterManagement" component={protect(ComingSoon)} />
                 <Stack.Screen name="ResourceManager" component={protect(ComingSoon)} />
 
@@ -326,27 +348,27 @@ const AppNavigator = () => {
                 {/* ── Admin: Finance ── */}
                 <Stack.Screen name="FinanceDashboard" component={protect(FinanceDashboard)} />
                 <Stack.Screen name="Expenses" component={protect(Expenses)} />
-                <Stack.Screen name="AddExpense" component={protect(ComingSoon)} />
-                <Stack.Screen name="DailyExpense" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddExpense" component={protect(AddExpense)} />
+                <Stack.Screen name="DailyExpense" component={protect(DailyExpense)} />
                 <Stack.Screen name="DailyExpenseReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="PaidExpenseReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="AddCashInHand" component={protect(ComingSoon)} />
                 <Stack.Screen name="ViewCashInHand" component={protect(ViewCashInHand)} />
-                <Stack.Screen name="AddCharity" component={protect(ComingSoon)} />
-                <Stack.Screen name="ViewCharityLedger" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddOfficeCash" component={protect(ComingSoon)} />
-                <Stack.Screen name="ViewOfficeLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddCharity" component={protect(AddCharity)} />
+                <Stack.Screen name="ViewCharityLedger" component={protect(ViewCharityLedger)} />
+                <Stack.Screen name="AddOfficeCash" component={protect(AddOfficeCash)} />
+                <Stack.Screen name="ViewOfficeLedger" component={protect(ViewOfficeLedger)} />
                 <Stack.Screen name="AddBankCash" component={protect(ComingSoon)} />
                 <Stack.Screen name="ViewBankLedger" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddPettyCash" component={protect(ComingSoon)} />
-                <Stack.Screen name="PettyCashLedger" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddG13Cash" component={protect(ComingSoon)} />
-                <Stack.Screen name="G13CashLedger" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddLiabilities" component={protect(ComingSoon)} />
-                <Stack.Screen name="PayLiabilities" component={protect(ComingSoon)} />
-                <Stack.Screen name="ViewLiabilitiesLedger" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddKeene" component={protect(ComingSoon)} />
-                <Stack.Screen name="KeeneLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddPettyCash" component={protect(AddPettyCash)} />
+                <Stack.Screen name="PettyCashLedger" component={protect(PettyCashLedger)} />
+                <Stack.Screen name="AddG13Cash" component={protect(AddG13Cash)} />
+                <Stack.Screen name="G13CashLedger" component={protect(G13CashLedger)} />
+                <Stack.Screen name="AddLiabilities" component={protect(AddLiabilities)} />
+                <Stack.Screen name="PayLiabilities" component={protect(PayLiabilities)} />
+                <Stack.Screen name="ViewLiabilitiesLedger" component={protect(ViewLiabilitiesLedger)} />
+                <Stack.Screen name="AddKeene" component={protect(AddKeene)} />
+                <Stack.Screen name="KeeneLedger" component={protect(KeeneLedger)} />
                 <Stack.Screen name="Assets" component={protect(ComingSoon)} />
                 <Stack.Screen name="BalanceSheet" component={protect(ComingSoon)} />
                 <Stack.Screen name="DailySalesCounter" component={protect(ComingSoon)} />

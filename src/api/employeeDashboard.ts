@@ -98,10 +98,25 @@ export const getSalarySlips = async (params: {
 // All staff salary list (admin)
 export const getSalaryList = async (params: {
   branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  user_id?: number;
   limit?: number;
   page?: number;
 }) => {
   const res = await api.get('/v1/salary', { params });
+  return res.data;
+};
+
+// HR commissions report
+export const getHRCommissions = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  user_id?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/fitness/commission-portal/hr/commissions', { params });
   return res.data;
 };
 
@@ -111,6 +126,88 @@ export const getMySalarySlip = async (params: {
   user_id: number;
 }) => {
   const res = await api.get('/v1/salary', { params });
+  return res.data;
+};
+
+// ── 6.4b Salary Components ────────────────────────────────────────────────────
+
+export const getSalaryComponents = async (params: {
+  branch_id: number;
+  user_id?: number;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/salary-components/get', { params });
+  return res.data;
+};
+
+export const addSalaryComponent = async (payload: {
+  branch_id: number;
+  user_id: number;
+  component_name: string;
+  type: string; // 'Addition' | 'Deduction'
+  amount: number;
+  date: string;
+  salary_month: string; // 'YYYY-MM'
+  description?: string;
+}) => {
+  const res = await api.post('/v1/salary-components/store', payload);
+  return res.data;
+};
+
+export const updateSalaryComponent = async (id: number, payload: {
+  component_name?: string;
+  type?: string;
+  amount?: number;
+  date?: string;
+  salary_month?: string;
+  description?: string;
+}) => {
+  const res = await api.put(`/v1/salary-components/update/${id}`, payload);
+  return res.data;
+};
+
+export const deleteSalaryComponent = async (id: number) => {
+  const res = await api.put(`/v1/salary-components/delete/${id}`, {});
+  return res.data;
+};
+
+// ── 6.5b Leave Quota (HR admin — all staff) ───────────────────────────────────
+
+export const getAllLeaveQuota = async (params: {
+  branch_id: number;
+  user_id?: number;
+  leave_type?: string;
+  status?: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/hr/leaves-quota/index', { params });
+  return res.data;
+};
+
+export const addLeaveQuota = async (payload: {
+  branch_id: number;
+  user_id: number;
+  leave_type: string;
+  number_of_leaves: number;
+}) => {
+  const res = await api.post('/v1/hr/leaves-quota/store', payload);
+  return res.data;
+};
+
+export const updateLeaveQuota = async (id: number, payload: {
+  leave_type?: string;
+  number_of_leaves?: number;
+}) => {
+  const res = await api.put(`/v1/hr/leaves-quota/update/${id}`, payload);
+  return res.data;
+};
+
+export const deleteLeaveQuota = async (id: number) => {
+  const res = await api.put(`/v1/hr/leaves-quota/delete/${id}`, {});
   return res.data;
 };
 
@@ -407,8 +504,18 @@ export const getHRDashboard = async (params: {
   branch_id?: number;
   date?: string;
 }) => {
-  const res = await api.get('/v1/hr/dashboard', { params });
-  return res.data;
+  try {
+    const res = await api.get('/v1/hr/dashboard', { params });
+    return res.data;
+  } catch {
+    // fallback: try without v1 prefix
+    try {
+      const res = await api.get('/hr/dashboard', { params });
+      return res.data;
+    } catch {
+      return null;
+    }
+  }
 };
 
 export const getStaffList = async (params: {
@@ -441,24 +548,43 @@ export const getFinanceDashboard = async (params: {
 
 export const getExpensesList = async (params: {
   branch_id: number;
-  category?: string;
   start_date?: string;
   end_date?: string;
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/expenses/get', { params });
+  const res = await api.get('/v1/expense/get', { params });
   return res.data;
 };
 
-export const addExpense = async (payload: {
+export const getExpenseCategories = async () => {
+  const res = await api.get('/v1/finance/categories/fetch-categories-names');
+  return res.data?.data ?? [];
+};
+
+export const getExpenseSubCategories = async () => {
+  const res = await api.get('/v1/finance/sub-categories/fetch-subcategories-names');
+  return res.data?.data ?? [];
+};
+
+export const getExpensePaymentMethods = async () => {
+  const res = await api.get('/v1/related_things/get-names-list', { params: { type: 'PaymentMethod' } });
+  return res.data?.data ?? [];
+};
+
+export const addExpenseRows = async (rows: Array<{
   branch_id: number;
-  category: string;
+  occurrence_date: string;
   amount: number;
+  category_id?: number;
+  sub_category_id?: number;
+  transaction_type?: string;
+  payment_type_id?: number;
+  bank_account_id?: number;
+  cheque_number?: string;
   description?: string;
-  expense_date: string;
-}) => {
-  const res = await api.post('/v1/expenses/store', payload);
+}>) => {
+  const res = await api.post('/v1/expense/store', rows);
   return res.data;
 };
 
@@ -468,6 +594,262 @@ export const getCashInHand = async (params: {
   to_date: string;
 }) => {
   const res = await api.get('/v1/finance/cash-in-hand/getCashInHandRecords', { params });
+  return res.data;
+};
+
+export const addCashInHandEntry = async (payload: {
+  branch_id: number;
+  date: string;
+  bank?: number;
+  charity?: number;
+  gst?: number;
+  cash_in_hand?: number;
+  description?: string;
+}) => {
+  const res = await api.post('/v1/finance/cash-in-hand/add', payload);
+  return res.data;
+};
+
+export const updateCashInHandEntry = async (id: number, payload: {
+  branch_id?: number;
+  date?: string;
+  bank?: number;
+  charity?: number;
+  gst?: number;
+  cash_in_hand?: number;
+  description?: string;
+}) => {
+  const res = await api.put(`/v1/finance/cash-in-hand/update/${id}`, payload);
+  return res.data;
+};
+
+// ── Liabilities ──────────────────────────────────────────────────────────────
+
+export const addLiability = async (payload: {
+  branch_id: number;
+  category: string;
+  sub_category?: string;
+  creditor_name?: string;
+  creditor_contact?: string;
+  amount: number;
+  description?: string;
+  due_date?: string;
+}) => {
+  const res = await api.post('/v1/finance/liabilities/add', payload);
+  return res.data;
+};
+
+export const getLiabilityLedger = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/finance/liability-ledger/get', { params });
+  return res.data;
+};
+
+export const getLiabilityBalance = async (branch_id: number) => {
+  const res = await api.get('/v1/finance/liability-ledger/current-balance', { params: { branch_id } });
+  return res.data;
+};
+
+export const payLiability = async (payload: {
+  branch_id: number;
+  amount: number;
+  type: string;
+  resource: string;
+  date: string;
+  description?: string;
+}) => {
+  const res = await api.post('/v1/finance/liability-installments/pay', payload);
+  return res.data;
+};
+
+export const deleteLiabilityEntry = async (id: number) => {
+  const res = await api.put(`/v1/finance/liabilities/delete/${id}`, {});
+  return res.data;
+};
+
+export const updateLiabilityEntry = async (id: number, payload: {
+  category?: string;
+  sub_category?: string;
+  creditor_name?: string;
+  creditor_contact?: string;
+  amount?: number;
+  description?: string;
+  due_date?: string;
+}) => {
+  const res = await api.put(`/v1/finance/liabilities/update/${id}`, payload);
+  return res.data;
+};
+
+// ── Keene Ledger ─────────────────────────────────────────────────────────────
+
+export const getKeeneLedger = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/finance/keene-ledger/get', { params });
+  return res.data;
+};
+
+export const addKeeneEntry = async (payload: {
+  branch_id: number;
+  amount: number;
+  type: string;
+  date: string;
+  description?: string;
+}) => {
+  const res = await api.post('/v1/finance/keene-ledger/add', payload);
+  return res.data;
+};
+
+export const deleteKeeneEntry = async (id: number) => {
+  const res = await api.put(`/v1/finance/keene-ledger/delete/${id}`, {});
+  return res.data;
+};
+
+// ── G-13 Cash Ledger ──────────────────────────────────────────────────────────
+
+export const getG13Ledger = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  transaction_type?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/finance/g-thirteen/get', { params });
+  return res.data;
+};
+
+export const addG13Entry = async (payload: {
+  branch_id: number;
+  amount: number;
+  type: string;
+  transaction_type: string;
+  date: string;
+  description?: string;
+  bank_details?: string;
+}) => {
+  const res = await api.post('/v1/finance/g-thirteen/add', payload);
+  return res.data;
+};
+
+export const deleteG13Entry = async (id: number) => {
+  const res = await api.put(`/v1/finance/g-thirteen/delete/${id}`, {});
+  return res.data;
+};
+
+// ── Petty Cash Ledger ─────────────────────────────────────────────────────────
+
+export const getPettyCashLedger = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  transaction_type?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/finance/petty-cash-ledger/get', { params });
+  return res.data;
+};
+
+export const addPettyCashEntry = async (payload: {
+  branch_id: number;
+  amount: number;
+  type: string;
+  transaction_type: string;
+  date: string;
+  description?: string;
+}) => {
+  const res = await api.post('/v1/finance/petty-cash-ledger/add', payload);
+  return res.data;
+};
+
+export const deletePettyCashEntry = async (id: number) => {
+  const res = await api.put(`/v1/finance/petty-cash-ledger/delete/${id}`, {});
+  return res.data;
+};
+
+// ── Charity Ledger ────────────────────────────────────────────────────────────
+
+export const getCharityLedger = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/finance/charity/get', { params });
+  return res.data;
+};
+
+export const getCharityBalance = async (branch_id: number) => {
+  const res = await api.get('/v1/finance/charity/current-balance', { params: { branch_id } });
+  return res.data;
+};
+
+export const addCharityEntry = async (payload: {
+  branch_id: number;
+  date: string;
+  type: 'Credit' | 'Debit' | 'Transfer';
+  amount: number;
+  person?: 'Faisal' | 'Waqas';
+  from_person?: 'Faisal' | 'Waqas';
+  to_person?: 'Faisal' | 'Waqas';
+  notes?: string;
+}) => {
+  const res = await api.post('/v1/finance/charity/add', payload);
+  return res.data;
+};
+
+export const deleteCharityEntry = async (id: number) => {
+  const res = await api.put(`/v1/finance/charity/delete/${id}`, {});
+  return res.data;
+};
+
+// ── Office Cash Ledger ────────────────────────────────────────────────────────
+
+export const getOfficeCashLedger = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/finance/office-cash-flow/get', { params });
+  return res.data;
+};
+
+// `/current-balance` is confirmed broken server-side (always returns 0);
+// `/office-cash-balance` returns the real running total.
+export const getOfficeCashBalance = async (branch_id: number) => {
+  const res = await api.get('/v1/finance/office-cash-flow/office-cash-balance', { params: { branch_id } });
+  return res.data;
+};
+
+export const addOfficeCashEntry = async (payload: {
+  branch_id: number;
+  amount: number;
+  type: 'Credit' | 'Debit';
+  resource?: string;
+  bank_account_id?: number;
+  date?: string;
+  description?: string;
+  is_petty_cash?: 0 | 1;
+}) => {
+  const res = await api.post('/v1/finance/office-cash-flow/add', payload);
+  return res.data;
+};
+
+export const deleteOfficeCashEntry = async (id: number) => {
+  const res = await api.put(`/v1/finance/office-cash-flow/delete/${id}`, {});
   return res.data;
 };
 
