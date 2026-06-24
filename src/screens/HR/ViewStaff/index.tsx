@@ -48,7 +48,7 @@ const ViewStaff = () => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const res = await getStaffList({ branch_id: branchId, limit: 100 });
-      const data: StaffMember[] = res?.data ?? res ?? [];
+      const data: StaffMember[] = res?.data?.data ?? [];
       setStaff(data);
       setFiltered(data);
     } catch {

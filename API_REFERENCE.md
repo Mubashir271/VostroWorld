@@ -9,6 +9,11 @@ from:
   transaction reports, branches, announcements)
 - `PT-API-DOC.pdf` (Downloads) — PT/Trainer Portal (Role 9) + Employee
   Dashboard (HR self-service & approvals)
+- `missing-api.md` (Downloads, backend team response, 23 Jun 2026) — audit of
+  endpoints the mobile team reported as missing/broken. Confirmed most were
+  caused by a missing `/v1/` prefix or a missing Bearer token, not actually
+  missing routes. See `PROJECT_STATUS.md`'s "Critical: every route needs the
+  `/v1/` prefix" section and Known API Notes for the fixes applied 2026-06-24.
 
 
   Admin login: f11@vostroworld.com
@@ -16,8 +21,17 @@ from:
 **Base URL:** `https://api.vostro-new.com/public/api/v1` (prod) /
 `https://dev-api.vostro-new.com/public/api/v1` (dev)
 
+Note: the app's axios `BASE_URL` (`src/api/service.ts`) is configured WITHOUT
+the `/v1` segment, so every path below must be called with an explicit `/v1/`
+prefix from the app (e.g. `/v1/hr/promotion/index`) even where this document
+omits it for brevity. Confirmed live 2026-06-24 that omitting it returns a
+hard 404, not a fallback route.
+
 **Auth:** `Authorization: Bearer {access_token}` on all endpoints except
-`/auth/app-login`, `/auth/login`, and `/search-history/get`.
+`/auth/app-login`, `/auth/login`, `/auth/register`, and `/search-history/get`.
+Confirmed live: missing/invalid tokens currently return **HTTP 500** with
+`Route [login] not defined` instead of a clean 401 — a known backend bug, not
+a sign the route is missing.
 
 The **"In App"** column marks whether the endpoint is already called
 somewhere in `src/api/*.ts`. `—` means not wired yet.
@@ -33,8 +47,10 @@ somewhere in `src/api/*.ts`. `—` means not wired yet.
 | POST | `/auth/refresh` | Refresh JWT token | — |
 | POST | `/auth/logout` | Invalidate session | — |
 | GET | `/auth/user-profile` | Current logged-in user | — |
-| GET | `/auth/get/{id}` | Staff profile by ID (employee profile card) | — |
+| GET | `/auth/get` | All-staff list (paginated). This is the real "staff list" endpoint — `/staff/get` does not exist and will not be added (confirmed live 2026-06-24) | ✅ `employeeDashboard.ts` (`getStaffList`) |
+| GET | `/auth/get/{id}` | Staff profile by ID (employee profile card). Returns `{status, data:[record]}` — single-element array | ✅ `employeeDashboard.ts` (`getStaffDetail`) |
 | POST | `/auth/update/{id}` | Update staff profile (multipart: cnic, email, phone, address, password, file, image_upload_from) | — |
+| POST | `/auth/register` | Create staff (Add Staff). No auth token required. Confirmed live 2026-06-24: minimum required `branch_id`, `first_name`, `last_name`, `gender`; full contract unconfirmed — backend 500s (`trim()` on a `DateTime`) on incomplete-but-plausible payloads | ✅ `employeeDashboard.ts` (`registerStaff`, not wired to a screen yet) |
 
 ---
 
@@ -115,7 +131,12 @@ somewhere in `src/api/*.ts`. `—` means not wired yet.
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|
 | GET | `/related_things/get-names-list-new` | Payment methods/categories by type | — |
-| GET | `/related_things/get-names-list` | Legacy name list | — |
+| GET | `/related_things/get-names-list` | Legacy name list | ✅ `employeeDashboard.ts` (`getExpensePaymentMethods`) |
+| GET | `/related_things/get` | Full list (paginated), supports `type` filter (e.g. `Department`). Confirmed live 2026-06-24 — previously assumed only the two `get-names-list*` variants existed. Shape: `{id, name, department_id, department, description, type, status}` | ✅ `employeeDashboard.ts` (`getRelatedThings`) |
+| POST | `/related_things/add` | Create a record | ✅ `employeeDashboard.ts` (`addRelatedThing`, payload unconfirmed) |
+| PUT | `/related_things/update/{id}` | Update a record | ✅ `employeeDashboard.ts` (`updateRelatedThing`) |
+| PUT | `/related_things/delete/{id}` | Delete a record | ✅ `employeeDashboard.ts` (`deleteRelatedThing`) |
+| PUT | `/related_things/active/{id}` / `/inactive/{id}` | Activate/deactivate | ✅ `employeeDashboard.ts` (`setRelatedThingStatus`) |
 
 ### 2.7 Sales Reports (App-Optimized)
 
@@ -346,7 +367,7 @@ CRUD pattern: `POST .../add`, `GET .../get`, `PUT .../update/{id}`, `PUT .../del
 |--------|----------|---------|--------|
 | GET | `/fitness/nutrition-assessments/index` | List assessments (`branch_id`, `client_id`, `limit`) | ✅ `nutrition.ts` |
 | GET | `/fitness/nutrition-assessments/show/{id}` | Single assessment | — |
-| POST | `/fitness/nutrition-assessments/store` | Create assessment | ✅ `nutrition.ts` (not yet called — "avoid POST for now") |
+| POST | `/fitness/nutrition-assessments/store` | Create assessment | ✅ `nutrition.ts` (`addNutritionAssessment`) — **correction 2026-06-24:** this note previously said "not yet called", but `AddNutritionAssessments/index.tsx` does call it for real (`handleAdd()`, line ~129) |
 | PUT | `/fitness/nutrition-assessments/update/{id}` | Update assessment | — |
 | PUT | `/fitness/nutrition-assessments/actions/{id}/{status}` | Activate/deactivate | — |
 
@@ -409,16 +430,47 @@ are listed under §2.7 Sales Reports.)
 
 ### 6.1 HR Session Portal (optional, not required for PT self-flow)
 
+All confirmed to exist live (2026-06-24) — earlier 404s in `PTAttendance`
+were a missing `/v1/` prefix on every call, not missing routes; fixed.
+
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|
-| GET | `/fitness/commission-portal/hr/trainers` | List trainers | — |
-| GET | `/fitness/commission-portal/hr/clients` | List clients | — |
-| GET | `/fitness/commission-portal/hr/sessions` | List sessions | — |
-| POST | `/fitness/commission-portal/hr/sessions` | Create session | — |
-| PUT | `/fitness/commission-portal/hr/sessions/{id}` | Update session | — |
-| DELETE | `/fitness/commission-portal/hr/sessions/{id}` | Delete session | — |
+| GET | `/fitness/commission-portal/hr/trainers` | List trainers | ✅ `PTAttendance/index.tsx` |
+| GET | `/fitness/commission-portal/hr/clients` | List clients, requires `trainer_id` | — |
+| GET | `/fitness/commission-portal/hr/sessions` | List sessions | ✅ `PTAttendance/index.tsx` |
+| POST | `/fitness/commission-portal/hr/sessions` | Create session | ✅ `PTAttendance/index.tsx` |
+| PUT | `/fitness/commission-portal/hr/sessions/{id}` | Update session | ✅ `PTAttendance/index.tsx` |
+| DELETE | `/fitness/commission-portal/hr/sessions/{id}` | Delete session | ✅ `PTAttendance/index.tsx` |
 | POST | `/fitness/commission-portal/hr/bulk-sessions` | Bulk create sessions | — |
-| GET | `/fitness/commission-portal/hr/commissions` | Commission report | — |
+| GET | `/fitness/commission-portal/hr/commissions` | Commission report | ✅ `employeeDashboard.ts` (`getHRCommissions`) |
+
+### 6.2 GX Time Slots (`/fitness/time-slot`)
+
+Confirmed live 2026-06-24 (previously assumed missing). Shape: `{id,
+branch_id, branch_name, start_time, end_time, date}`, times as `"HH:mm
+AM/PM"` strings.
+
+| Method | Endpoint | Purpose | In App |
+|--------|----------|---------|--------|
+| GET | `/fitness/time-slot/get` | List time slots | ✅ `employeeDashboard.ts` (`getTimeSlots`) |
+| POST | `/fitness/time-slot/add` | Create time slot | ✅ `employeeDashboard.ts` (`addTimeSlot`) |
+| PUT | `/fitness/time-slot/update/{id}` | Update time slot | ✅ `employeeDashboard.ts` (`updateTimeSlot`) |
+| POST | `/fitness/time-slot/is-exist` | Check for a conflicting slot | ✅ `employeeDashboard.ts` (`checkTimeSlotExists`) |
+
+### 6.3 GX Class / Package (`/fitness/gx-class`)
+
+Confirmed live 2026-06-24 — the previously-assumed `/gx/classes/get` and
+`/gx/bookings/get` both 404 with no replacement found for bookings. Shape:
+`{id, package_id, name, day, status, package:{id, slot_name, description,
+branch_id, branch_name}}` — no trainer/capacity/duration/session-count
+fields.
+
+| Method | Endpoint | Purpose | In App |
+|--------|----------|---------|--------|
+| GET | `/fitness/gx-class/index` | List GX classes | ✅ `employeeDashboard.ts` (`getGXClasses`, fixed from `/gx/classes/get`) |
+| GET | `/fitness/gx-class/show/{id}` | Single class | ✅ `employeeDashboard.ts` (`getGXClass`) |
+| POST | `/fitness/gx-class/store` | Create class | ✅ `employeeDashboard.ts` (`addGXClass`) |
+| PUT | `/fitness/gx-class/update/{id}` | Update class | ✅ `employeeDashboard.ts` (`updateGXClass`) |
 
 ---
 
@@ -430,7 +482,8 @@ are listed under §2.7 Sales Reports.)
 |--------|----------|---------|--------|
 | GET | `/auth/get/{id}` | Profile detail | — |
 | POST | `/auth/update/{id}` | Update profile (multipart) | — |
-| GET | `/hr/promotion/index` | Promotions history (`branch_id`, `user_id`, `status`, `limit`, `page`) | ✅ `employeeDashboard.ts` |
+| GET | `/hr/promotion/index` | Promotions history (`branch_id`, `user_id`, `status`, `limit`, `page`). Was missing the `/v1/` prefix in code — **fixed 2026-06-24** | ✅ `employeeDashboard.ts` |
+| POST | `/hr/promotion/store` | Create promotion record. Confirmed live 2026-06-24 (previously assumed missing) | ✅ `employeeDashboard.ts` (`addPromotion`, payload inferred/unconfirmed) |
 | GET | `/announcements/index` | Announcements feed (`branch_id`, `search`, `priority`, `status`, `active_only`, `limit`, `page`) | ✅ `employeeDashboard.ts` |
 
 ### 7.2 Attendance
@@ -456,27 +509,65 @@ are listed under §2.7 Sales Reports.)
 |--------|----------|---------|--------|
 | GET | `/salary` | Salary slip data (`branch_id`, `start_date`, `end_date`, `user_id`, `limit`) | ✅ `employeeDashboard.ts` |
 
+### 7.4b Salary Components
+
+Real path is `/hr/salary-components/*`, not `/salary-components/*` — the
+latter 404s. **Fixed 2026-06-24** in `SalaryComponent` screen. Live response
+uses lowercase `type` (`addition`/`deduction`) and `return_month` (not
+`salary_month`); the screen's display mapping hasn't been updated to match.
+
+| Method | Endpoint | Purpose | In App |
+|--------|----------|---------|--------|
+| GET | `/hr/salary-components/index` | List components (`branch_id`, `user_id`, `start_date`, `end_date`, `limit`, `page`) | ✅ `employeeDashboard.ts` (`getSalaryComponents`) |
+| POST | `/hr/salary-components/store` | Add component | ✅ `employeeDashboard.ts` (`addSalaryComponent`, payload unconfirmed) |
+| PUT | `/hr/salary-components/update/{id}` | Update component | ✅ `employeeDashboard.ts` (`updateSalaryComponent`, route unconfirmed) |
+| PUT | `/hr/salary-components/delete/{id}` | Delete component | ✅ `employeeDashboard.ts` (`deleteSalaryComponent`, route unconfirmed) |
+
+### 7.4c Staff Loans (`/staff-loans`)
+
+Confirmed live 2026-06-24. List shape: `{id, branch_id, name (branch name),
+staff_id, staff_name, amount, term, received, payment_type_id,
+transaction_type, installment, payment_method, reason, return_start_date,
+date, status}`.
+
+| Method | Endpoint | Purpose | In App |
+|--------|----------|---------|--------|
+| GET | `/staff-loans/get` | List staff loans (`branch_id`, `limit`, `page`) | ✅ `employeeDashboard.ts` (`getStaffLoansList`), `StaffLoans/index.tsx` |
+| POST | `/staff-loans/add` | Add a loan. Route name is `add`, not `store` | ✅ `employeeDashboard.ts` (`addStaffLoan`, payload unconfirmed, not yet wired to a screen) |
+
 ### 7.5 Leave
+
+All 5 routes below were missing the `/v1/` prefix in code (confirmed live
+404 → 200/409) — this fully broke the `LeaveApplications` screen in
+production. **Fixed 2026-06-24.**
 
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|
 | GET | `/hr/leaves-quota/index` | Leave quota (`branch_id`, `user_id`, `leave_type`, `status`, `limit`, `page`) | ✅ `employeeDashboard.ts` |
 | GET | `/hr/leave-application/index` | Leave applications list | ✅ `employeeDashboard.ts` |
 | POST | `/hr/leave-application/is-exist` | Conflict check (`200` not exist / `409` overlap) | ✅ `employeeDashboard.ts` |
-| POST | `/attendance/check-leave-eligibility` | Probation eligibility check (`200`/`409`) | ✅ `employeeDashboard.ts` |
+| POST | `/attendance/check-leave-eligibility` | Probation eligibility check (`200`/`409`) — already had the `/v1/` prefix | ✅ `employeeDashboard.ts` |
 | POST | `/hr/leave-application/check-leave-availability` | Quota availability check (`200`/`409`) | ✅ `employeeDashboard.ts` |
 | POST | `/hr/leave-application/store` | Submit leave application | ✅ `employeeDashboard.ts` |
 
 ### 7.6 Qualification / Experience
 
+**Unconfirmed** — live-checked 2026-06-24, neither `/v1/hr/employee-profile-
+entries/*` nor a few likely alternate route names resolve (404). Unused by
+any screen currently; treat as a placeholder until the real route is found.
+
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|
-| GET | `/hr/employee-profile-entries/index` | List entries (`branch_id`, `user_id`, `entry_type`, `status`, `limit`) | ✅ `employeeDashboard.ts` |
-| POST | `/hr/employee-profile-entries/store` | Create entry (Qualification/Experience) | ✅ `employeeDashboard.ts` |
-| PUT | `/hr/employee-profile-entries/update/{id}` | Update entry | — |
+| GET | `/hr/employee-profile-entries/index` | List entries (`branch_id`, `user_id`, `entry_type`, `status`, `limit`) | ✅ `employeeDashboard.ts` (route unconfirmed) |
+| POST | `/hr/employee-profile-entries/store` | Create entry (Qualification/Experience) | ✅ `employeeDashboard.ts` (route unconfirmed) |
+| PUT | `/hr/employee-profile-entries/update/{id}` | Update entry | ✅ `employeeDashboard.ts` (route unconfirmed) |
 | PUT | `/hr/employee-profile-entries/actions/{id}/{status}` | Archive/action | — |
 
 ### 7.7 Documents
+
+`index`/`store` were missing the `/v1/` prefix in code — **fixed 2026-06-24**
+(`getStaffDocuments`/`addStaffDocument`, not yet wired to a screen; best fit
+for the `LetterManagement` screen).
 
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|

@@ -116,7 +116,12 @@ import ViewCharityLedger from '../../screens/Finance/ViewCharityLedger';
 import DailyExpense from '../../screens/Finance/DailyExpense';
 import AddOfficeCash from '../../screens/Finance/AddOfficeCash';
 import ViewOfficeLedger from '../../screens/Finance/ViewOfficeLedger';
+import AddBankCash from '../../screens/Finance/AddBankCash';
+import ViewBankLedger from '../../screens/Finance/ViewBankLedger';
+import BankDetails from '../../screens/Finance/BankDetails';
 import GXClasses from '../../screens/Fitness/GXClasses';
+import AddGXClass from '../../screens/Fitness/AddGXClass';
+import AddGXSlots from '../../screens/Fitness/AddGXSlots';
 import PTRoster from '../../screens/Fitness/PTRoster';
 import TimeSlotsScreen from '../../screens/Fitness/TimeSlots';
 import ManageAvailabilityScreen from '../../screens/Fitness/ManageAvailability';
@@ -358,8 +363,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="ViewCharityLedger" component={protect(ViewCharityLedger)} />
                 <Stack.Screen name="AddOfficeCash" component={protect(AddOfficeCash)} />
                 <Stack.Screen name="ViewOfficeLedger" component={protect(ViewOfficeLedger)} />
-                <Stack.Screen name="AddBankCash" component={protect(ComingSoon)} />
-                <Stack.Screen name="ViewBankLedger" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddBankCash" component={protect(AddBankCash)} />
+                <Stack.Screen name="ViewBankLedger" component={protect(ViewBankLedger)} />
                 <Stack.Screen name="AddPettyCash" component={protect(AddPettyCash)} />
                 <Stack.Screen name="PettyCashLedger" component={protect(PettyCashLedger)} />
                 <Stack.Screen name="AddG13Cash" component={protect(AddG13Cash)} />
@@ -374,10 +379,11 @@ const AppNavigator = () => {
                 <Stack.Screen name="DailySalesCounter" component={protect(ComingSoon)} />
                 <Stack.Screen name="CafeSalesExpenseReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="DailyOfficeClosing" component={protect(ComingSoon)} />
-                <Stack.Screen name="BankDetails" component={protect(ComingSoon)} />
+                <Stack.Screen name="BankDetails" component={protect(BankDetails)} />
 
                 {/* ── Admin: Fitness ── */}
                 <Stack.Screen name="GXClasses" component={protect(GXClasses)} />
+                <Stack.Screen name="AddGXClass" component={protect(AddGXClass)} />
                 <Stack.Screen name="PTRoster" component={protect(PTRoster)} />
                 <Stack.Screen name="TrainerDiary" component={protect(ComingSoon)} />
                 {/* PersonalTrainerDiary registered as trainer-allowed above */}
@@ -387,10 +393,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="SessionAttendance" component={protect(ComingSoon)} />
                 <Stack.Screen name="NewPTBookings" component={protect(ComingSoon)} />
                 <Stack.Screen name="NewPTClients" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddGXSlots" component={protect(ComingSoon)} />
-                <Stack.Screen name="AddGXClass" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddGXSlots" component={protect(AddGXSlots)} />
                 <Stack.Screen name="GXTrainers" component={protect(ComingSoon)} />
-                <Stack.Screen name="GXSlotsList" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXSlotsList" component={protect(GXClasses)} />
                 <Stack.Screen name="GXBookings" component={protect(ComingSoon)} />
                 <Stack.Screen name="GXAppointments" component={protect(ComingSoon)} />
                 <Stack.Screen name="GXAttendance" component={protect(ComingSoon)} />

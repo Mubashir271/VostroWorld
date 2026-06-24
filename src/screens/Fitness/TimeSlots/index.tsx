@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { RootState } from '../../../redux/store';
+import { showSnackbar } from '../../../redux/slices/snackbarSlice';
+import { getTimeSlots, addTimeSlot, updateTimeSlot } from '../../../api/employeeDashboard';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
@@ -23,20 +25,11 @@ interface SlotRow {
   branchName: string;
   startTime: string;
   endTime: string;
-  active: boolean;
 }
-
-const INITIAL_SLOTS: SlotRow[] = [
-  { id: 1, branchName: 'F 11', startTime: '07:00 AM', endTime: '08:00 AM', active: true },
-  { id: 2, branchName: 'F 11', startTime: '08:00 AM', endTime: '09:00 AM', active: true },
-  { id: 3, branchName: 'F 11', startTime: '09:00 AM', endTime: '10:00 AM', active: true },
-  { id: 4, branchName: 'F 11', startTime: '10:00 AM', endTime: '11:00 AM', active: true },
-  { id: 5, branchName: 'F 11', startTime: '11:00 AM', endTime: '12:00 PM', active: true },
-  { id: 6, branchName: 'F 11', startTime: '12:00 PM', endTime: '01:00 PM', active: true },
-];
 
 const TimeSlots = () => {
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId ?? 1;
   const branchName = profile?.branchName ?? `Branch ${branchId}`;
@@ -44,10 +37,31 @@ const TimeSlots = () => {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [pickerFor, setPickerFor] = useState<'start' | 'end' | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  const [slots, setSlots] = useState<SlotRow[]>(
-    INITIAL_SLOTS.map(s => ({ ...s, branchName })),
-  );
+  const [slots, setSlots] = useState<SlotRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getTimeSlots({ branch_id: branchId, limit: 200 });
+      const raw: any[] = res?.data?.data ?? [];
+      setSlots(raw.map(r => ({
+        id: r.id,
+        branchName: r.branch_name ?? branchName,
+        startTime: r.start_time,
+        endTime: r.end_time,
+      })));
+    } catch {
+      setSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, branchName]);
+
+  useEffect(() => { load(); }, [load]);
 
   const handlePickerConfirm = (date: Date) => {
     if (pickerFor === 'start') setStartTime(date);
@@ -55,24 +69,51 @@ const TimeSlots = () => {
     setPickerFor(null);
   };
 
-  const handleAdd = () => {
-    if (!startTime || !endTime) return;
-    setSlots(prev => [
-      ...prev,
-      {
-        id: prev.length ? Math.max(...prev.map(s => s.id)) + 1 : 1,
-        branchName,
-        startTime: displayTime(startTime),
-        endTime: displayTime(endTime),
-        active: true,
-      },
-    ]);
+  const resetForm = () => {
     setStartTime(null);
     setEndTime(null);
+    setEditingId(null);
   };
 
-  const toggleActive = (id: number) => {
-    setSlots(prev => prev.map(s => (s.id === id ? { ...s, active: !s.active } : s)));
+  const handleAdd = async () => {
+    if (!startTime || !endTime) return;
+    setSubmitting(true);
+    try {
+      const payload = { start_time: displayTime(startTime), end_time: displayTime(endTime) };
+      if (editingId) {
+        // `updateTimeSlot`'s payload is unconfirmed (route exists, fields not
+        // live-tested) — assumed to mirror the confirmed `addTimeSlot` contract.
+        await updateTimeSlot(editingId, payload);
+        dispatch(showSnackbar({ message: 'Time slot updated', type: 'success' }));
+      } else {
+        await addTimeSlot({ branch_id: branchId, ...payload });
+        dispatch(showSnackbar({ message: 'Time slot added', type: 'success' }));
+      }
+      resetForm();
+      load();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? `Failed to ${editingId ? 'update' : 'add'} time slot`;
+      dispatch(showSnackbar({ message: typeof msg === 'string' ? msg : 'Something went wrong', type: 'error' }));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const parseTime = (s: string): Date => {
+    const [time, period] = s.split(' ');
+    const [hStr, mStr] = time.split(':');
+    let h = parseInt(hStr, 10);
+    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    const d = new Date();
+    d.setHours(h, parseInt(mStr, 10), 0, 0);
+    return d;
+  };
+
+  const handleEdit = (slot: SlotRow) => {
+    setEditingId(slot.id);
+    setStartTime(parseTime(slot.startTime));
+    setEndTime(parseTime(slot.endTime));
   };
 
   return (
@@ -89,7 +130,7 @@ const TimeSlots = () => {
       <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
         {/* Add Time Slots */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Add Time Slots</Text>
+          <Text style={styles.cardTitle}>{editingId ? 'Update Time Slot' : 'Add Time Slots'}</Text>
           <Text style={styles.notice}>! The Fields With *Must Required Or Fill.</Text>
 
           <View style={styles.field}>
@@ -117,15 +158,28 @@ const TimeSlots = () => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.addBtn} onPress={handleAdd} disabled={!startTime || !endTime}>
-            <Text style={styles.addBtnText}>Add</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={[styles.addBtn, (submitting || !startTime || !endTime) && { opacity: 0.6 }]}
+              onPress={handleAdd}
+              disabled={submitting || !startTime || !endTime}
+            >
+              {submitting
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.addBtnText}>{editingId ? 'Update' : 'Add'}</Text>}
+            </TouchableOpacity>
+            {editingId && (
+              <TouchableOpacity style={[styles.addBtn, { backgroundColor: '#888' }]} onPress={resetForm}>
+                <Text style={styles.addBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {/* Active Time Slots table */}
+        {/* Time Slots table */}
         <View style={styles.tableCard}>
           <View style={styles.tableHeader}>
-            <Text style={styles.tableTitle}>Active Time Slots</Text>
+            <Text style={styles.tableTitle}>All Time Slots</Text>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -135,26 +189,25 @@ const TimeSlots = () => {
                 <Text style={[tbl.headerCell, { width: 110 }]}>Branch Name</Text>
                 <Text style={[tbl.headerCell, { width: 110 }]}>Start Time</Text>
                 <Text style={[tbl.headerCell, { width: 110 }]}>End Time</Text>
-                <Text style={[tbl.headerCell, { width: 140 }]}>Actions</Text>
+                <Text style={[tbl.headerCell, { width: 90 }]}>Actions</Text>
               </View>
 
-              {slots.filter(s => s.active).length === 0 ? (
+              {loading ? (
+                <View style={styles.noRecord}><ActivityIndicator size="small" color="#C0392B" /></View>
+              ) : slots.length === 0 ? (
                 <View style={styles.noRecord}>
                   <Text style={styles.noRecordText}>No Record Found</Text>
                 </View>
               ) : (
-                slots.filter(s => s.active).map((item, i) => (
+                slots.map((item, i) => (
                   <View key={item.id} style={[tbl.dataRow, i % 2 === 1 && tbl.dataRowAlt]}>
                     <Text style={[tbl.cell, { width: 48 }]}>{i + 1}</Text>
                     <Text style={[tbl.cell, { width: 110 }]}>{item.branchName}</Text>
                     <Text style={[tbl.cell, { width: 110 }]}>{item.startTime}</Text>
                     <Text style={[tbl.cell, { width: 110 }]}>{item.endTime}</Text>
-                    <View style={[tbl.cell, { width: 140, flexDirection: 'row', gap: 14 }]}>
-                      <TouchableOpacity>
+                    <View style={[tbl.cell, { width: 90 }]}>
+                      <TouchableOpacity onPress={() => handleEdit(item)}>
                         <Text style={styles.updateText}>Update</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => toggleActive(item.id)}>
-                        <Text style={styles.inactiveText}>Inactive</Text>
                       </TouchableOpacity>
                     </View>
                   </View>

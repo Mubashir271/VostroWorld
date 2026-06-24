@@ -84,10 +84,11 @@ const branchName = (uid: string) => {
   return uid.substring(0, 2);
 };
 
+// Confirmed live via /v1/branches/get 2026-06-24: id 1 = G 13, id 15 = F 11.
 const BRANCH_OPTIONS = [
   { label: 'All Branches', value: '' },
-  { label: 'F-11', value: '1' },
-  { label: 'G-13', value: '15' },
+  { label: 'F-11', value: '15' },
+  { label: 'G-13', value: '1' },
 ];
 
 const fmtDate = (d: Date) => d.toISOString().split('T')[0];

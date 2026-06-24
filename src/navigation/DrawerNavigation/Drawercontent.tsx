@@ -663,7 +663,7 @@ const DrawerContent = (props: any) => {
     <DrawerContentScrollView {...props} style={styles.container}>
       <ProfileHeader
         name={profileName}
-        role={role || 'Staff'}
+        role={firstName || 'Staff'}
         branch={branch || 'Main Branch'}
         avatar={avatarSource}
         editIcon={Edit_fill}

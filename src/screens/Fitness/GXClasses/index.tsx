@@ -22,6 +22,22 @@ interface GXClass {
   status: string;
 }
 
+// /v1/fitness/gx-class/index returns { id, package_id, name, day, status,
+// package: { id, slot_name, description, branch_id, branch_name } } — no
+// trainer/capacity/duration/session-count/time-slot fields, so those show as
+// a dash below until the backend exposes them.
+const mapGXClass = (raw: any): GXClass => ({
+  id: raw.id,
+  branch: raw.package?.branch_name ?? '',
+  trainer_name: '',
+  class_name: raw.name ?? raw.package?.slot_name ?? '—',
+  booking_space: 0,
+  duration: '',
+  total_sessions: 0,
+  time_slot: raw.day ?? '',
+  status: raw.status === '1' || raw.status === 1 ? 'Active' : 'Inactive',
+});
+
 const GXClasses = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
@@ -38,7 +54,8 @@ const GXClasses = () => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const res = await getGXClasses({ branch_id: branchId, limit: 100 });
-      const data: GXClass[] = res?.data ?? res ?? [];
+      const raw: any[] = res?.data?.data ?? [];
+      const data: GXClass[] = raw.map(mapGXClass);
       setClasses(data);
       setFiltered(data);
     } catch {
@@ -83,7 +100,7 @@ const GXClasses = () => {
           </View>
           <View style={styles.cardInfo}>
             <Text style={styles.className}>{item.class_name}</Text>
-            <Text style={styles.trainerName}>{item.trainer_name}</Text>
+            {item.trainer_name ? <Text style={styles.trainerName}>{item.trainer_name}</Text> : null}
           </View>
           <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
             <Text style={[styles.statusText, { color: sc.text }]}>{item.status || 'Active'}</Text>
@@ -111,7 +128,7 @@ const GXClasses = () => {
               </View>
               <View style={styles.infoItem}>
                 <Icon name="clock-outline" size={16} color="#888" />
-                <Text style={styles.infoLabel}>Time Slot</Text>
+                <Text style={styles.infoLabel}>Day</Text>
                 <Text style={styles.infoValue} numberOfLines={1}>{item.time_slot || '—'}</Text>
               </View>
             </View>

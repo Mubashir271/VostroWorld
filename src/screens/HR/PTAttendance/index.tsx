@@ -43,9 +43,10 @@ interface Session {
   time_slot?: string;
 }
 
+// Confirmed live via /v1/branches/get 2026-06-24: id 1 = G 13, id 15 = F 11.
 const BRANCH_OPTIONS = [
-  { label: 'F 11', value: '1' },
-  { label: 'G 13', value: '15' },
+  { label: 'F 11', value: '15' },
+  { label: 'G 13', value: '1' },
 ];
 
 const TRAINER_STATUSES = ['Contacted', 'Delivered', 'No Show', 'Cancel'];
@@ -120,7 +121,7 @@ const PTAttendance = () => {
 
   const loadTrainers = useCallback(async () => {
     try {
-      const res = await api.get('/fitness/commission-portal/hr/trainers', { params: { branch_id: formBranch || branchId } });
+      const res = await api.get('/v1/fitness/commission-portal/hr/trainers', { params: { branch_id: formBranch || branchId } });
       const list = res.data?.data ?? res.data ?? [];
       setTrainers(Array.isArray(list) ? list : []);
     } catch {
@@ -131,7 +132,7 @@ const PTAttendance = () => {
   const loadRoster = useCallback(async (trainerId: string) => {
     if (!trainerId) { setRoster([]); return; }
     try {
-      const res = await api.get('/fitness/commission-portal/trainer/roster', {
+      const res = await api.get('/v1/fitness/commission-portal/trainer/roster', {
         params: { branch_id: formBranch || branchId, trainer_id: trainerId },
       });
       const list = res.data?.data ?? res.data ?? [];
@@ -148,10 +149,10 @@ const PTAttendance = () => {
     const tId = filterTrainerId || undefined;
 
     const [activeRes, inactiveRes] = await Promise.allSettled([
-      api.get('/fitness/commission-portal/hr/sessions', {
+      api.get('/v1/fitness/commission-portal/hr/sessions', {
         params: { branch_id: bid, trainer_id: tId, status: 'Active', limit: 25, page: aPage },
       }),
-      api.get('/fitness/commission-portal/hr/sessions', {
+      api.get('/v1/fitness/commission-portal/hr/sessions', {
         params: { branch_id: bid, trainer_id: tId, status: 'Inactive', limit: 25, page: iPage },
       }),
     ]);
@@ -196,7 +197,7 @@ const PTAttendance = () => {
     }
     setSubmitting(true);
     try {
-      await api.post('/fitness/commission-portal/hr/sessions', {
+      await api.post('/v1/fitness/commission-portal/hr/sessions', {
         branch_id: formBranch || branchId,
         trainer_id: Number(formTrainerId),
         client_id: Number(formClientId),
@@ -227,7 +228,7 @@ const PTAttendance = () => {
 
   const handleUpdate = async (session: Session) => {
     try {
-      await api.put(`/fitness/commission-portal/hr/sessions/${session.id}`, {
+      await api.put(`/v1/fitness/commission-portal/hr/sessions/${session.id}`, {
         staff_status: editTrainerStatus || session.staff_status,
         client_status: editClientStatus || session.client_status,
       });
@@ -242,7 +243,7 @@ const PTAttendance = () => {
 
   const handleInactive = async (session: Session) => {
     try {
-      await api.put(`/fitness/commission-portal/hr/sessions/${session.id}`, { status: 'Inactive' });
+      await api.put(`/v1/fitness/commission-portal/hr/sessions/${session.id}`, { status: 'Inactive' });
       dispatch(showSnackbar({ message: 'Session marked inactive', type: 'success' }));
       loadSessions(false, 1, 1);
     } catch {
@@ -252,7 +253,7 @@ const PTAttendance = () => {
 
   const handleActivate = async (session: Session) => {
     try {
-      await api.put(`/fitness/commission-portal/hr/sessions/${session.id}`, { status: 'Active' });
+      await api.put(`/v1/fitness/commission-portal/hr/sessions/${session.id}`, { status: 'Active' });
       dispatch(showSnackbar({ message: 'Session activated', type: 'success' }));
       loadSessions(false, 1, 1);
     } catch {
@@ -262,7 +263,7 @@ const PTAttendance = () => {
 
   const handleDelete = async (session: Session) => {
     try {
-      await api.delete(`/fitness/commission-portal/hr/sessions/${session.id}`);
+      await api.delete(`/v1/fitness/commission-portal/hr/sessions/${session.id}`);
       dispatch(showSnackbar({ message: 'Session deleted', type: 'success' }));
       loadSessions(false, 1, 1);
     } catch {

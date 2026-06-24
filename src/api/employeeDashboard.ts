@@ -33,7 +33,7 @@ export const getDutyHours = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/staff-timing/index', { params });
+  const res = await api.get('/v1/staff-timing/index', { params });
   return res.data;
 };
 
@@ -131,6 +131,9 @@ export const getMySalarySlip = async (params: {
 
 // ── 6.4b Salary Components ────────────────────────────────────────────────────
 
+// Confirmed live: GET /v1/hr/salary-components/index (not .../salary-components/get).
+// Response rows use `type: 'addition'|'deduction'` (lowercase) and `return_month`
+// (not `salary_month`) for the display fields — see SalaryComponent screen mapping.
 export const getSalaryComponents = async (params: {
   branch_id: number;
   user_id?: number;
@@ -139,10 +142,12 @@ export const getSalaryComponents = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/salary-components/get', { params });
+  const res = await api.get('/v1/hr/salary-components/index', { params });
   return res.data;
 };
 
+// Confirmed live: POST /v1/hr/salary-components/store exists. Payload field
+// names/casing below are unconfirmed (not probed live to avoid writing test data).
 export const addSalaryComponent = async (payload: {
   branch_id: number;
   user_id: number;
@@ -153,10 +158,12 @@ export const addSalaryComponent = async (payload: {
   salary_month: string; // 'YYYY-MM'
   description?: string;
 }) => {
-  const res = await api.post('/v1/salary-components/store', payload);
+  const res = await api.post('/v1/hr/salary-components/store', payload);
   return res.data;
 };
 
+// Update/delete routes follow the same /v1/hr/salary-components/* prefix as
+// index/store but are unconfirmed live (not probed to avoid writing test data).
 export const updateSalaryComponent = async (id: number, payload: {
   component_name?: string;
   type?: string;
@@ -165,12 +172,12 @@ export const updateSalaryComponent = async (id: number, payload: {
   salary_month?: string;
   description?: string;
 }) => {
-  const res = await api.put(`/v1/salary-components/update/${id}`, payload);
+  const res = await api.put(`/v1/hr/salary-components/update/${id}`, payload);
   return res.data;
 };
 
 export const deleteSalaryComponent = async (id: number) => {
-  const res = await api.put(`/v1/salary-components/delete/${id}`, {});
+  const res = await api.put(`/v1/hr/salary-components/delete/${id}`, {});
   return res.data;
 };
 
@@ -219,6 +226,23 @@ export const getStaffLoansList = async (params: {
   page?: number;
 }) => {
   const res = await api.get('/v1/staff-loans/get', { params });
+  return res.data;
+};
+
+// Confirmed live: POST /v1/staff-loans/add exists (route name is `add`, not
+// `store`). Payload fields are unconfirmed (not probed to avoid writing test data).
+export const addStaffLoan = async (payload: {
+  branch_id: number;
+  staff_id: number;
+  amount: number;
+  term: number;
+  installment: number;
+  payment_method: string;
+  transaction_type: string;
+  reason?: string;
+  return_start_date: string;
+}) => {
+  const res = await api.post('/v1/staff-loans/add', payload);
   return res.data;
 };
 
@@ -271,7 +295,7 @@ export const getLeaveQuota = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/hr/leaves-quota/index', { params });
+  const res = await api.get('/v1/hr/leaves-quota/index', { params });
   return res.data;
 };
 
@@ -286,7 +310,7 @@ export const getLeaveApplications = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/hr/leave-application/index', { params });
+  const res = await api.get('/v1/hr/leave-application/index', { params });
   return res.data;
 };
 
@@ -299,7 +323,7 @@ export const checkLeaveExists = async (payload: {
   number_of_leaves: number;
 }) => {
   // 200 = no conflict, 409 = overlap
-  const res = await api.post('/hr/leave-application/is-exist', payload);
+  const res = await api.post('/v1/hr/leave-application/is-exist', payload);
   return res.data;
 };
 
@@ -321,7 +345,7 @@ export const checkLeaveAvailability = async (payload: {
 }) => {
   // 200 = available, 409 = quota exceeded
   const res = await api.post(
-    '/hr/leave-application/check-leave-availability',
+    '/v1/hr/leave-application/check-leave-availability',
     payload,
   );
   return res.data;
@@ -339,11 +363,16 @@ export const submitLeaveApplication = async (payload: {
   number_of_leaves: number;
   reason: string;
 }) => {
-  const res = await api.post('/hr/leave-application/store', payload);
+  const res = await api.post('/v1/hr/leave-application/store', payload);
   return res.data;
 };
 
 // ── 6.6 Profile Entries (Qualification / Experience) ─────────────────────────
+// Unused by any screen currently. Live-checked 2026-06-24: neither
+// `/v1/hr/employee-profile-entries/*` nor a few likely alternate route names
+// resolve (404) — this module may not exist on the backend yet despite being
+// listed in API_REFERENCE.md §7.6. Kept with the standard /v1/hr/ prefix for
+// consistency; treat as unconfirmed until the real route is found.
 
 export const getProfileEntries = async (params: {
   branch_id: number;
@@ -352,7 +381,7 @@ export const getProfileEntries = async (params: {
   status?: number;
   limit?: number;
 }) => {
-  const res = await api.get('/hr/employee-profile-entries/index', { params });
+  const res = await api.get('/v1/hr/employee-profile-entries/index', { params });
   return res.data;
 };
 
@@ -367,7 +396,7 @@ export const createProfileEntry = async (payload: {
   end_date?: string;
   description?: string;
 }) => {
-  const res = await api.post('/hr/employee-profile-entries/store', payload);
+  const res = await api.post('/v1/hr/employee-profile-entries/store', payload);
   return res.data;
 };
 
@@ -379,7 +408,7 @@ export const updateProfileEntry = async (id: number, payload: Partial<{
   end_date: string;
   description: string;
 }>) => {
-  const res = await api.put(`/hr/employee-profile-entries/update/${id}`, payload);
+  const res = await api.put(`/v1/hr/employee-profile-entries/update/${id}`, payload);
   return res.data;
 };
 
@@ -393,7 +422,7 @@ export const getStaffDocuments = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/hr/staff-documents/index', { params });
+  const res = await api.get('/v1/hr/staff-documents/index', { params });
   return res.data;
 };
 
@@ -413,7 +442,7 @@ export const addStaffDocument = async (payload: {
     if (value !== undefined) formData.append(key, value);
   });
 
-  const res = await api.post('/hr/staff-documents/store', formData, {
+  const res = await api.post('/v1/hr/staff-documents/store', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return res.data;
@@ -428,7 +457,26 @@ export const getPromotions = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/hr/promotion/index', { params });
+  const res = await api.get('/v1/hr/promotion/index', { params });
+  return res.data;
+};
+
+// Confirmed live: POST /v1/hr/promotion/store exists. Payload fields are
+// unconfirmed (not probed to avoid writing test data) — inferred from the
+// GET response shape (employee_id, new_designation_id, new_depart_id,
+// previous_salary, new_salary, promotion_type, date).
+export const addPromotion = async (payload: {
+  branch_id: number;
+  employee_id: number;
+  new_designation_id: number;
+  new_depart_id: number;
+  previous_salary: number;
+  new_salary: number;
+  promotion_type?: string;
+  date: string;
+  details?: string;
+}) => {
+  const res = await api.post('/v1/hr/promotion/store', payload);
   return res.data;
 };
 
@@ -508,16 +556,18 @@ export const getHRDashboard = async (params: {
     const res = await api.get('/v1/hr/dashboard', { params });
     return res.data;
   } catch {
-    // fallback: try without v1 prefix
-    try {
-      const res = await api.get('/hr/dashboard', { params });
-      return res.data;
-    } catch {
-      return null;
-    }
+    // /v1/hr/dashboard is still "under progress" on the backend (confirmed
+    // 404 live 2026-06-24) — callers fall back to combining other endpoints.
+    return null;
   }
 };
 
+// `/v1/staff/get` 404s and will not be added (confirmed live 2026-06-24) —
+// the backend's equivalent staff list is `/v1/auth/get`. Its records use
+// `first_name`/`last_name`/`branch_name`/`joining` instead of the
+// `name`/`branch`/`join_date` fields the screens were originally built
+// against, so they're normalized onto each record here to keep callers
+// (ViewStaff, SalaryComponent, LeaveQuota) unchanged.
 export const getStaffList = async (params: {
   branch_id: number;
   department?: string;
@@ -527,12 +577,22 @@ export const getStaffList = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/staff/get', { params });
+  const res = await api.get('/v1/auth/get', { params });
+  const list = res.data?.data?.data;
+  if (Array.isArray(list)) {
+    list.forEach((s: any) => {
+      s.name = [s.first_name, s.last_name].filter(Boolean).join(' ');
+      s.branch = s.branch_name;
+      s.join_date = s.joining;
+    });
+  }
   return res.data;
 };
 
+// `/v1/staff/detail/{id}` 404s — use `/v1/auth/get/{id}` instead (confirmed
+// live 2026-06-24). Returns `{ status, data: [record] }` (single-element array).
 export const getStaffDetail = async (staffId: number, branch_id: number) => {
-  const res = await api.get(`/v1/staff/detail/${staffId}`, { params: { branch_id } });
+  const res = await api.get(`/v1/auth/get/${staffId}`, { params: { branch_id } });
   return res.data;
 };
 
@@ -853,6 +913,63 @@ export const deleteOfficeCashEntry = async (id: number) => {
   return res.data;
 };
 
+// ── Bank Ledger ───────────────────────────────────────────────────────────────
+
+export const getBankLedger = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/finance/bank-ledger/get', { params });
+  return res.data;
+};
+
+export const getBankLedgerBalance = async (branch_id: number) => {
+  const res = await api.get('/finance/bank-ledger/current-balance', { params: { branch_id } });
+  return res.data;
+};
+
+// `/add` and `/delete` are undocumented guesses following the Legacy Finance
+// CRUD convention (POST .../add, PUT .../delete/{id}) — wired but gated off in
+// AddBankCash/ViewBankLedger until confirmed live against production.
+export const addBankCashEntry = async (payload: {
+  branch_id: number;
+  amount: number;
+  type: string;
+  resource: string;
+  bank_account_id?: number;
+  date: string;
+  description?: string;
+}) => {
+  const res = await api.post('/finance/bank-ledger/add', payload);
+  return res.data;
+};
+
+export const deleteBankCashEntry = async (id: number) => {
+  const res = await api.put(`/finance/bank-ledger/delete/${id}`, {});
+  return res.data;
+};
+
+// ── Bank Details ──────────────────────────────────────────────────────────────
+
+export const getBankDetails = async (branch_id: number) => {
+  const res = await api.get('/finance/banking-details', { params: { branch_id } });
+  return res.data;
+};
+
+// Undocumented guess — wired but gated off in BankDetails until confirmed live.
+export const addBankDetail = async (payload: {
+  branch_id: number;
+  bank_name: string;
+  account_title: string;
+  account_number: string;
+}) => {
+  const res = await api.post('/finance/banking-details/add', payload);
+  return res.data;
+};
+
 // ── Sales / Clients ───────────────────────────────────────────────────────────
 
 export const getFreezingList = async (params: {
@@ -887,6 +1004,11 @@ export const updateApproval = async (id: number, payload: {
 
 // ── Fitness / GX ─────────────────────────────────────────────────────────────
 
+// `/v1/gx/classes/get` 404s (confirmed live 2026-06-24) — the real GX class
+// listing is `/v1/fitness/gx-class/index`. Its records are simpler than what
+// GXClasses/GXPackages were built against: `{ id, package_id, name, day,
+// status, package: { id, slot_name, description, branch_id, branch_name } }`
+// — no trainer_name/booking_space/duration/total_sessions/time_slot fields.
 export const getGXClasses = async (params: {
   branch_id: number;
   trainer_id?: number;
@@ -894,10 +1016,50 @@ export const getGXClasses = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/gx/classes/get', { params });
+  const res = await api.get('/v1/fitness/gx-class/index', { params });
   return res.data;
 };
 
+export const getGXClass = async (id: number) => {
+  const res = await api.get(`/v1/fitness/gx-class/show/${id}`);
+  return res.data;
+};
+
+// Confirmed live 2026-06-24 via empty-body validation (no insert risk):
+// required fields are exactly `package_id`, `day`, `name` — no `branch_id`
+// (the branch comes from the linked package). `package_id` is a GX-category
+// (15) package id from `getPackages({ category: 15 })`, i.e. the "Slot" in
+// the web admin's "Add GX Class" form.
+export const addGXClass = async (payload: {
+  package_id: number;
+  name: string;
+  day: string;
+}) => {
+  const res = await api.post('/v1/fitness/gx-class/store', payload);
+  return res.data;
+};
+
+// Route confirmed to exist (PUT) but payload not live-tested — assumed to
+// mirror the store contract.
+export const updateGXClass = async (id: number, payload: Partial<{
+  package_id: number;
+  name: string;
+  day: string;
+}>) => {
+  const res = await api.put(`/v1/fitness/gx-class/update/${id}`, payload);
+  return res.data;
+};
+
+// Soft delete/deactivate — confirmed live 2026-06-24 (GET-405 check only, no
+// data touched). Follows the same `actions/{id}/{status}` convention as
+// staff-documents/related_things.
+export const setGXClassStatus = async (id: number, active: boolean) => {
+  const res = await api.put(`/v1/fitness/gx-class/actions/${id}/${active ? 1 : 0}`, {});
+  return res.data;
+};
+
+// No confirmed replacement found for `/v1/gx/bookings/get` (404 live,
+// 2026-06-24) — unused by any screen currently.
 export const getGXBookings = async (params: {
   branch_id: number;
   class_id?: number;
@@ -917,5 +1079,142 @@ export const getPTRosterAdmin = async (params: {
   page?: number;
 }) => {
   const res = await api.get('/v1/fitness/commission-portal/trainer/roster', { params });
+  return res.data;
+};
+
+// ── GX Time Slots ────────────────────────────────────────────────────────────
+// Confirmed live 2026-06-24. Shape: { id, branch_id, branch_name, start_time,
+// end_time, date } with start_time/end_time as "HH:mm AM/PM" strings.
+
+export const getTimeSlots = async (params: {
+  branch_id: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/fitness/time-slot/get', { params });
+  return res.data;
+};
+
+export const addTimeSlot = async (payload: {
+  branch_id: number;
+  start_time: string;
+  end_time: string;
+  date?: string;
+}) => {
+  const res = await api.post('/v1/fitness/time-slot/add', payload);
+  return res.data;
+};
+
+export const updateTimeSlot = async (id: number, payload: Partial<{
+  start_time: string;
+  end_time: string;
+  date: string;
+}>) => {
+  const res = await api.put(`/v1/fitness/time-slot/update/${id}`, payload);
+  return res.data;
+};
+
+export const checkTimeSlotExists = async (payload: {
+  branch_id: number;
+  start_time: string;
+  end_time: string;
+  date?: string;
+}) => {
+  const res = await api.post('/v1/fitness/time-slot/is-exist', payload);
+  return res.data;
+};
+
+// Already used (called directly via `api.get`) in PTAttendance — wrapped here
+// for reuse. Confirmed live, requires the `/v1/` prefix.
+export const getGXTrainers = async (params: { branch_id: number }) => {
+  const res = await api.get('/v1/fitness/commission-portal/hr/trainers', { params });
+  return res.data;
+};
+
+// ── GX Slot (package, category 15) ───────────────────────────────────────────
+// NOT confirmed safe — see PROJECT_STATUS.md "2026-06-24 — repeat incident".
+// `POST /v1/packages/add` accepted a minimal payload (branch_id, package_name,
+// category) and inserted a row, then crashed in `handleTimeSlot()` on a
+// missing `time_id` key. This payload includes a best-guess `time_id` (the
+// id from `getTimeSlots`) to dodge that specific crash, but the full
+// contract — and whether `days`/`booking_days` need a separate call to
+// `/v1/fitness/time-slot-assignment/add` — is unconfirmed. Do not call this
+// until the real payload is confirmed (e.g. captured from the web admin's
+// Network tab); the AddGXSlots screen gates the submit button accordingly.
+export const addGXSlot = async (payload: {
+  branch_id: number;
+  package_name: string;
+  category: '15';
+  user_id?: number;
+  booking_capacity?: number;
+  session_count?: number;
+  time_id?: number;
+  price?: number;
+  duration?: number;
+}) => {
+  const res = await api.post('/v1/packages/add', payload);
+  return res.data;
+};
+
+// ── Related Things (Departments / Designations / etc.) ──────────────────────
+// Confirmed live 2026-06-24 — `/v1/related_things/get` exists and supports a
+// `type` filter (e.g. "Department"), unlike API_REFERENCE.md's previous
+// assumption that only `get-names-list[-new]` worked. Shape: { id, name,
+// department_id, department, description, type, status }.
+
+export const getRelatedThings = async (params: {
+  type?: string; // e.g. 'Department'
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/related_things/get', { params });
+  return res.data;
+};
+
+export const addRelatedThing = async (payload: {
+  name: string;
+  type: string;
+  department_id?: number;
+  description?: string;
+}) => {
+  const res = await api.post('/v1/related_things/add', payload);
+  return res.data;
+};
+
+export const updateRelatedThing = async (id: number, payload: Partial<{
+  name: string;
+  department_id: number;
+  description: string;
+}>) => {
+  const res = await api.put(`/v1/related_things/update/${id}`, payload);
+  return res.data;
+};
+
+export const deleteRelatedThing = async (id: number) => {
+  const res = await api.put(`/v1/related_things/delete/${id}`, {});
+  return res.data;
+};
+
+export const setRelatedThingStatus = async (id: number, active: boolean) => {
+  const res = await api.put(`/v1/related_things/${active ? 'active' : 'inactive'}/${id}`, {});
+  return res.data;
+};
+
+// ── Staff Registration (Add Staff) ───────────────────────────────────────────
+// Confirmed live 2026-06-24: POST /v1/auth/register exists, no auth token
+// required, requires at minimum branch_id/first_name/last_name/gender. The
+// full field contract is NOT confirmed — sending an incomplete-but-valid-
+// looking payload triggered a backend 500 (`trim(): Argument #1 ($string)
+// must be of type string, DateTime given` in Controller.php), so this is not
+// yet wired to a screen. Treat as fragile until the backend bug is fixed and
+// the full required-field list is confirmed.
+export const registerStaff = async (payload: {
+  branch_id: number;
+  first_name: string;
+  last_name: string;
+  gender: 'Male' | 'Female';
+  [key: string]: any;
+}) => {
+  const res = await api.post('/v1/auth/register', payload);
   return res.data;
 };
