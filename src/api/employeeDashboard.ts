@@ -461,19 +461,35 @@ export const getPromotions = async (params: {
   return res.data;
 };
 
-// Confirmed live: POST /v1/hr/promotion/store exists. Payload fields are
-// unconfirmed (not probed to avoid writing test data) — inferred from the
-// GET response shape (employee_id, new_designation_id, new_depart_id,
-// previous_salary, new_salary, promotion_type, date).
+// Confirmed live 2026-06-25: required fields are `branch_id`, `user_id`
+// (not `employee_id`), `date`, `promotion_type` — found via an empty-body
+// 422 probe. A follow-up probe with just those 4 fields (no department/
+// designation/salary) attempted a REAL INSERT for all 4 promotion_type
+// values and failed every time on a foreign-key violation on
+// `previous_department` (SQL confirmed via the error's own insert
+// statement) — so `previous_department` is apparently required by the DB
+// schema even for Salary-only promotions, and the active-promotions table
+// always shows all 6 department/designation/salary columns regardless of
+// promotion_type, suggesting the web form silently carries the staff's
+// current dept/designation/salary even when those fields aren't shown for
+// the selected type. All 4 attempts failed atomically (confirmed no rows
+// created), but actually supplying real values to find out has a real
+// chance of succeeding and inserting a live row — not done. The
+// `previous_department`/`new_department`/`previous_designation`/
+// `new_designation` names below are a best-effort guess matching the
+// failed INSERT's own column name (`previous_department`), not confirmed.
+// Wired but gated off (`ADD_ENABLED = false`) in StaffPromotion.
 export const addPromotion = async (payload: {
   branch_id: number;
-  employee_id: number;
-  new_designation_id: number;
-  new_depart_id: number;
-  previous_salary: number;
-  new_salary: number;
-  promotion_type?: string;
+  user_id: number;
+  promotion_type: 'Department' | 'Position' | 'Salary' | 'All';
   date: string;
+  previous_department?: number;
+  new_department?: number;
+  previous_designation?: number;
+  new_designation?: number;
+  previous_salary?: number;
+  new_salary?: number;
   details?: string;
 }) => {
   const res = await api.post('/v1/hr/promotion/store', payload);
@@ -914,6 +930,14 @@ export const deleteOfficeCashEntry = async (id: number) => {
 };
 
 // ── Bank Ledger ───────────────────────────────────────────────────────────────
+// Confirmed live 2026-06-25 — all 4 routes below were missing the `/v1/`
+// prefix (hard 404), same systemic bug as the rest of Legacy Finance.
+// `current-balance` is additionally broken server-side — always returns
+// `{"balance":"0"}` regardless of branch (same failure mode as
+// office-cash-flow's `current-balance`, with no working sibling endpoint
+// found for bank ledger). Use the `opening_balance` block returned by
+// `getBankLedger` to seed a client-side running balance instead, same pattern
+// as Office Cash Flow.
 
 export const getBankLedger = async (params: {
   branch_id: number;
@@ -922,18 +946,20 @@ export const getBankLedger = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/finance/bank-ledger/get', { params });
+  const res = await api.get('/v1/finance/bank-ledger/get', { params });
   return res.data;
 };
 
+// Broken — always returns balance "0". Kept for completeness; do not rely on it.
 export const getBankLedgerBalance = async (branch_id: number) => {
-  const res = await api.get('/finance/bank-ledger/current-balance', { params: { branch_id } });
+  const res = await api.get('/v1/finance/bank-ledger/current-balance', { params: { branch_id } });
   return res.data;
 };
 
-// `/add` and `/delete` are undocumented guesses following the Legacy Finance
-// CRUD convention (POST .../add, PUT .../delete/{id}) — wired but gated off in
-// AddBankCash/ViewBankLedger until confirmed live against production.
+// Required fields confirmed live via an empty-body validation probe (safe,
+// read-only-equivalent — no insert occurs on a 422): `branch_id`, `amount`,
+// `type`. `resource`/`bank_account_id` remain unconfirmed beyond that — wired
+// but gated off in AddBankCash/ViewBankLedger until confirmed live.
 export const addBankCashEntry = async (payload: {
   branch_id: number;
   amount: number;
@@ -943,30 +969,41 @@ export const addBankCashEntry = async (payload: {
   date: string;
   description?: string;
 }) => {
-  const res = await api.post('/finance/bank-ledger/add', payload);
+  const res = await api.post('/v1/finance/bank-ledger/add', payload);
   return res.data;
 };
 
 export const deleteBankCashEntry = async (id: number) => {
-  const res = await api.put(`/finance/bank-ledger/delete/${id}`, {});
+  const res = await api.put(`/v1/finance/bank-ledger/delete/${id}`, {});
   return res.data;
 };
 
 // ── Bank Details ──────────────────────────────────────────────────────────────
+// Confirmed live 2026-06-25 — real route is `/v1/finance/banking-details/get`
+// (was missing both the `/v1/` prefix and the `/get` suffix). List shape:
+// {id, branch_id, branch_name, bank_name, account_no, account_title, date, status}.
 
 export const getBankDetails = async (branch_id: number) => {
-  const res = await api.get('/finance/banking-details', { params: { branch_id } });
+  const res = await api.get('/v1/finance/banking-details/get', { params: { branch_id } });
   return res.data;
 };
 
-// Undocumented guess — wired but gated off in BankDetails until confirmed live.
+// Confirmed live 2026-06-25 via the web admin's "Add Bank Details" form
+// (Branch/Bank Name/Account Title/Account Number) cross-checked against an
+// empty-body validation probe. The web form's "Bank Name"/"Account Number"
+// labels map to API fields `name`/`account_no` (not `bank_name`/
+// `account_number` — those are the GET response's field names instead).
+// Required per the probe: `branch_id`, `name`, `account_no`. `account_title`
+// is shown as required in the web UI but wasn't flagged by the validator —
+// send it anyway to match the web form. Still gated off pending a live test
+// of the actual insert (only the empty-body 422 has been verified so far).
 export const addBankDetail = async (payload: {
   branch_id: number;
-  bank_name: string;
-  account_title: string;
-  account_number: string;
+  name: string;
+  account_no: string;
+  account_title?: string;
 }) => {
-  const res = await api.post('/finance/banking-details/add', payload);
+  const res = await api.post('/v1/finance/banking-details/add', payload);
   return res.data;
 };
 
@@ -1128,6 +1165,26 @@ export const checkTimeSlotExists = async (payload: {
 // for reuse. Confirmed live, requires the `/v1/` prefix.
 export const getGXTrainers = async (params: { branch_id: number }) => {
   const res = await api.get('/v1/fitness/commission-portal/hr/trainers', { params });
+  return res.data;
+};
+
+// HR-side session list — already used via raw `api.get` calls in
+// PTAttendance; wrapped here for reuse by TrainerDiary. Confirmed live
+// 2026-06-25 that `start_date`/`end_date` filters work (PTAttendance never
+// needed them). Shape per row: {id, date, day, staff_status, client_status,
+// staff_note, client_note, type, order_id, client_name, client_id,
+// trainer_name, trainer_id, package_name, package_type, package_start_date,
+// package_end_date, branch_name}.
+export const getHRSessions = async (params: {
+  branch_id: number;
+  trainer_id?: number;
+  status?: 'Active' | 'Inactive';
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/fitness/commission-portal/hr/sessions', { params });
   return res.data;
 };
 

@@ -98,6 +98,9 @@ import SessionPortalHR from '../../screens/HR/SessionPortalHR';
 import StaffCommissions from '../../screens/HR/StaffCommissions';
 import SalaryComponent from '../../screens/HR/SalaryComponent';
 import LeaveQuota from '../../screens/HR/LeaveQuota';
+import LetterManagement from '../../screens/HR/LetterManagement';
+import ResourceManager from '../../screens/HR/ResourceManager';
+import StaffPromotion from '../../screens/HR/StaffPromotion';
 import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
 import Expenses from '../../screens/Finance/Expenses';
 import AddExpense from '../../screens/Finance/AddExpense';
@@ -123,6 +126,7 @@ import GXClasses from '../../screens/Fitness/GXClasses';
 import AddGXClass from '../../screens/Fitness/AddGXClass';
 import AddGXSlots from '../../screens/Fitness/AddGXSlots';
 import PTRoster from '../../screens/Fitness/PTRoster';
+import TrainerDiary from '../../screens/Fitness/TrainerDiary';
 import TimeSlotsScreen from '../../screens/Fitness/TimeSlots';
 import ManageAvailabilityScreen from '../../screens/Fitness/ManageAvailability';
 
@@ -313,7 +317,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="ViewStaff" component={protect(ViewStaff)} />
                 <Stack.Screen name="DetailedHRReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="AddStaff" component={protect(ComingSoon)} />
-                <Stack.Screen name="StaffPromotion" component={protect(ComingSoon)} />
+                <Stack.Screen name="StaffPromotion" component={protect(StaffPromotion)} />
                 <Stack.Screen name="StaffAdvances" component={protect(ComingSoon)} />
                 <Stack.Screen name="SalaryComponent" component={protect(SalaryComponent)} />
                 <Stack.Screen name="StaffCommissions" component={protect(StaffCommissions)} />
@@ -322,8 +326,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="EmployeeAttendance" component={protect(EmployeeAttendance)} />
                 <Stack.Screen name="PTAttendance" component={protect(PTAttendance)} />
                 <Stack.Screen name="LeaveQuota" component={protect(LeaveQuota)} />
-                <Stack.Screen name="LetterManagement" component={protect(ComingSoon)} />
-                <Stack.Screen name="ResourceManager" component={protect(ComingSoon)} />
+                <Stack.Screen name="LetterManagement" component={protect(LetterManagement)} />
+                <Stack.Screen name="ResourceManager" component={protect(ResourceManager)} />
 
                 {/* ── Admin: Cafe ── */}
                 <Stack.Screen name="CafeDashboard" component={protect(CafeDashboardScreen)} />
@@ -385,7 +389,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="GXClasses" component={protect(GXClasses)} />
                 <Stack.Screen name="AddGXClass" component={protect(AddGXClass)} />
                 <Stack.Screen name="PTRoster" component={protect(PTRoster)} />
-                <Stack.Screen name="TrainerDiary" component={protect(ComingSoon)} />
+                <Stack.Screen name="TrainerDiary" component={protect(TrainerDiary)} />
                 {/* PersonalTrainerDiary registered as trainer-allowed above */}
                 <Stack.Screen name="PTSalesReport" component={protect(ComingSoon)} />
                 <Stack.Screen name="SwitchBookingTime" component={protect(ComingSoon)} />

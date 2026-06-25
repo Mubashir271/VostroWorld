@@ -1,7 +1,7 @@
 # VostroWorld Mobile — Project Status
 
 Single source of truth for screen implementation progress, API coverage, and
-what's left to build. Updated: **2026-06-24**.
+what's left to build. Updated: **2026-06-25** (PT Trainer Diary build + Bank Ledger/Bank Details bugfixes).
 
 **Base URL:** `https://api.vostro-new.com/public/api`
 **App package:** `com.vostroworld` | React Native 0.83.1
@@ -31,12 +31,12 @@ once logged in, so this shouldn't surface in normal use.
 | Section | Total Screens | ✅ Done | 🔴 ComingSoon |
 |---|---|---|---|
 | Sales | ~25 | ~24 | 1 |
-| Human Resource | ~20 | ~16 | 5 |
-| Finance | ~26 | ~17 | 11 |
-| Fitness | ~28 | ~5 | 23 |
+| Human Resource | ~20 | ~19 | 2 |
+| Finance | ~26 | ~19 | 9 |
+| Fitness | ~28 | ~6 | 22 |
 | Nutrition | ~12 | 12 | 0 |
 | Settings / Other | ~15 | ~15 | 0 |
-| **Total pending** | | | **40** |
+| **Total pending** | | | **34** |
 
 ---
 
@@ -84,6 +84,8 @@ once logged in, so this shouldn't surface in normal use.
 | SessionPortalHR | `src/screens/HR/SessionPortalHR/` | `GET /v1/orders-detail/get`, `/v1/clients/count` — already correct, just needed a valid Bearer token |
 | LeaveApplications | `src/screens/LeaveApplications/` | **Fixed 2026-06-24:** `getLeaveQuota`, `getLeaveApplications`, `checkLeaveExists`, `checkLeaveAvailability`, `submitLeaveApplication` were all missing the `/v1/` prefix (confirmed live 404 → 200/409 once added) — this screen was fully broken in production before the fix |
 | StaffLoans | `src/screens/StaffLoans/` | `GET /v1/staff-loans/get` — already correct, confirmed live. View-only; `addStaffLoan` (`POST /v1/staff-loans/add`, confirmed live) added to `employeeDashboard.ts` 2026-06-24 but no add-form UI yet (this is the screen PROJECT_STATUS previously tracked as "StaffAdvances") |
+| LetterManagement | `src/screens/HR/LetterManagement/` | **Built 2026-06-25.** `GET /v1/hr/staff-documents/index`, `POST .../store` via `getStaffDocuments`/`addStaffDocument`. Form fields (Branch [static], Staff, Document Category, Document Type, Issue Date, Document Code*, Subject) reverse-engineered from the web admin UI (screenshots), not guessed. Document Category enum confirmed: `Letter`/`Certificate`/`Form`; Document Type dropdown (5 options) only confirmed for the `Letter` category — falls back to a free-text input for `Certificate`/`Form` since those option lists are unconfirmed. `document_code` is required (matches a live validation message seen in the web UI) |
+| ResourceManager | `src/screens/HR/ResourceManager/` | **Built 2026-06-25.** Full CRUD via `getRelatedThings`/`addRelatedThing`/`updateRelatedThing`/`deleteRelatedThing`/`setRelatedThingStatus`. Category toggle (Department / Designations) confirmed live via a **read-only** GET probe (safe — no write) of `/v1/related_things/get`: `type` values are `"Department"` (singular) and `"Designations"` (plural, **not** "Designation" — would have been a reasonable but wrong guess), and `Designations` records require a `department_id` pointing at the parent department, matching the join shown in the live data (`department_id`/`department` fields) |
 
 ### Finance
 | Screen | File | API / Notes |
@@ -105,6 +107,8 @@ once logged in, so this shouldn't surface in normal use.
 | DailyExpense | `src/screens/Finance/DailyExpense/` | `GET /v1/finance/cash-in-hand/getCashInHandRecords` (Bank/Charity/GST/Cash-in-Hand snapshot) + `GET /v1/expense/get` (itemized list + total) for a single date. Save form wired to `POST .../add` / `PUT .../update/{id}` but not yet live-tested. Scope note: built single-branch (matches app convention) — does **not** replicate the web admin's F-11/G-13 side-by-side comparison or the "Manage Payments/Approvals" section (that workflow already exists as the Liabilities screens). |
 | ViewOfficeLedger | `src/screens/Finance/ViewOfficeLedger/` | `GET /v1/finance/office-cash-flow/get` (rows have no pre-computed balance — running balance computed client-side, seeded from the response's `opening_balance.balance`) + `GET /v1/finance/office-cash-flow/office-cash-balance` for the current total (verified matches web UI exactly: `-27,016,089`). Delete confirmed working (204). |
 | AddOfficeCash | `src/screens/Finance/AddOfficeCash/` | `POST /v1/finance/office-cash-flow/add` (`branch_id`, `amount`, `type` required; `resource`, `date`, `description`, `is_petty_cash` optional — confirmed via live field-discovery probe). **Submission intentionally disabled** (`ADD_ENABLED = false` in the file) at user's request after an accidental live-write incident during API probing on this and the Charity endpoint; form/API call are fully built and ready, just gated off. |
+| ViewBankLedger | `src/screens/Finance/ViewBankLedger/` | Already built (in the "Missing apis done" commit), but **PROJECT_STATUS hadn't caught up and the underlying GETs were actually broken** — fixed 2026-06-25: `getBankLedger`/`getBankLedgerBalance` were both missing `/v1/` (hard 404, confirmed live), and the response's list lives at `data.data` (paginator), not bare `data` — the screen was silently always rendering "No records found". Running balance now seeded from the response's `opening_balance.balance` (matches web UI's "Opening Balance" row #1) instead of starting at 0. `current-balance` is broken server-side (always returns `"0"`, no working sibling endpoint found, same failure mode as Office Cash Flow) — dropped from the UI; "Total Balance" is now just the running balance's last value |
+| BankDetails | `src/screens/Finance/BankDetails/` | Same situation as ViewBankLedger — fixed 2026-06-25: real route is `/v1/finance/banking-details/get` (was `/finance/banking-details`, missing both `/v1/` and `/get`). List shape uses `account_no` (not `account_number` as the screen assumed). `addBankDetail`'s field contract confirmed via the web admin's "Add Bank Details" form (Branch/Bank Name/Account Title/Account Number) cross-checked against an empty-body validation probe — the web form's "Bank Name"/"Account Number" labels map to API fields `name`/`account_no`. Submission still gated (`ADD_ENABLED = false`) pending an actual live insert test |
 
 ### Fitness
 | Screen | File | API / Notes |
@@ -114,6 +118,7 @@ once logged in, so this shouldn't surface in normal use.
 | AddGXSlots | `src/screens/Fitness/AddGXSlots/` | **UI built 2026-06-24, submission gated** (`ADD_ENABLED = false`, same pattern as `AddOfficeCash`). Form + live "All GX Slots" table are real; `addGXSlot()` → `POST /v1/packages/add` is wired but unconfirmed/crash-prone — see Known Issues |
 | TimeSlots | `src/screens/Fitness/TimeSlots/` | **Fixed 2026-06-24** — was a client-side-only mock; now wired to confirmed `GET /v1/fitness/time-slot/get`, `POST .../add`, `PUT .../update/{id}` (update payload unconfirmed) |
 | PTRoster | `src/screens/Fitness/PTRoster/` | `GET /v1/fitness/commission-portal/trainer/roster` via `getPTRosterAdmin` — already correct, discovered already-built-and-working 2026-06-24 (was untracked) |
+| TrainerDiary | `src/screens/Fitness/TrainerDiary/` | **Built 2026-06-25.** Does **not** use `trainer/history` despite that being this row's previous "Best API" guess — confirmed live that route is self-scoped (`"5.5 — My Session History"`) and returns `"No record found"` regardless of a `trainer_id` param when called with a non-trainer (admin) token, so it can't power an HR-side view of an arbitrary trainer's diary. Built on `GET /v1/fitness/commission-portal/hr/sessions` instead (new `getHRSessions` wrapper) — already used via raw `api.get` in `PTAttendance`, and confirmed live 2026-06-25 that it also accepts `start_date`/`end_date` filters (which `PTAttendance` never needed). Trainer dropdown reuses `getGXTrainers` |
 
 ### Nutrition (all done)
 | Screen | File | API |
@@ -140,20 +145,15 @@ once logged in, so this shouldn't surface in normal use.
 |---|---|---|
 | SalesSessionReport | ✅ | `GET /v1/orders-detail/detailed-sales-report` (fix 500 first) |
 
-### Human Resource (5)
+### Human Resource (2)
 | Screen | API Status | Best API / Blocker |
 |---|---|---|
 | DetailedHRReport | ⚠️ | Combine multiple endpoints client-side. Fallback sources confirmed live — see Section 5 of `missing-api.md` |
-| StaffPromotion | ✅ | `GET /v1/hr/promotion/index` (view, already wired via `getPromotions`, **fixed 2026-06-24** — was missing `/v1/`) + `POST /v1/hr/promotion/store` confirmed exists live, 2026-06-24 (was previously assumed missing). `addPromotion` added to `employeeDashboard.ts`, payload fields inferred/unconfirmed |
 | AddStaff | ⚠️ | `POST /v1/auth/register` confirmed exists live, 2026-06-24 (no auth token needed) — was previously assumed missing entirely. Minimum required: `branch_id`, `first_name`, `last_name`, `gender`; full field contract unconfirmed and the backend 500s (`trim()` on a `DateTime`) on incomplete-but-plausible payloads, so `registerStaff()` is added but **not** wired to a screen yet — needs backend fix + more careful field-discovery first |
-| LetterManagement | ✅ | Maps to `hr/staff-documents` (`getStaffDocuments`/`addStaffDocument`, already in `employeeDashboard.ts`, **fixed 2026-06-24** — was missing `/v1/`) |
-| ResourceManager | ✅ | `GET /v1/related_things/get` (supports `type` filter, e.g. `Department`) + `add`/`update`/`delete`/`active`/`inactive` — confirmed exists live, 2026-06-24 (previously only `get-names-list[-new]` was assumed to exist). `getRelatedThings`/`addRelatedThing`/`updateRelatedThing`/`deleteRelatedThing`/`setRelatedThingStatus` added to `employeeDashboard.ts` |
 
-### Finance (11)
+### Finance (9)
 | Screen | API Status | Best API |
 |---|---|---|
-| ViewBankLedger | ✅ | `GET /finance/bank-ledger/get` + `/current-balance` |
-| BankDetails | ✅ | `GET /finance/banking-details` |
 | DailySalesCounter | ✅ | `GET /finance/transactions/get-sales-balance` |
 | CafeSalesExpenseReport | ✅ | `GET /transaction-report-cafe` + `/v1/expenses/get` + `/orders-detail/generate-cafe-total` |
 | BalanceSheet | ✅ | `GET /finance-v2/reports/balance-sheet` |
@@ -164,10 +164,9 @@ once logged in, so this shouldn't surface in normal use.
 | Assets | ⚠️ | `GET /finance/asset/get` likely works; write unconfirmed |
 | DailyOfficeClosing | ⚠️ | Combine `/office-cash-flow/*` + `/transactions/sales-counter-balance` |
 
-### Fitness (23)
+### Fitness (22)
 | Screen | API Status | Best API |
 |---|---|---|
-| TrainerDiary | ✅ | `GET /v1/fitness/commission-portal/trainer/history` — in `trainer.ts` (already correct) |
 | PTSalesReport | ✅ | `GET /v1/orders-detail/detailed-sales-report` — exists; the 500 was a missing Bearer token, not a missing route |
 | TrainerAppointments | ✅ | `GET /v1/fitness/commission-portal/trainer/roster` (already correct) |
 | SessionAttendance | ✅ | `POST /v1/fitness/commission-portal/trainer/mark` — in `trainer.ts` (already correct) |
@@ -218,6 +217,12 @@ once logged in, so this shouldn't surface in normal use.
 | `/v1/fitness/gx-class/index` | Confirmed live 2026-06-24. Shape: `{status, data:{current_page, data:[{id, package_id, name, day, status, package:{id, slot_name, description, branch_id, branch_name}}], ...}}` — no trainer/capacity/duration/session-count fields. |
 | `/v1/auth/register` | Confirmed live 2026-06-24 (POST only, no token required). Minimum required fields per a 422 probe: `branch_id`, `first_name`, `last_name`, `gender`. **Caution:** a follow-up probe with only those 4 fields triggered a backend 500 (`trim(): Argument #1 ($string) must be of type string, DateTime given` in `Controller.php`) — the full required-field set is unconfirmed. Do not wire this to a screen until the backend bug is fixed and the contract is confirmed. |
 | Missing `/v1/` prefix | Confirmed live 2026-06-24 as a systemic bug, not isolated: `hr/promotion/index`, `hr/leave-application/*`, `hr/staff-documents/*`, `staff-timing/index`, `related_things/get`, `fitness/time-slot/get`, `fitness/gx-class/index` all return a hard Laravel 404 page without the prefix and 200 with it. If a "missing" endpoint turns up while building a new screen, check the prefix live before assuming the route doesn't exist. |
+| `/v1/finance/bank-ledger/get` | Confirmed live 2026-06-25 — was also missing `/v1/` (same systemic bug, found in code that had already shipped). Shape: `{opening_balance:{balance, date}, status, data:{current_page, data:[{id, branch_id, branch_name, bank_account_id, bank_name, bank_account_no, amount, resource, type, description, date, status}], ...}}`. `resource` values seen live: `Sales Counter`, `Bank Account`. |
+| `/v1/finance/bank-ledger/current-balance` | **Broken** — confirmed live 2026-06-25, always returns `{"balance":"0"}` regardless of branch, same failure mode as `office-cash-flow/current-balance` but with no working sibling endpoint (`bank-balance`/`total-balance`/`balance` variants all 404). Don't rely on it — seed running balance from `opening_balance.balance` instead. |
+| `/v1/finance/banking-details/get` | Confirmed live 2026-06-25. Real route needed both the `/v1/` prefix *and* a `/get` suffix — `/finance/banking-details` (no suffix) 404s even with `/v1/`. Shape: `{id, branch_id, branch_name, bank_name, account_no, account_title, date, status}`. |
+| `/v1/finance/banking-details/add` | Confirmed live 2026-06-25 via empty-body validation + cross-checked against the web admin's "Add Bank Details" form. Required: `branch_id`, `name`, `account_no` — note the input field names (`name`, `account_no`) differ from the GET response's `bank_name`/`account_no` (the GET echoes `name` back as `bank_name`). `account_title` is shown as required in the web UI but the validator didn't flag it as required. |
+| `/v1/fitness/commission-portal/trainer/history` | Confirmed live 2026-06-25 to be **self-scoped only** — calling it with an admin token and any `trainer_id` param still returns `"No record found"` (the doc comment "5.5 — My Session History" was the clue missed earlier). Not usable for an HR-side "view any trainer's diary" screen; use `hr/sessions` with a `trainer_id` filter instead (see `getHRSessions`). |
+| `/v1/fitness/commission-portal/hr/sessions` | Already used via raw `api.get` in `PTAttendance` (list/create/update/delete), but `start_date`/`end_date` filters were never tried there. Confirmed live 2026-06-25 that they work. Shape per row: `{id, date, day, staff_status, client_status, staff_note, client_note, type, order_id, client_name, client_id, trainer_name, trainer_id, package_name, package_type, package_start_date, package_end_date, branch_name}`. |
 
 ---
 
@@ -318,18 +323,25 @@ production.
 | `getOfficeCashBalance` | `GET /v1/finance/office-cash-flow/office-cash-balance` | ViewOfficeLedger |
 | `addOfficeCashEntry` | `POST /v1/finance/office-cash-flow/add` | AddOfficeCash (wired, submission disabled) |
 | `deleteOfficeCashEntry` | `PUT /v1/finance/office-cash-flow/delete/{id}` | ViewOfficeLedger |
+| `getBankLedger` | `GET /v1/finance/bank-ledger/get` (fixed 2026-06-25, was missing `/v1/`) | ViewBankLedger |
+| `getBankLedgerBalance` | `GET /v1/finance/bank-ledger/current-balance` (fixed 2026-06-25, was missing `/v1/`; endpoint itself is broken — always `0`) | unused (dropped from ViewBankLedger's UI) |
+| `addBankCashEntry` | `POST /v1/finance/bank-ledger/add` (fixed 2026-06-25, was missing `/v1/`; required fields `branch_id`/`amount`/`type` confirmed via empty-body probe) | AddBankCash (wired, submission disabled) |
+| `deleteBankCashEntry` | `PUT /v1/finance/bank-ledger/delete/{id}` (fixed 2026-06-25, was missing `/v1/`) | ViewBankLedger (button present, gated) |
+| `getBankDetails` | `GET /v1/finance/banking-details/get` (fixed 2026-06-25, was `/finance/banking-details` — missing `/v1/` and `/get`) | BankDetails |
+| `addBankDetail` | `POST /v1/finance/banking-details/add` (fixed 2026-06-25; payload fields corrected to `name`/`account_no` matching the real validator, not `bank_name`/`account_number`) | BankDetails (wired, submission disabled) |
+| `getHRSessions` | `GET /v1/fitness/commission-portal/hr/sessions` (added 2026-06-25 — wraps a route already used raw in `PTAttendance`; confirmed `start_date`/`end_date` filters work) | TrainerDiary |
 
 ---
 
 ## Recommended Next Screens (by priority)
 
-**Quick wins — ✅ API ready, just need screenshots:**
-1. `ViewBankLedger` — same ledger pattern as Keene/G13/PettyCash/Office, GET confirmed
-2. `BankDetails` — simple GET, view only
-3. `TrainerDiary` — `trainer/history` already in `trainer.ts`
-4. `ResourceManager` — `related_things` full CRUD confirmed live, ready in `employeeDashboard.ts`
-5. `LetterManagement` — `hr/staff-documents` already wired (just needed the `/v1/` fix)
-6. `StaffPromotion` (add form) — `addPromotion` ready, payload fields unconfirmed (probe carefully, see Known API Notes)
+**Quick wins — ✅ API ready:**
+1. `StaffPromotion` (add form) — `addPromotion` ready, payload fields unconfirmed (probe carefully, see Known API Notes)
+
+**Done 2026-06-25:**
+- `LetterManagement` (built, see HR row in Implemented Screens), `ResourceManager` (built, see HR row in Implemented Screens) — both wired to drawer + stack, replacing their `ComingSoon` placeholders
+- `TrainerDiary` (built, see Fitness row in Implemented Screens) — wired to drawer + stack, replacing its `ComingSoon` placeholder
+- `ViewBankLedger`, `BankDetails` — these already had real screens built (pre-existing, untracked by this doc), but their GET calls were silently 404ing the whole time (missing `/v1/`, plus `BankDetails` was hitting the wrong path entirely). Both fixed — see their rows in Implemented Screens
 
 **Done 2026-06-24 (see Fitness row in Implemented Screens for details):**
 - `AddGXClass` (built), `AddGXSlots` (UI built, submission gated), `TimeSlots` (wired to real APIs), `GXClasses`/`GXSlotsList` (drawer route fixed), `PTRoster` (discovered already working)

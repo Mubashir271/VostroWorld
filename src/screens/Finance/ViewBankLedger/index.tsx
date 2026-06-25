@@ -10,7 +10,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
-import { getBankLedger, getBankLedgerBalance } from '../../../api/employeeDashboard';
+import { getBankLedger } from '../../../api/employeeDashboard';
 
 interface LedgerRow {
   id: number;
@@ -25,8 +25,8 @@ interface LedgerRow {
   _balance?: number;
 }
 
-const withRunningBalance = (rows: LedgerRow[]): LedgerRow[] => {
-  let balance = 0;
+const withRunningBalance = (rows: LedgerRow[], openingBalance: number): LedgerRow[] => {
+  let balance = openingBalance;
   return rows.map(r => {
     const amt = parseFloat(String(r.amount ?? 0)) || 0;
     const isCredit = (r.type ?? '').toLowerCase() === 'credit';
@@ -89,7 +89,7 @@ const ViewBankLedger = () => {
   const [search, setSearch] = useState('');
 
   const [rows, setRows] = useState<LedgerRow[]>([]);
-  const [currentBalance, setCurrentBalance] = useState<number | null>(null);
+  const [openingBalance, setOpeningBalance] = useState<{ balance: number; date?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
   const [error, setError] = useState('');
@@ -101,19 +101,18 @@ const ViewBankLedger = () => {
     setLoading(true);
     setError('');
     try {
-      const [ledgerRes, balRes] = await Promise.all([
-        getBankLedger({ branch_id: branchId, start_date: startDate, end_date: endDate, limit: 500 }),
-        getBankLedgerBalance(branchId).catch(() => null),
-      ]);
-      const data: LedgerRow[] = ledgerRes?.data ?? [];
-      setRows(withRunningBalance(Array.isArray(data) ? data : []));
-      const bal = balRes?.totalBalance ?? balRes?.balance ?? balRes?.data?.balance;
-      setCurrentBalance(bal !== undefined && bal !== null ? parseFloat(bal) || 0 : null);
+      const ledgerRes = await getBankLedger({ branch_id: branchId, start_date: startDate, end_date: endDate, limit: 500 });
+      const data: LedgerRow[] = ledgerRes?.data?.data ?? ledgerRes?.data ?? [];
+      const ob = ledgerRes?.opening_balance;
+      const obBalance = parseFloat(ob?.balance ?? 0) || 0;
+      setOpeningBalance(ob ? { balance: obBalance, date: ob.date } : null);
+      setRows(withRunningBalance(Array.isArray(data) ? data : [], obBalance));
       setFetched(true);
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 404 || status === 422) {
         setRows([]);
+        setOpeningBalance(null);
         setFetched(true);
       } else {
         setError(e?.response?.data?.message || 'Failed to load ledger. Please try again.');
@@ -133,7 +132,7 @@ const ViewBankLedger = () => {
         (r.resource ?? '').toLowerCase().includes(search.trim().toLowerCase()))
     : rows;
 
-  const totalBalance = rows.length > 0 ? rows[rows.length - 1]._balance ?? 0 : 0;
+  const totalBalance = rows.length > 0 ? rows[rows.length - 1]._balance ?? 0 : (openingBalance?.balance ?? 0);
 
   return (
     <View style={styles.root}>
@@ -237,7 +236,7 @@ const ViewBankLedger = () => {
 
             {loading
               ? <ActivityIndicator color="#C62828" style={{ marginVertical: 30 }} />
-              : visibleRows.length === 0
+              : visibleRows.length === 0 && !openingBalance
                 ? <Text style={styles.emptyText}>No records found.</Text>
                 : (
                   <>
@@ -248,9 +247,21 @@ const ViewBankLedger = () => {
                             <Text key={c.key} style={[styles.th, { width: c.width }]}>{c.label}</Text>
                           ))}
                         </View>
+                        {openingBalance && (
+                          <View style={styles.tr}>
+                            <Text style={[styles.td, { width: COLS[0].width }]}>1</Text>
+                            <Text style={[styles.td, { width: COLS[1].width }]}>{display(openingBalance.date)}</Text>
+                            <Text style={[styles.td, { width: COLS[2].width, textAlign: 'left', fontWeight: '600' }]}>Opening Balance</Text>
+                            <Text style={[styles.td, { width: COLS[3].width }]}>-</Text>
+                            <Text style={[styles.td, { width: COLS[4].width }]}>{openingBalance.balance < 0 ? Rs(Math.abs(openingBalance.balance)) : '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[5].width }]}>{openingBalance.balance >= 0 ? Rs(openingBalance.balance) : '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[6].width, fontWeight: '600' }]}>{Rs(openingBalance.balance)}</Text>
+                            <View style={[styles.td, { width: COLS[7].width }]} />
+                          </View>
+                        )}
                         {visibleRows.map((row, i) => (
                           <View key={row.id ?? i} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
-                            <Text style={[styles.td, { width: COLS[0].width }]}>{i + 1}</Text>
+                            <Text style={[styles.td, { width: COLS[0].width }]}>{(openingBalance ? 2 : 1) + i}</Text>
                             <Text style={[styles.td, { width: COLS[1].width }]}>{display(row.date)}</Text>
                             <Text style={[styles.td, { width: COLS[2].width, textAlign: 'left' }]}>{row.description || '-'}</Text>
                             <Text style={[styles.td, { width: COLS[3].width }]}>{row.resource || '-'}</Text>
@@ -278,15 +289,9 @@ const ViewBankLedger = () => {
 
                     <View style={styles.summaryBox}>
                       <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Total Balance:</Text>
-                        <Text style={styles.summaryValue}>{Rs(totalBalance)}</Text>
+                        <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>Total Balance:</Text>
+                        <Text style={[styles.summaryValue, { fontWeight: '700' }]}>{Rs(totalBalance)}</Text>
                       </View>
-                      {currentBalance !== null && (
-                        <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: 6, marginTop: 4 }]}>
-                          <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>Current Balance:</Text>
-                          <Text style={[styles.summaryValue, { fontWeight: '700' }]}>{Rs(currentBalance)}</Text>
-                        </View>
-                      )}
                     </View>
                   </>
                 )

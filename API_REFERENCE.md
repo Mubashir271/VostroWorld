@@ -132,11 +132,11 @@ somewhere in `src/api/*.ts`. `—` means not wired yet.
 |--------|----------|---------|--------|
 | GET | `/related_things/get-names-list-new` | Payment methods/categories by type | — |
 | GET | `/related_things/get-names-list` | Legacy name list | ✅ `employeeDashboard.ts` (`getExpensePaymentMethods`) |
-| GET | `/related_things/get` | Full list (paginated), supports `type` filter (e.g. `Department`). Confirmed live 2026-06-24 — previously assumed only the two `get-names-list*` variants existed. Shape: `{id, name, department_id, department, description, type, status}` | ✅ `employeeDashboard.ts` (`getRelatedThings`) |
-| POST | `/related_things/add` | Create a record | ✅ `employeeDashboard.ts` (`addRelatedThing`, payload unconfirmed) |
-| PUT | `/related_things/update/{id}` | Update a record | ✅ `employeeDashboard.ts` (`updateRelatedThing`) |
-| PUT | `/related_things/delete/{id}` | Delete a record | ✅ `employeeDashboard.ts` (`deleteRelatedThing`) |
-| PUT | `/related_things/active/{id}` / `/inactive/{id}` | Activate/deactivate | ✅ `employeeDashboard.ts` (`setRelatedThingStatus`) |
+| GET | `/related_things/get` | Full list (paginated), supports `type` filter. Confirmed live 2026-06-24 — previously assumed only the two `get-names-list*` variants existed. Shape: `{id, name, department_id, department, description, type, status}`. **`type` values confirmed live 2026-06-25** (read-only GET, no filter, inspected distinct values): `Department` (singular), `Designations` (plural — not "Designation"), plus unrelated existing types `Cafe`/`PaymentMethod`/`TrainerPackageType`. `Designations` rows have a non-null `department_id`/`department` (the parent); `Department` rows have both null | ✅ `employeeDashboard.ts` (`getRelatedThings`), `ResourceManager` |
+| POST | `/related_things/add` | Create a record. `type` must be exactly `Department` or `Designations`; `Designations` requires `department_id` | ✅ `employeeDashboard.ts` (`addRelatedThing`), `ResourceManager` |
+| PUT | `/related_things/update/{id}` | Update a record | ✅ `employeeDashboard.ts` (`updateRelatedThing`), `ResourceManager` |
+| PUT | `/related_things/delete/{id}` | Delete a record | ✅ `employeeDashboard.ts` (`deleteRelatedThing`), `ResourceManager` |
+| PUT | `/related_things/active/{id}` / `/inactive/{id}` | Activate/deactivate | ✅ `employeeDashboard.ts` (`setRelatedThingStatus`), `ResourceManager` |
 
 ### 2.7 Sales Reports (App-Optimized)
 
@@ -247,7 +247,8 @@ CRUD pattern: `POST .../add`, `GET .../get`, `PUT .../update/{id}`, `PUT .../del
 | `/v1/finance/office-cash-flow/delete/{id}` | PUT | Soft delete. Confirmed working (204) | ✅ `employeeDashboard.ts` (`deleteOfficeCashEntry`) |
 | `/finance/cash-in-hand/getCashInHandRecords`, `/fetch-opening-balance` | GET | Petty cash in hand | ✅ `employeeDashboard.ts` (`getCashInHandRecords`) |
 | `/v1/finance/cash-in-hand/add`, `/update/{id}` | POST/PUT | Add/update daily cash-in-hand snapshot (Bank Funds/Charity Cash/GST Cash/Cash in Hand). Only `branch_id`/`date` required | ✅ `employeeDashboard.ts` (`addCashInHandEntry`, `updateCashInHandEntry` — wired, used by `DailyExpense`, not yet live-tested) |
-| `/finance/bank-ledger/get`, `/current-balance` | GET | Bank ledger entries | — |
+| `/v1/finance/bank-ledger/get` | GET | Bank ledger entries. **Needs the `/v1/` prefix** — confirmed live 2026-06-25, `/finance/bank-ledger/get` (no prefix) 404s. Shape: `{opening_balance:{balance, date}, status, data:{current_page, data:[...], ...}}` — same "no pre-computed balance, seed running balance from `opening_balance`" pattern as Office Cash Flow | ✅ `employeeDashboard.ts` (`getBankLedger`), `ViewBankLedger` |
+| `/v1/finance/bank-ledger/current-balance` | GET | **Broken** — always returns `{"balance":"0"}` regardless of branch, confirmed live 2026-06-25. No working sibling endpoint found (unlike Office Cash Flow's `office-cash-balance`) | ⚠️ avoid — `employeeDashboard.ts` (`getBankLedgerBalance`) |
 | `/finance/petty-cash-ledger/get` | GET | Petty cash ledger | — |
 | `/finance/keene-ledger/get` | GET | Keene ledger | — |
 | `/finance/liability-ledger/get`, `/current-balance` | GET | Liability ledger | — |
@@ -262,7 +263,8 @@ CRUD pattern: `POST .../add`, `GET .../get`, `PUT .../update/{id}`, `PUT .../del
 | `/finance/vostro-expense` (`/report`, `/export`) | — | Vostro expense tracking | — |
 | `/finance/all-expenses/expenses-sum-by-category` | GET | Expense sum by category | — |
 | `/finance/setting` (`/get-current-charges`, `/tax-calculator/{branch}/{amount}/{paymentMethod}/{type}`) | — | Finance settings/tax calc | — |
-| `/finance/banking-details` | GET | Bank account details | — |
+| `/v1/finance/banking-details/get` | GET | Bank account details. Real route needed both the `/v1/` prefix *and* a `/get` suffix — confirmed live 2026-06-25 (`/finance/banking-details`, no suffix, 404s even with `/v1/`). Shape: `{id, branch_id, branch_name, bank_name, account_no, account_title, date, status}` | ✅ `employeeDashboard.ts` (`getBankDetails`), `BankDetails` |
+| `/v1/finance/banking-details/add` | POST | Add a bank account. Confirmed live 2026-06-25 via empty-body validation + the web admin's "Add Bank Details" form. Required: `branch_id`, `name`, `account_no` (the web form's "Bank Name"/"Account Number" labels — the GET response echoes `name` back as `bank_name`). `account_title` optional despite the web UI marking it required | ✅ `employeeDashboard.ts` (`addBankDetail`, wired but gated off in `BankDetails`) |
 | `/v1/expenses/get`, `/v1/expenses/store` | GET/POST | Generic expenses | ✅ `employeeDashboard.ts` |
 | `/v1/finance/dashboard` | GET | Finance dashboard summary | ✅ `employeeDashboard.ts` |
 
@@ -425,7 +427,7 @@ are listed under §2.7 Sales Reports.)
 | POST | `/fitness/commission-portal/trainer/mark` | Mark attendance (Delivered/No Show/Cancel for staff & client); errors `403` not present, `409` duplicate/slot conflict | ✅ `trainer.ts` |
 | GET | `/fitness/commission-portal/trainer/taken-slots` | Already-taken time slots for a date | ✅ `trainer.ts` |
 | GET | `/fitness/commission-portal/trainer/commission` | Commission totals + session stats for period | ✅ `trainer.ts` |
-| GET | `/fitness/commission-portal/trainer/history` | Session history (`limit`, `start_date`, `end_date`, `order_id`) | ✅ `trainer.ts` |
+| GET | `/fitness/commission-portal/trainer/history` | Session history (`limit`, `start_date`, `end_date`, `order_id`). **Self-scoped only** — confirmed live 2026-06-25 that it ignores/has no effective `trainer_id` override and returns `"No record found"` for an admin token regardless of params. Not usable for an HR-side "any trainer's diary" view — use `hr/sessions` with a `trainer_id` filter instead (see §6.1, used by `TrainerDiary`) | ✅ `trainer.ts` |
 | GET | `/fitness/commission-portal/trainer/roster` | Personal trainer roster (`branch_id`, `trainer_id`, `package_status`, `limit`, `page`) | ✅ `trainer.ts`, `employeeDashboard.ts` |
 
 ### 6.1 HR Session Portal (optional, not required for PT self-flow)
@@ -437,7 +439,7 @@ were a missing `/v1/` prefix on every call, not missing routes; fixed.
 |--------|----------|---------|--------|
 | GET | `/fitness/commission-portal/hr/trainers` | List trainers | ✅ `PTAttendance/index.tsx` |
 | GET | `/fitness/commission-portal/hr/clients` | List clients, requires `trainer_id` | — |
-| GET | `/fitness/commission-portal/hr/sessions` | List sessions | ✅ `PTAttendance/index.tsx` |
+| GET | `/fitness/commission-portal/hr/sessions` | List sessions (`branch_id`, `trainer_id`, `status`). Also supports `start_date`/`end_date` — confirmed live 2026-06-25 (not previously tried by `PTAttendance`). Row shape: `{id, date, day, staff_status, client_status, staff_note, client_note, type, order_id, client_name, client_id, trainer_name, trainer_id, package_name, package_type, package_start_date, package_end_date, branch_name}` | ✅ `PTAttendance/index.tsx`, `employeeDashboard.ts` (`getHRSessions`), `TrainerDiary` |
 | POST | `/fitness/commission-portal/hr/sessions` | Create session | ✅ `PTAttendance/index.tsx` |
 | PUT | `/fitness/commission-portal/hr/sessions/{id}` | Update session | ✅ `PTAttendance/index.tsx` |
 | DELETE | `/fitness/commission-portal/hr/sessions/{id}` | Delete session | ✅ `PTAttendance/index.tsx` |
@@ -565,14 +567,24 @@ any screen currently; treat as a placeholder until the real route is found.
 
 ### 7.7 Documents
 
-`index`/`store` were missing the `/v1/` prefix in code — **fixed 2026-06-24**
-(`getStaffDocuments`/`addStaffDocument`, not yet wired to a screen; best fit
-for the `LetterManagement` screen).
+`index`/`store` were missing the `/v1/` prefix in code — **fixed 2026-06-24**.
+**Wired to the `LetterManagement` screen 2026-06-25** — form fields (Document
+Category, Document Type, Issue Date, Document Code, Subject) were taken from
+the web admin UI screenshots rather than guessed. `user_id` is **not**
+actually required for `index` despite the typed signature — confirmed via a
+live GET with only `branch_id` (returned `{"status":false,"message":"No
+record found"}`, not a validation error), so the screen's list view omits it
+to show all of a branch's documents. `document_code` is required by the
+backend (confirmed via a live inline validation message in the web UI). The
+Document Type dropdown (Offer/Bank Account Opening/Appointment/Confirmation/
+Warning Letter) is only confirmed for the `document_category = "Letter"`
+case — `Certificate`/`Form` type lists are unconfirmed, so the screen falls
+back to free text for those two categories.
 
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|
-| GET | `/hr/staff-documents/index` | List documents (`branch_id`, `user_id`, `approval_status`, `status`, `limit`, `page`) | ✅ `employeeDashboard.ts` |
-| POST | `/hr/staff-documents/store` | Add document (multipart: `document_type`, `document_category`, `issue_date`, `subject`, `description`, `document_code`, `document_file`) | ✅ `employeeDashboard.ts` |
+| GET | `/hr/staff-documents/index` | List documents (`branch_id`, `user_id`, `approval_status`, `status`, `limit`, `page`) | ✅ `employeeDashboard.ts`, `LetterManagement` |
+| POST | `/hr/staff-documents/store` | Add document (multipart: `document_type`, `document_category`, `issue_date`, `subject`, `description`, `document_code`, `document_file`) | ✅ `employeeDashboard.ts`, `LetterManagement` |
 | POST | `/hr/staff-documents/update/{id}` | Update document (multipart; resets approval to Pending; cannot edit if approved) | — |
 | PUT | `/hr/staff-documents/review/{id}` | Review document (HR/Admin): `approval_status`, `review_notes` | — |
 

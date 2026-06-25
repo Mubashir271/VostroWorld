@@ -19,7 +19,7 @@ interface BankAccountRow {
   id: number;
   branch_name?: string;
   bank_name?: string;
-  account_number?: string;
+  account_no?: string;
   account_title?: string;
   status?: string;
 }
@@ -51,7 +51,7 @@ const BankDetails = () => {
     setError('');
     try {
       const res = await getBankDetails(branchId);
-      const data = res?.data ?? [];
+      const data = res?.data?.data ?? res?.data ?? [];
       setRows(Array.isArray(data) ? data : []);
     } catch (e: any) {
       const status = e?.response?.status;
@@ -78,9 +78,9 @@ const BankDetails = () => {
     try {
       await addBankDetail({
         branch_id: branchId,
-        bank_name: bankName.trim(),
+        name: bankName.trim(),
+        account_no: accountNumber.trim(),
         account_title: accountTitle.trim(),
-        account_number: accountNumber.trim(),
       });
       flash('Bank detail added successfully.');
       setBankName(''); setAccountTitle(''); setAccountNumber('');
@@ -204,7 +204,7 @@ const BankDetails = () => {
                     <Text style={styles.td}>{i + 1}</Text>
                     <Text style={styles.td}>{row.branch_name || '-'}</Text>
                     <Text style={styles.td}>{row.bank_name || '-'}</Text>
-                    <Text style={styles.td}>{row.account_number || '-'}</Text>
+                    <Text style={styles.td}>{row.account_no || '-'}</Text>
                     <Text style={styles.td}>{row.account_title || '-'}</Text>
                     <Text style={[styles.td, row.status === 'Active' && styles.activeText]}>{row.status || '-'}</Text>
                     <View style={[styles.td, styles.thWide, styles.actionCell]}>
