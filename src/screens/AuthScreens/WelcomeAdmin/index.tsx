@@ -63,9 +63,10 @@ const WelcomeAdminScreen = ({ navigation }: any) => {
         <View style={styles.createButton}>
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={() => navigation.navigate('Registration')}
+            // onPress={() => navigation.navigate('Registration')}
+            onPress={() => navigation.navigate('Login')}
           >
-            <Text style={styles.primaryButtonText}>Create Account</Text>
+            <Text style={styles.primaryButtonText}>Sign In</Text>
           </TouchableOpacity>
         </View>
 
@@ -77,7 +78,7 @@ const WelcomeAdminScreen = ({ navigation }: any) => {
           </TouchableOpacity> */}
 
         {/* Login */}
-        <Text style={styles.loginText}>
+        {/* <Text style={styles.loginText}>
           Already have account?{' '}
           <Text
             style={styles.loginLink}
@@ -85,7 +86,7 @@ const WelcomeAdminScreen = ({ navigation }: any) => {
           >
             Sign In
           </Text>
-        </Text>
+        </Text> */}
 
         {/* Divider */}
         {/* <View style={styles.divider}>

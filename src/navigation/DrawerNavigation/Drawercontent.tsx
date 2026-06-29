@@ -12,9 +12,11 @@ import { logoutUser } from '../../redux/slices/userSlice';
 import { clearCredentials } from '../../utils/biometrics';
 import {
   isAdmin,
+  isHR,
   TRAINER_ALLOWED_MENUS,
   TRAINER_ALLOWED_HR_CHILDREN,
   ADMIN_HIDDEN_MENUS,
+  HR_ALLOWED_MENUS,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
@@ -453,11 +455,17 @@ const navigateTo = (navigation: any, screen: string) => {
 
 const filterMenuForRole = (
   menu: typeof MENU,
-  userIsAdmin: boolean,
+  role: string | null | undefined,
 ): typeof MENU => {
-  if (userIsAdmin) {
+  if (isAdmin(role)) {
     // Admin: hide all trainer-only top-level items
     return menu.filter(item => !ADMIN_HIDDEN_MENUS.includes(item.title));
+  }
+
+  if (isHR(role)) {
+    // HR: only Dashboard, Human Resource, Notifications — confirmed live
+    // 2026-06-29 against the web admin's HR-login menu.
+    return menu.filter(item => HR_ALLOWED_MENUS.includes(item.title));
   }
 
   // Trainer: keep only allowed sections
@@ -494,8 +502,6 @@ const DrawerContent = (props: any) => {
 
   const { profile, appImage } = useSelector((state: RootState) => state.user);
 
-  const userIsAdmin = isAdmin(profile?.role);
-
   const firstName = profile?.firstName || 'User';
   const lastName = profile?.lastName || '';
   const role = profile?.role || profile?.type || 'Staff';
@@ -508,7 +514,7 @@ const DrawerContent = (props: any) => {
 
   const profileName = `${firstName} ${lastName}`.trim() || 'User';
 
-  const visibleMenu = filterMenuForRole(MENU, userIsAdmin);
+  const visibleMenu = filterMenuForRole(MENU, profile?.role);
 
   const handleLogout = () => {
     dispatch(logoutUser());

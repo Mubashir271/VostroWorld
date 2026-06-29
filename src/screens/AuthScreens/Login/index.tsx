@@ -174,7 +174,7 @@ const Login = () => {
             {/* Red header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Welcome Back</Text>
-                <Text style={styles.headerSubtitle}>Sign in to your admin account</Text>
+                <Text style={styles.headerSubtitle}>Sign in to your account</Text>
             </View>
 
             {/* Login form */}

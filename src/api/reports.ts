@@ -66,6 +66,27 @@ export const getSalesExpenseDaily = (params: {
 }) =>
   api.get('/v1/finance/transactions/get-sales-and-expense-by-category', { params });
 
+// Sales By Category & Payment Method — confirmed live 2026-06-25 (needs
+// `/v1/`, same systemic prefix bug). Shape: { "<category_code>": [{Cash},
+// {Cheque}, {"Credit Card"}, {Online}, {"Cafe Assistant"}, {Deposit},
+// {Postpaid}, {"Salary Deduction"}] } — keys are the Category Code Reference
+// (1=Gym, 2=PT, etc., see API_REFERENCE.md §5).
+export const getSalesByCategoryAndPayment = (params: {
+  branch_id: number;
+  start_date: string;
+  end_date: string;
+}) =>
+  api.get('/v1/finance/transactions/fetch-sales-by-category-and-payment', { params });
+
+// Sales Balance (Daily Sales Counter's total) — confirmed live 2026-06-25
+// (needs `/v1/`). Just a single total, not the category breakdown.
+export const getSalesBalance = (params: {
+  branch_id: number;
+  start_date: string;
+  end_date: string;
+}) =>
+  api.get('/v1/finance/transactions/get-sales-balance', { params });
+
 // Sales By Bootcamp (session-detail-report)
 export const getSalesByBootcamp = (params: {
   branch_id: number;

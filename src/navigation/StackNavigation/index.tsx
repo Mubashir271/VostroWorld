@@ -57,7 +57,7 @@ import OrderDetail from '../../screens/CafeOperations/Orders/OrderDetail';
 import AccessDenied from '../../screens/AccessDenied';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
-import { isAdmin } from '../../config/permissions';
+import { isAdmin, isHR, HR_ALLOWED_SCREENS } from '../../config/permissions';
 import AttendanceScreen from '../../screens/Attendance';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
@@ -94,6 +94,7 @@ import ViewStaff from '../../screens/HR/ViewStaff';
 import EmployeeAttendance from '../../screens/HR/EmployeeAttendance';
 import StaffDutyHours from '../../screens/HR/StaffDutyHours';
 import PTAttendance from '../../screens/HR/PTAttendance';
+import SalesSessionReport from '../../screens/Sales/SalesSessionReport';
 import SessionPortalHR from '../../screens/HR/SessionPortalHR';
 import StaffCommissions from '../../screens/HR/StaffCommissions';
 import SalaryComponent from '../../screens/HR/SalaryComponent';
@@ -122,11 +123,23 @@ import ViewOfficeLedger from '../../screens/Finance/ViewOfficeLedger';
 import AddBankCash from '../../screens/Finance/AddBankCash';
 import ViewBankLedger from '../../screens/Finance/ViewBankLedger';
 import BankDetails from '../../screens/Finance/BankDetails';
+import BalanceSheet from '../../screens/Finance/BalanceSheet';
+import DailySalesCounter from '../../screens/Finance/DailySalesCounter';
+import CafeSalesExpenseReport from '../../screens/Finance/CafeSalesExpenseReport';
 import GXClasses from '../../screens/Fitness/GXClasses';
 import AddGXClass from '../../screens/Fitness/AddGXClass';
 import AddGXSlots from '../../screens/Fitness/AddGXSlots';
 import PTRoster from '../../screens/Fitness/PTRoster';
 import TrainerDiary from '../../screens/Fitness/TrainerDiary';
+import PTSalesReport from '../../screens/Fitness/PTSalesReport';
+import TrainerAppointments from '../../screens/Fitness/TrainerAppointments';
+import GXTrainers from '../../screens/Fitness/GXTrainers';
+import GXBookings from '../../screens/Fitness/GXBookings';
+import GXAttendanceReport from '../../screens/Fitness/GXAttendanceReport';
+import BefitAttendanceReport from '../../screens/Fitness/BefitAttendanceReport';
+import SPTAttendanceReport from '../../screens/Fitness/SPTAttendanceReport';
+import NewPTBookings from '../../screens/Fitness/NewPTBookings';
+import NewPTClients from '../../screens/Fitness/NewPTClients';
 import TimeSlotsScreen from '../../screens/Fitness/TimeSlots';
 import ManageAvailabilityScreen from '../../screens/Fitness/ManageAvailability';
 
@@ -201,8 +214,10 @@ const ProtectedScreen = ({
 }) => {
     const profile = useSelector((state: any) => state.user.profile);
     const userIsAdmin = isAdmin(profile?.role);
+    const screenName = rest?.route?.name;
+    const hrAllowed = isHR(profile?.role) && !!screenName && HR_ALLOWED_SCREENS.includes(screenName);
 
-    if (!userIsAdmin) {
+    if (!userIsAdmin && !hrAllowed) {
         return <AccessDenied />;
     }
 
@@ -293,7 +308,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="ViewFreezing" component={protect(ViewFreezing)} />
                 <Stack.Screen name="ApprovalsScreen" component={protect(ApprovalsScreen)} />
                 <Stack.Screen name="ClientsReport" component={protect(SalesClientsReportScreen)} />
-                <Stack.Screen name="SalesSessionReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="SalesSessionReport" component={protect(SalesSessionReport)} />
                 <Stack.Screen name="MembershipPackages" component={protect(MembershipPackages)} />
                 <Stack.Screen name="GymPackages" component={protect(GymPackages)} />
                 <Stack.Screen name="TrainerPackages" component={protect(TrainerPackages)} />
@@ -379,9 +394,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="AddKeene" component={protect(AddKeene)} />
                 <Stack.Screen name="KeeneLedger" component={protect(KeeneLedger)} />
                 <Stack.Screen name="Assets" component={protect(ComingSoon)} />
-                <Stack.Screen name="BalanceSheet" component={protect(ComingSoon)} />
-                <Stack.Screen name="DailySalesCounter" component={protect(ComingSoon)} />
-                <Stack.Screen name="CafeSalesExpenseReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="BalanceSheet" component={protect(BalanceSheet)} />
+                <Stack.Screen name="DailySalesCounter" component={protect(DailySalesCounter)} />
+                <Stack.Screen name="CafeSalesExpenseReport" component={protect(CafeSalesExpenseReport)} />
                 <Stack.Screen name="DailyOfficeClosing" component={protect(ComingSoon)} />
                 <Stack.Screen name="BankDetails" component={protect(BankDetails)} />
 
@@ -391,29 +406,29 @@ const AppNavigator = () => {
                 <Stack.Screen name="PTRoster" component={protect(PTRoster)} />
                 <Stack.Screen name="TrainerDiary" component={protect(TrainerDiary)} />
                 {/* PersonalTrainerDiary registered as trainer-allowed above */}
-                <Stack.Screen name="PTSalesReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="PTSalesReport" component={protect(PTSalesReport)} />
                 <Stack.Screen name="SwitchBookingTime" component={protect(ComingSoon)} />
-                <Stack.Screen name="TrainerAppointments" component={protect(ComingSoon)} />
-                <Stack.Screen name="SessionAttendance" component={protect(ComingSoon)} />
-                <Stack.Screen name="NewPTBookings" component={protect(ComingSoon)} />
-                <Stack.Screen name="NewPTClients" component={protect(ComingSoon)} />
+                <Stack.Screen name="TrainerAppointments" component={protect(TrainerAppointments)} />
+                <Stack.Screen name="SessionAttendance" component={protect(SalesSessionReport)} />
+                <Stack.Screen name="NewPTBookings" component={protect(NewPTBookings)} />
+                <Stack.Screen name="NewPTClients" component={protect(NewPTClients)} />
                 <Stack.Screen name="AddGXSlots" component={protect(AddGXSlots)} />
-                <Stack.Screen name="GXTrainers" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXTrainers" component={protect(GXTrainers)} />
                 <Stack.Screen name="GXSlotsList" component={protect(GXClasses)} />
-                <Stack.Screen name="GXBookings" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXBookings" component={protect(GXBookings)} />
                 <Stack.Screen name="GXAppointments" component={protect(ComingSoon)} />
                 <Stack.Screen name="GXAttendance" component={protect(ComingSoon)} />
-                <Stack.Screen name="GXAttendanceReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXAttendanceReport" component={protect(GXAttendanceReport)} />
                 <Stack.Screen name="BefitList" component={protect(ComingSoon)} />
                 <Stack.Screen name="BefitBookings" component={protect(ComingSoon)} />
                 <Stack.Screen name="BefitAppointments" component={protect(ComingSoon)} />
                 <Stack.Screen name="BefitAttendance" component={protect(ComingSoon)} />
-                <Stack.Screen name="BefitAttendanceReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="BefitAttendanceReport" component={protect(BefitAttendanceReport)} />
                 <Stack.Screen name="SPTList" component={protect(ComingSoon)} />
                 <Stack.Screen name="SPTBookings" component={protect(ComingSoon)} />
                 <Stack.Screen name="SPTAppointments" component={protect(ComingSoon)} />
                 <Stack.Screen name="SPTAttendance" component={protect(ComingSoon)} />
-                <Stack.Screen name="SPTAttendanceReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="SPTAttendanceReport" component={protect(SPTAttendanceReport)} />
                 {/* ViewFitnessPlans, AddFitnessPlan, ManageExercises registered as trainer-allowed above */}
                 <Stack.Screen name="TimeSlots" component={protect(TimeSlotsScreen)} />
                 <Stack.Screen name="ManageAvailability" component={protect(ManageAvailabilityScreen)} />

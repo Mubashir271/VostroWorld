@@ -18,6 +18,12 @@ from:
 
   Admin login: f11@vostroworld.com
   vostro@8402
+
+  Trainer Login: maryeamshareef@gmail.com
+  Maryam123
+
+  HR Login: hr@vostroworld.com
+  experiaflimbbc,
 **Base URL:** `https://api.vostro-new.com/public/api/v1` (prod) /
 `https://dev-api.vostro-new.com/public/api/v1` (dev)
 
@@ -143,7 +149,7 @@ somewhere in `src/api/*.ts`. `—` means not wired yet.
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|
 | GET | `/transaction-report` | Transaction listing w/ items + payments | ✅ `dashboard.ts`, `reports.ts` |
-| GET | `/transaction-report-cafe` | Cafe-only transaction report | ✅ `cafe.ts`, `reports.ts` |
+| GET | `/transaction-report-cafe` | Cafe-only transaction report (per-order: `date`, `net_price`, `tax`, `discount`, `items`, `payment_history`) | ✅ `cafe.ts`, `reports.ts` (`getCafeReport`), `CafeSalesExpenseReport` (grouped by `date` client-side) |
 | GET | `/transaction-slip` | Single transaction slip/receipt | — |
 | GET | `/transaction-report-summery` | Daily summary totals | ✅ `reports.ts` |
 | GET | `/generate-sales-report` | Package-wise sales report | ✅ `reports.ts` |
@@ -202,8 +208,8 @@ Write ops require role in `[1, 3, 5]`.
 | POST | `/finance-v2/journals/{id}/void` | Void a journal | — |
 | GET | `/finance-v2/reports/dashboard` | Finance hub overview | — |
 | GET | `/finance-v2/reports/trial-balance` | Trial balance | — |
-| GET | `/finance-v2/reports/profit-and-loss` | P&L statement | — |
-| GET | `/finance-v2/reports/balance-sheet` | Balance sheet | — |
+| GET | `/finance-v2/reports/profit-and-loss` | P&L statement. Confirmed live 2026-06-25 — returns a real but empty shape (`{income_lines:[], expense_lines:[], total_income:0, ...}`) since Finance V2 isn't set up for this branch | — |
+| GET | `/finance-v2/reports/balance-sheet` | Balance sheet. Confirmed live 2026-06-25 — same as above, empty (`{assets:[], liabilities:[], ...}`). **Not** what the web admin's "Balance Sheet" menu item displays — that page is actually an Income Statement powered by `/finance/transactions/get-sales-and-expense-by-category` (§3.2), unrelated to Finance V2 | — |
 | GET | `/finance-v2/reports/general-ledger/{accountId}` | Account ledger | — |
 | GET | `/finance-v2/reports/accounts-receivable` | AR aging | — |
 | GET | `/finance-v2/reports/health-check` | Data integrity check | — |
@@ -231,12 +237,12 @@ CRUD pattern: `POST .../add`, `GET .../get`, `PUT .../update/{id}`, `PUT .../del
 |---|---|---|---|
 | `/finance/categories` | CRUD | Expense/income categories | — |
 | `/finance/sub-categories` | CRUD | Sub-categories | — |
-| `/finance/transactions/get-sales-by-service-category` | GET | Sales grouped by service | ✅ `reports.ts` |
-| `/finance/transactions/fetch-sales-by-category-and-payment` | GET | Sales by category + payment | — |
+| `/finance/transactions/get-sales-by-service-category` | GET | Sales grouped by service (package-level: `package_name`, `package_id`, `total_net_price`, `total_quantity`) | ✅ `reports.ts` (`getSalesByServices`), `DailySalesCounter` |
+| `/v1/finance/transactions/fetch-sales-by-category-and-payment` | GET | Sales by category + payment method. Confirmed live 2026-06-25 (needs `/v1/`). Shape: `{"<category_code>": [{Cash}, {Cheque}, {"Credit Card"}, {Online}, {"Cafe Assistant"}, {Deposit}, {Postpaid}, {"Salary Deduction"}]}` | ✅ `reports.ts` (`getSalesByCategoryAndPayment`), `DailySalesCounter` |
 | `/finance/transactions/get-sales-by-payment-method` | GET | Sales by payment method | — |
 | `/finance/transactions/fetch-sales-sum-by-payment-method` | GET | Payment method totals | — |
-| `/finance/transactions/get-sales-and-expense-by-category` | GET | Combined sales + expenses | ✅ `reports.ts` |
-| `/finance/transactions/get-sales-balance` | GET | Sales counter balance | — |
+| `/v1/finance/transactions/get-sales-and-expense-by-category` | GET | Combined sales + expenses. Shape: `{sales:[{category, Type: "New"\|"Renew"\|"Mix", total_quantity, total_price}], expenses:[{category: "<name>", total_quantity, total_price}]}` — this is what actually powers the web admin's "Balance Sheet" page (an Income Statement), not Finance V2's `reports/balance-sheet` | ✅ `reports.ts` (`getSalesExpenseDaily`), `BalanceSheet`, `DailySalesCounter` |
+| `/v1/finance/transactions/get-sales-balance` | GET | Sales counter balance. Confirmed live 2026-06-25 (needs `/v1/`). Only returns `{balance: <total>}` — not a category breakdown | ✅ `reports.ts` (`getSalesBalance`, unused — `DailySalesCounter` derives its totals from the other two endpoints instead) |
 | `/finance/transactions/sales-counter-balance` | GET | Counter balance detail | — |
 | `/finance/transactions/fetch-expense-detail` | GET | Expense breakdown | — |
 | `/finance/transactions/get-bank-balance-detail` | GET | Bank balance transactions | — |
@@ -265,7 +271,7 @@ CRUD pattern: `POST .../add`, `GET .../get`, `PUT .../update/{id}`, `PUT .../del
 | `/finance/setting` (`/get-current-charges`, `/tax-calculator/{branch}/{amount}/{paymentMethod}/{type}`) | — | Finance settings/tax calc | — |
 | `/v1/finance/banking-details/get` | GET | Bank account details. Real route needed both the `/v1/` prefix *and* a `/get` suffix — confirmed live 2026-06-25 (`/finance/banking-details`, no suffix, 404s even with `/v1/`). Shape: `{id, branch_id, branch_name, bank_name, account_no, account_title, date, status}` | ✅ `employeeDashboard.ts` (`getBankDetails`), `BankDetails` |
 | `/v1/finance/banking-details/add` | POST | Add a bank account. Confirmed live 2026-06-25 via empty-body validation + the web admin's "Add Bank Details" form. Required: `branch_id`, `name`, `account_no` (the web form's "Bank Name"/"Account Number" labels — the GET response echoes `name` back as `bank_name`). `account_title` optional despite the web UI marking it required | ✅ `employeeDashboard.ts` (`addBankDetail`, wired but gated off in `BankDetails`) |
-| `/v1/expenses/get`, `/v1/expenses/store` | GET/POST | Generic expenses | ✅ `employeeDashboard.ts` |
+| `/v1/expense/get`, `/v1/expense/store` | GET/POST | Generic expenses. **Singular** `expense` — confirmed live 2026-06-25 that `/v1/expenses/get` (plural) 404s. Records include `category_name`/`sub_category_name`/`occurrence_date`/`description` — `CafeSalesExpenseReport` filters client-side to `category_name === 'Cafe Expense'` | ✅ `employeeDashboard.ts` (`getExpensesList`/`addExpenseRows`), `CafeSalesExpenseReport` |
 | `/v1/finance/dashboard` | GET | Finance dashboard summary | ✅ `employeeDashboard.ts` |
 
 ---
@@ -484,8 +490,8 @@ fields.
 |--------|----------|---------|--------|
 | GET | `/auth/get/{id}` | Profile detail | — |
 | POST | `/auth/update/{id}` | Update profile (multipart) | — |
-| GET | `/hr/promotion/index` | Promotions history (`branch_id`, `user_id`, `status`, `limit`, `page`). Was missing the `/v1/` prefix in code — **fixed 2026-06-24** | ✅ `employeeDashboard.ts` |
-| POST | `/hr/promotion/store` | Create promotion record. Confirmed live 2026-06-24 (previously assumed missing) | ✅ `employeeDashboard.ts` (`addPromotion`, payload inferred/unconfirmed) |
+| GET | `/hr/promotion/index` | Promotions history (`branch_id`, `user_id`, `status`, `limit`, `page` — `user_id` not actually required for listing a whole branch). Was missing the `/v1/` prefix in code — **fixed 2026-06-24** | ✅ `employeeDashboard.ts`, `StaffPromotion` |
+| POST | `/hr/promotion/store` | Create promotion record. Confirmed live 2026-06-24 (previously assumed missing). Required fields confirmed live 2026-06-25 via an empty-body 422: `branch_id`, `user_id` (not `employee_id`), `date`, `promotion_type`. **Caution:** a follow-up probe with just those 4 fields attempted a real INSERT for every `promotion_type` value and failed every time on a `previous_department` foreign-key violation — the DB requires a valid department id even for Salary-only promotions. Field names beyond the confirmed 4 are an educated guess, not confirmed | ✅ `employeeDashboard.ts` (`addPromotion`, gated off in `StaffPromotion` pending a full live test) |
 | GET | `/announcements/index` | Announcements feed (`branch_id`, `search`, `priority`, `status`, `active_only`, `limit`, `page`) | ✅ `employeeDashboard.ts` |
 
 ### 7.2 Attendance

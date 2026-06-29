@@ -585,9 +585,11 @@ export const getHRDashboard = async (params: {
 // against, so they're normalized onto each record here to keep callers
 // (ViewStaff, SalaryComponent, LeaveQuota) unchanged.
 export const getStaffList = async (params: {
-  branch_id: number;
+  branch_id?: number;
   department?: string;
+  department_id?: number;
   designation?: string;
+  gender?: string;
   search?: string;
   status?: number;
   limit?: number;
@@ -602,6 +604,25 @@ export const getStaffList = async (params: {
       s.join_date = s.joining;
     });
   }
+  return res.data;
+};
+
+// Confirmed live 2026-06-29 from the web admin's View Staff page network
+// capture (HAR) — these three back its Branch/Department/Designation
+// filter dropdowns. All return a flat `{id, name}` array, distinct from
+// `getRelatedThings`'s `/related_things/get` (fuller records, paginated).
+export const getBranchesNameList = async () => {
+  const res = await api.get('/v1/branches/branches-name-list', { params: { status: 1 } });
+  return res.data;
+};
+
+export const getDepartmentNames = async () => {
+  const res = await api.get('/v1/related_things/get-names-list', { params: { type: 'Department' } });
+  return res.data;
+};
+
+export const getDesignationNames = async () => {
+  const res = await api.get('/v1/related_things/get-names-list', { params: { type: 'Designations' } });
   return res.data;
 };
 
@@ -1119,6 +1140,26 @@ export const getPTRosterAdmin = async (params: {
   return res.data;
 };
 
+// Weekly trainer schedule grid (Trainer Appointments) — confirmed live
+// 2026-06-25. `trainer_id` param appears to be ignored (always returns every
+// trainer); `start_date`/`end_date` are required for `schedule` to populate
+// (omitting them returns every slot as `schedule: []`, even for trainers
+// with real bookings). Shape per trainer: {trainer_id, name, branch_id,
+// branch_name, time_slots:[{time_slot_assignment_id, time: "HH:mm AM/PM TO
+// HH:mm AM/PM", schedule: [] | {schedule_id, pt_start_date, pt_end_date,
+// <DayName>?: {order_id, package_start_date, package_end_date, client_name,
+// session_count, package_name, status}}]}. `schedule` is an empty array when
+// free, or an object keyed by whichever day names (Monday..Sunday) are booked.
+export const getTrainerSchedule = async (params: {
+  branch_id: number;
+  trainer_id?: number;
+  start_date: string;
+  end_date: string;
+}) => {
+  const res = await api.get('/v1/fitness/trainer-schedule/index', { params });
+  return res.data;
+};
+
 // ── GX Time Slots ────────────────────────────────────────────────────────────
 // Confirmed live 2026-06-24. Shape: { id, branch_id, branch_name, start_time,
 // end_time, date } with start_time/end_time as "HH:mm AM/PM" strings.
@@ -1186,6 +1227,32 @@ export const getHRSessions = async (params: {
 }) => {
   const res = await api.get('/v1/fitness/commission-portal/hr/sessions', { params });
   return res.data;
+};
+
+// Same endpoint as `getHRSessions`, but loops through every page instead of
+// trusting a single `limit` guess — confirmed live 2026-06-29 that the web
+// admin's own attendance reports paginate at 25/page (8 pages for a single
+// trainer/month), so a wide date range across all trainers can easily
+// exceed any one-shot `limit`. Fetches page 1 at a large page size, reads
+// `last_page` off the response, then fetches the rest in parallel.
+export const getHRSessionsAll = async (params: {
+  branch_id: number;
+  trainer_id?: number;
+  status?: 'Active' | 'Inactive';
+  start_date?: string;
+  end_date?: string;
+}) => {
+  const limit = 500;
+  const first = await getHRSessions({ ...params, limit, page: 1 });
+  const rows: any[] = first?.data?.data ?? [];
+  const lastPage: number = first?.data?.last_page ?? 1;
+  if (lastPage > 1) {
+    const rest = await Promise.all(
+      Array.from({ length: lastPage - 1 }, (_, i) => getHRSessions({ ...params, limit, page: i + 2 })),
+    );
+    rest.forEach(p => rows.push(...(p?.data?.data ?? [])));
+  }
+  return rows;
 };
 
 // ── GX Slot (package, category 15) ───────────────────────────────────────────

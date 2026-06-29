@@ -1,183 +1,406 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, TextInput,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, TextInput, Modal,
 } from 'react-native';
-import { useSelector } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { RootState } from '../../../redux/store';
-import { getStaffList } from '../../../api/employeeDashboard';
+import AppHeader from '../../../components/AppHeader';
+import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import {
+  getStaffList, getBranchesNameList, getDepartmentNames, getDesignationNames,
+} from '../../../api/employeeDashboard';
 
-interface StaffMember {
+// Rebuilt 2026-06-29 to match the web admin's "View Staff" page, confirmed
+// via a HAR network capture (not guessed): the page fetches `/v1/auth/get`
+// with `branch_id`/`status`/`department_id`/`gender` as real query params
+// (Branch/Status/Department/"Select Type" = gender), while "Select
+// Designation" has no corresponding query param in the capture — it's a
+// client-side filter on the already-fetched rows. Branch/Department/
+// Designation dropdown options come from three small `{id,name}` list
+// endpoints also confirmed in the capture (`getBranchesNameList`,
+// `getDepartmentNames`, `getDesignationNames`). Branch defaults to "All"
+// (no `branch_id` sent) since HR users aren't tied to one branch.
+interface Option { id: number; name: string; }
+interface StaffRow {
   id: number;
   name: string;
-  uid: string;
-  department: string;
-  designation: string;
-  branch: string;
-  salary: number;
-  phone?: string;
+  father_name?: string;
+  branch_name?: string;
+  designation?: string;
+  department?: string;
   email?: string;
-  status: string;
-  join_date?: string;
+  phone?: string;
+  gender?: string;
+  status?: string;
 }
 
-const DEPT_COLORS: Record<string, string> = {
-  Fitness: '#E63946',
-  Housekeeping: '#1E88E5',
-  Sales: '#43A047',
-  Finance: '#FB8C00',
-  Management: '#8E24AA',
-  IT: '#00ACC1',
-};
+const GENDER_OPTIONS = ['Male', 'Female'];
+const PAGE_SIZE = 25;
+
+const COLS = [
+  { key: 'sr', label: 'Sr#', width: 36 },
+  { key: 'name', label: 'Name', width: 140 },
+  { key: 'father', label: 'Father Name', width: 130 },
+  { key: 'branch', label: 'Branch Name', width: 80 },
+  { key: 'designation', label: 'Designation', width: 130 },
+  { key: 'department', label: 'Department', width: 130 },
+  { key: 'email', label: 'Email', width: 170 },
+  { key: 'phone', label: 'Phone', width: 120 },
+  { key: 'gender', label: 'Gender', width: 70 },
+  { key: 'status', label: 'Status', width: 70 },
+];
+const TABLE_W = COLS.reduce((s, c) => s + c.width, 0);
 
 const ViewStaff = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
 
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [filtered, setFiltered] = useState<StaffMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [branches, setBranches] = useState<Option[]>([]);
+  const [branchId, setBranchId] = useState<number | null>(null);
+  const [branchModal, setBranchModal] = useState(false);
+
+  const [departments, setDepartments] = useState<Option[]>([]);
+  const [departmentId, setDepartmentId] = useState<number | null>(null);
+  const [departmentModal, setDepartmentModal] = useState(false);
+
+  const [designations, setDesignations] = useState<Option[]>([]);
+  const [designationName, setDesignationName] = useState('');
+  const [designationModal, setDesignationModal] = useState(false);
+
+  const [gender, setGender] = useState('');
+  const [genderModal, setGenderModal] = useState(false);
+
+  const [status, setStatus] = useState<'1' | '0'>('1');
   const [search, setSearch] = useState('');
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true); else setLoading(true);
+  const [rows, setRows] = useState<StaffRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+
+  const loadFilters = useCallback(async () => {
     try {
-      const res = await getStaffList({ branch_id: branchId, limit: 100 });
-      const data: StaffMember[] = res?.data?.data ?? [];
-      setStaff(data);
-      setFiltered(data);
-    } catch {
-      setStaff([]);
-      setFiltered([]);
+      const [b, d, des] = await Promise.all([
+        getBranchesNameList(), getDepartmentNames(), getDesignationNames(),
+      ]);
+      setBranches(b?.data ?? []);
+      setDepartments(d?.data ?? []);
+      setDesignations(des?.data ?? []);
+    } catch {}
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await getStaffList({
+        branch_id: branchId ?? undefined,
+        department_id: departmentId ?? undefined,
+        gender: gender || undefined,
+        status: Number(status),
+        limit: 100,
+      });
+      const data: StaffRow[] = res?.data?.data ?? [];
+      setRows(data);
+    } catch (e: any) {
+      const code = e?.response?.status;
+      if (code === 404 || code === 422) setRows([]);
+      else setError(e?.response?.data?.message || 'Failed to load staff.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, [branchId]);
+  }, [branchId, departmentId, gender, status]);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { loadFilters(); load(); }, [loadFilters, load]));
 
-  useEffect(() => {
-    if (!search.trim()) { setFiltered(staff); return; }
-    const q = search.toLowerCase();
-    setFiltered(staff.filter(s =>
-      s.name?.toLowerCase().includes(q) ||
-      s.department?.toLowerCase().includes(q) ||
-      s.designation?.toLowerCase().includes(q) ||
-      s.uid?.toLowerCase().includes(q),
-    ));
-  }, [search, staff]);
+  const visibleRows = rows.filter(r => {
+    if (designationName && r.designation !== designationName) return false;
+    if (search.trim() && !r.name?.toLowerCase().includes(search.trim().toLowerCase())) return false;
+    return true;
+  });
 
-  const deptColor = (dept: string) => DEPT_COLORS[dept] || '#607D8B';
+  useEffect(() => { setPage(1); }, [designationName, search, rows]);
 
-  const renderItem = ({ item, index }: { item: StaffMember; index: number }) => (
-    <View style={styles.card}>
-      <View style={styles.cardLeft}>
-        <View style={[styles.avatar, { backgroundColor: deptColor(item.department) }]}>
-          <Text style={styles.avatarText}>{item.name?.charAt(0)?.toUpperCase() || '?'}</Text>
-        </View>
-      </View>
-      <View style={styles.cardContent}>
-        <View style={styles.nameRow}>
-          <Text style={styles.staffName}>{item.name}</Text>
-          <Text style={styles.srNo}>#{index + 1}</Text>
-        </View>
-        <Text style={styles.designation}>{item.designation}</Text>
-        <View style={styles.detailsRow}>
-          <View style={[styles.deptChip, { backgroundColor: deptColor(item.department) + '20' }]}>
-            <Text style={[styles.deptChipText, { color: deptColor(item.department) }]}>{item.department}</Text>
-          </View>
-          <Text style={styles.salary}>PKR {Number(item.salary || 0).toLocaleString()}</Text>
-        </View>
-        {item.phone ? (
-          <View style={styles.contactRow}>
-            <Icon name="phone" size={12} color="#aaa" />
-            <Text style={styles.contactText}>{item.phone}</Text>
-          </View>
-        ) : null}
-      </View>
-    </View>
-  );
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
+  const pagedRows = visibleRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Staff Members</Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <View style={styles.root}>
+      <AppHeader
+        title="View Staff"
+        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        rightIcon={<NotificationSVG width={24} height={24} />}
+        onLeftPress={() => navigation.goBack()}
+        onRightPress={() => navigation.navigate('Notifications')}
+        backgroundColor="#FFE5E5"
+      />
 
-      <View style={styles.searchRow}>
-        <Icon name="magnify" size={20} color="#888" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, dept, designation..."
-          value={search}
-          onChangeText={setSearch}
-          placeholderTextColor="#aaa"
-        />
-        {search ? <TouchableOpacity onPress={() => setSearch('')}><Icon name="close-circle" size={18} color="#aaa" /></TouchableOpacity> : null}
-      </View>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
 
-      {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color="#E63946" /></View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item, i) => String(item.id ?? i)}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Icon name="account-off" size={48} color="#ddd" />
-              <Text style={styles.emptyText}>No staff found</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Filters</Text>
+
+          <View style={styles.row2}>
+            <View style={styles.col2}>
+              <Text style={styles.label}>Branch</Text>
+              <TouchableOpacity style={styles.picker} onPress={() => setBranchModal(true)}>
+                <Text style={styles.pickerText}>
+                  {branchId ? branches.find(b => b.id === branchId)?.name ?? 'Branch' : 'All Branches'}
+                </Text>
+                <Icon name="chevron-down" size={16} color="#666" />
+              </TouchableOpacity>
             </View>
+            <View style={styles.col2}>
+              <Text style={styles.label}>Search By Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter name"
+                placeholderTextColor="#aaa"
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+          </View>
+
+          <View style={styles.row2}>
+            <View style={styles.col2}>
+              <Text style={styles.label}>Select Type</Text>
+              <TouchableOpacity style={styles.picker} onPress={() => setGenderModal(true)}>
+                <Text style={gender ? styles.pickerText : styles.placeholder}>{gender || 'Select Type'}</Text>
+                <Icon name="chevron-down" size={16} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.col2}>
+              <Text style={styles.label}>Select Department</Text>
+              <TouchableOpacity style={styles.picker} onPress={() => setDepartmentModal(true)}>
+                <Text style={departmentId ? styles.pickerText : styles.placeholder}>
+                  {departmentId ? departments.find(d => d.id === departmentId)?.name : 'Select Department'}
+                </Text>
+                <Icon name="chevron-down" size={16} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.row2}>
+            <View style={styles.col2}>
+              <Text style={styles.label}>Select Designation</Text>
+              <TouchableOpacity style={styles.picker} onPress={() => setDesignationModal(true)}>
+                <Text style={designationName ? styles.pickerText : styles.placeholder}>{designationName || 'Select Designation'}</Text>
+                <Icon name="chevron-down" size={16} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.col2}>
+              <Text style={styles.label}>Status</Text>
+              <View style={styles.pillRow}>
+                {(['1', '0'] as const).map(s => (
+                  <TouchableOpacity key={s} style={[styles.pill, status === s && styles.pillActive]} onPress={() => setStatus(s)}>
+                    <Text style={[styles.pillText, status === s && styles.pillTextActive]}>{s === '1' ? 'Active' : 'Inactive'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.goBtn} onPress={load}>
+            {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.goBtnText}>Search</Text>}
+          </TouchableOpacity>
+        </View>
+
+        {!!error && <Text style={styles.errText}>{error}</Text>}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{status === '1' ? 'Active' : 'Inactive'} Staff ({visibleRows.length})</Text>
+          {loading
+            ? <ActivityIndicator color="#C62828" style={{ marginVertical: 30 }} />
+            : visibleRows.length === 0
+              ? <Text style={styles.emptyText}>No staff found.</Text>
+              : (
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View style={{ width: TABLE_W }}>
+                    <View style={styles.thead}>
+                      {COLS.map(c => (
+                        <Text key={c.key} style={[styles.th, { width: c.width }]}>{c.label}</Text>
+                      ))}
+                    </View>
+                    {pagedRows.map((r, i) => (
+                      <View key={r.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
+                        <Text style={[styles.td, { width: COLS[0].width }]}>{(page - 1) * PAGE_SIZE + i + 1}</Text>
+                        <Text style={[styles.td, { width: COLS[1].width, textAlign: 'left' }]} numberOfLines={1}>{r.name ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[2].width, textAlign: 'left' }]} numberOfLines={1}>{r.father_name ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[3].width }]}>{r.branch_name ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[4].width, textAlign: 'left' }]} numberOfLines={1}>{r.designation ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[5].width, textAlign: 'left' }]} numberOfLines={1}>{r.department ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[6].width, textAlign: 'left' }]} numberOfLines={1}>{r.email ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[7].width }]}>{r.phone ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[8].width }]}>{r.gender ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[9].width, color: r.status === '1' ? '#2E7D32' : '#C62828', fontWeight: '700' }]}>
+                          {r.status === '1' ? 'Active' : 'Inactive'}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              )
           }
-        />
-      )}
-      <View style={styles.countBar}>
-        <Text style={styles.countText}>{filtered.length} staff member{filtered.length !== 1 ? 's' : ''}</Text>
-      </View>
-    </SafeAreaView>
+          {!loading && visibleRows.length > PAGE_SIZE && (
+            <View style={styles.pagination}>
+              <TouchableOpacity disabled={page === 1} onPress={() => setPage(1)}>
+                <Text style={[styles.pageEdgeText, page === 1 && styles.pageDisabledText]}>First Page</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={page === 1} onPress={() => setPage(p => Math.max(1, p - 1))}>
+                <Text style={[styles.pageArrow, page === 1 && styles.pageDisabledText]}>‹</Text>
+              </TouchableOpacity>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pageNumScroll}>
+                {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(n => (
+                  <TouchableOpacity key={n} onPress={() => setPage(n)} style={[styles.pageNum, page === n && styles.pageNumActive]}>
+                    <Text style={[styles.pageNumText, page === n && styles.pageNumTextActive]}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity disabled={page === totalPages} onPress={() => setPage(p => Math.min(totalPages, p + 1))}>
+                <Text style={[styles.pageArrow, page === totalPages && styles.pageDisabledText]}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={page === totalPages} onPress={() => setPage(totalPages)}>
+                <Text style={[styles.pageEdgeText, page === totalPages && styles.pageDisabledText]}>Last Page</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <Modal visible={branchModal} transparent animationType="fade" onRequestClose={() => setBranchModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setBranchModal(false)}>
+          <View style={styles.dropdownBox}>
+            <Text style={styles.dropdownTitle}>Select Branch</Text>
+            <ScrollView>
+              <TouchableOpacity style={styles.dropdownItem} onPress={() => { setBranchId(null); setBranchModal(false); }}>
+                <Text style={styles.dropdownItemText}>All Branches</Text>
+              </TouchableOpacity>
+              {branches.map(b => (
+                <TouchableOpacity key={b.id} style={styles.dropdownItem} onPress={() => { setBranchId(b.id); setBranchModal(false); }}>
+                  <Text style={styles.dropdownItemText}>{b.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={departmentModal} transparent animationType="fade" onRequestClose={() => setDepartmentModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDepartmentModal(false)}>
+          <View style={styles.dropdownBox}>
+            <Text style={styles.dropdownTitle}>Select Department</Text>
+            <ScrollView>
+              <TouchableOpacity style={styles.dropdownItem} onPress={() => { setDepartmentId(null); setDepartmentModal(false); }}>
+                <Text style={styles.dropdownItemText}>All Departments</Text>
+              </TouchableOpacity>
+              {departments.map(d => (
+                <TouchableOpacity key={d.id} style={styles.dropdownItem} onPress={() => { setDepartmentId(d.id); setDepartmentModal(false); }}>
+                  <Text style={styles.dropdownItemText}>{d.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={designationModal} transparent animationType="fade" onRequestClose={() => setDesignationModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDesignationModal(false)}>
+          <View style={styles.dropdownBox}>
+            <Text style={styles.dropdownTitle}>Select Designation</Text>
+            <ScrollView>
+              <TouchableOpacity style={styles.dropdownItem} onPress={() => { setDesignationName(''); setDesignationModal(false); }}>
+                <Text style={styles.dropdownItemText}>All Designations</Text>
+              </TouchableOpacity>
+              {designations.map(d => (
+                <TouchableOpacity key={d.id} style={styles.dropdownItem} onPress={() => { setDesignationName(d.name); setDesignationModal(false); }}>
+                  <Text style={styles.dropdownItemText}>{d.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={genderModal} transparent animationType="fade" onRequestClose={() => setGenderModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setGenderModal(false)}>
+          <View style={styles.dropdownBox}>
+            <Text style={styles.dropdownTitle}>Select Type</Text>
+            <TouchableOpacity style={styles.dropdownItem} onPress={() => { setGender(''); setGenderModal(false); }}>
+              <Text style={styles.dropdownItemText}>All</Text>
+            </TouchableOpacity>
+            {GENDER_OPTIONS.map(g => (
+              <TouchableOpacity key={g} style={styles.dropdownItem} onPress={() => { setGender(g); setGenderModal(false); }}>
+                <Text style={styles.dropdownItemText}>{g}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', margin: 12, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#333' },
-  list: { paddingHorizontal: 12, paddingBottom: 80 },
-  card: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
-  cardLeft: { marginRight: 12 },
-  avatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  cardContent: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  staffName: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', flex: 1 },
-  srNo: { fontSize: 12, color: '#aaa', fontWeight: '600' },
-  designation: { fontSize: 12, color: '#888', marginTop: 2, marginBottom: 6 },
-  detailsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  deptChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  deptChipText: { fontSize: 11, fontWeight: '700' },
-  salary: { fontSize: 13, color: '#555', fontWeight: '600' },
-  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  contactText: { fontSize: 12, color: '#aaa' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 15, color: '#aaa', marginTop: 12 },
-  countBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', padding: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#eee' },
-  countText: { fontSize: 13, color: '#888', fontWeight: '600' },
-});
-
 export default ViewStaff;
+
+const R = '#C62828';
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#F5F5F5' },
+  body: { padding: 12, paddingBottom: 30 },
+  card: {
+    backgroundColor: '#fff', borderRadius: 8, padding: 14, marginBottom: 14,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+  },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 12 },
+  errText: { color: R, fontSize: 13, marginHorizontal: 4, marginBottom: 8, fontWeight: '500' },
+
+  row2: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  col2: { flex: 1 },
+  label: { fontSize: 12, fontWeight: '600', color: '#444', marginBottom: 4 },
+  input: {
+    borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
+    paddingHorizontal: 10, paddingVertical: 9, fontSize: 13,
+    color: '#222', backgroundColor: '#FAFAFA',
+  },
+  picker: {
+    borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
+    paddingHorizontal: 10, paddingVertical: 10, backgroundColor: '#FAFAFA',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  pickerText: { fontSize: 13, color: '#222', flex: 1 },
+  placeholder: { fontSize: 13, color: '#aaa', flex: 1 },
+
+  pillRow: { flexDirection: 'row', gap: 8 },
+  pill: { flex: 1, borderWidth: 1, borderColor: '#DDD', borderRadius: 6, paddingVertical: 10, alignItems: 'center', backgroundColor: '#FAFAFA' },
+  pillActive: { backgroundColor: R, borderColor: R },
+  pillText: { fontSize: 13, color: '#555', fontWeight: '600' },
+  pillTextActive: { color: '#FFF' },
+
+  goBtn: { backgroundColor: '#222', borderRadius: 6, alignItems: 'center', paddingVertical: 12 },
+  goBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  emptyText: { textAlign: 'center', color: '#999', marginVertical: 20, fontSize: 13 },
+
+  thead: { flexDirection: 'row', backgroundColor: R, paddingVertical: 8 },
+  th: { color: '#fff', fontWeight: '700', fontSize: 11, paddingHorizontal: 5, textAlign: 'center' },
+  tr: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  trAlt: { backgroundColor: '#FAFAFA' },
+  td: { fontSize: 12, color: '#333', paddingHorizontal: 5, textAlign: 'center', alignSelf: 'center' },
+
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' },
+  pageEdgeText: { fontSize: 12, fontWeight: '700', color: R },
+  pageArrow: { fontSize: 16, fontWeight: '700', color: R, paddingHorizontal: 4 },
+  pageDisabledText: { color: '#BBB' },
+  pageNumScroll: { flexGrow: 0, maxWidth: 220 },
+  pageNum: { width: 30, height: 30, borderRadius: 6, borderWidth: 1, borderColor: '#EFEFEF', backgroundColor: '#FAFAFA', alignItems: 'center', justifyContent: 'center', marginHorizontal: 3 },
+  pageNumActive: { backgroundColor: R, borderColor: R },
+  pageNumText: { fontSize: 12, fontWeight: '600', color: '#555' },
+  pageNumTextActive: { color: '#FFF' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
+  dropdownBox: { backgroundColor: '#fff', borderRadius: 10, padding: 16, width: '80%', maxHeight: 400 },
+  dropdownTitle: { fontWeight: '700', fontSize: 15, marginBottom: 10, color: '#222' },
+  dropdownItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  dropdownItemText: { fontSize: 14, color: '#333' },
+});

@@ -8,7 +8,7 @@ import {
   AccountTab, HomeTab, MembersTab, PackageTab, ReportsTab,
 } from '../../assets/icons';
 import { RootState } from '../../redux/store';
-import { isAdmin } from '../../config/permissions';
+import { isAdmin, isHR } from '../../config/permissions';
 
 // ── Stacks ───────────────────────────────────────────────────────────────────
 import HomeStack from '../stacks/HomeStack';
@@ -21,6 +21,7 @@ import AccountStack from '../stacks/AccountStack';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import AttendanceScreen from '../../screens/Attendance';
 import TrainerRoster from '../../screens/trainer/TrainerRoster';
+import ViewStaffScreen from '../../screens/HR/ViewStaff';
 
 const Tab = createBottomTabNavigator();
 
@@ -62,6 +63,7 @@ const screenOptions = {
 const BottomTabNavigation = () => {
   const profile = useSelector((state: RootState) => state.user.profile);
   const userIsAdmin = isAdmin(profile?.role || profile?.type);
+  const userIsHR = isHR(profile?.role);
 
   return (
     <Tab.Navigator screenOptions={screenOptions}>
@@ -95,11 +97,19 @@ const BottomTabNavigation = () => {
       ) : (
         /* ── Trainer / Employee tabs ── */
         <>
-          <Tab.Screen
-            name="MyClients"
-            component={MyClientsScreen}
-            options={{ tabBarLabel: 'My Clients', tabBarIcon: mcIcon('account-multiple') }}
-          />
+          {userIsHR ? (
+            <Tab.Screen
+              name="ViewStaffTab"
+              component={ViewStaffScreen}
+              options={{ tabBarLabel: 'View Staff', tabBarIcon: mcIcon('account-group') }}
+            />
+          ) : (
+            <Tab.Screen
+              name="MyClients"
+              component={MyClientsScreen}
+              options={{ tabBarLabel: 'My Clients', tabBarIcon: mcIcon('account-multiple') }}
+            />
+          )}
           <Tab.Screen
             name="Attendance"
             component={AttendanceScreen}

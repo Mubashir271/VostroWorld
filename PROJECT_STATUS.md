@@ -1,7 +1,9 @@
 # VostroWorld Mobile — Project Status
 
 Single source of truth for screen implementation progress, API coverage, and
-what's left to build. Updated: **2026-06-25** (PT Trainer Diary build + Bank Ledger/Bank Details bugfixes).
+what's left to build. Updated: **2026-06-29** (GX/Befit/SPT Attendance
+Report built; pagination added to all three to match the web admin's
+25/page layout).
 
 **Base URL:** `https://api.vostro-new.com/public/api`
 **App package:** `com.vostroworld` | React Native 0.83.1
@@ -30,13 +32,13 @@ once logged in, so this shouldn't surface in normal use.
 
 | Section | Total Screens | ✅ Done | 🔴 ComingSoon |
 |---|---|---|---|
-| Sales | ~25 | ~24 | 1 |
+| Sales | ~25 | 25 | 0 |
 | Human Resource | ~20 | ~19 | 2 |
-| Finance | ~26 | ~19 | 9 |
-| Fitness | ~28 | ~6 | 22 |
+| Finance | ~26 | ~22 | 6 |
+| Fitness | ~28 | ~16 | 12 |
 | Nutrition | ~12 | 12 | 0 |
 | Settings / Other | ~15 | ~15 | 0 |
-| **Total pending** | | | **34** |
+| **Total pending** | | | **23** |
 
 ---
 
@@ -50,6 +52,7 @@ once logged in, so this shouldn't surface in normal use.
 | ViewFreezing | `src/screens/Sales/ViewFreezing/` | `GET /v1/freezing/get` |
 | ApprovalsScreen | `src/screens/Sales/ApprovalsScreen/` | `GET /v1/approvals/get` |
 | ClientsReport | `src/screens/Sales/ClientsReport/` | `GET /v1/clients/get` |
+| SalesSessionReport | `src/screens/Sales/SalesSessionReport/` | **Built 2026-06-25.** Confirmed via web admin screenshot that this is **not** a financial sales report (the previous "Best API" guess, `orders-detail/detailed-sales-report`, was wrong) — it's functionally the same feature as `PTAttendance` (full session-attendance CRUD via `/v1/fitness/commission-portal/hr/sessions`), just exposed under Sales instead of HR, with a Package-centric selector (vs. PTAttendance's Client-centric one) and an added "Filter by Package". Adapted directly from `PTAttendance`'s already-proven code rather than rebuilt from scratch |
 | MembershipPackages | `src/screens/Sales/MembershipPackages/` | UI only |
 | GymPackages | `src/screens/Sales/GymPackages/` | UI only |
 | TrainerPackages | `src/screens/Sales/TrainerPackages/` | `GET /v1/packages/get` |
@@ -84,6 +87,7 @@ once logged in, so this shouldn't surface in normal use.
 | SessionPortalHR | `src/screens/HR/SessionPortalHR/` | `GET /v1/orders-detail/get`, `/v1/clients/count` — already correct, just needed a valid Bearer token |
 | LeaveApplications | `src/screens/LeaveApplications/` | **Fixed 2026-06-24:** `getLeaveQuota`, `getLeaveApplications`, `checkLeaveExists`, `checkLeaveAvailability`, `submitLeaveApplication` were all missing the `/v1/` prefix (confirmed live 404 → 200/409 once added) — this screen was fully broken in production before the fix |
 | StaffLoans | `src/screens/StaffLoans/` | `GET /v1/staff-loans/get` — already correct, confirmed live. View-only; `addStaffLoan` (`POST /v1/staff-loans/add`, confirmed live) added to `employeeDashboard.ts` 2026-06-24 but no add-form UI yet (this is the screen PROJECT_STATUS previously tracked as "StaffAdvances") |
+| StaffPromotion | `src/screens/HR/StaffPromotion/` | **Built 2026-06-25.** `GET /v1/hr/promotion/index` (view, via `getPromotions`) + `POST /v1/hr/promotion/store` (via `addPromotion`). Form (Branch, Name, Promotion Type, conditional Department/Designation/Salary fields) matches the web admin UI exactly, including cascading dropdowns sourced from `getRelatedThings`. **Add button intentionally gated off** (`ADD_ENABLED = false`) — a safe empty-body probe found the required field names (`user_id` not `employee_id`), but a follow-up probe (still safe — used only the 4 known-required fields, no department/designation/salary) attempted a real INSERT for every promotion type and failed on a `previous_department` foreign-key violation every time, meaning the full write contract needs one more live test with real values before this can be confidently enabled — see Known API Notes |
 | LetterManagement | `src/screens/HR/LetterManagement/` | **Built 2026-06-25.** `GET /v1/hr/staff-documents/index`, `POST .../store` via `getStaffDocuments`/`addStaffDocument`. Form fields (Branch [static], Staff, Document Category, Document Type, Issue Date, Document Code*, Subject) reverse-engineered from the web admin UI (screenshots), not guessed. Document Category enum confirmed: `Letter`/`Certificate`/`Form`; Document Type dropdown (5 options) only confirmed for the `Letter` category — falls back to a free-text input for `Certificate`/`Form` since those option lists are unconfirmed. `document_code` is required (matches a live validation message seen in the web UI) |
 | ResourceManager | `src/screens/HR/ResourceManager/` | **Built 2026-06-25.** Full CRUD via `getRelatedThings`/`addRelatedThing`/`updateRelatedThing`/`deleteRelatedThing`/`setRelatedThingStatus`. Category toggle (Department / Designations) confirmed live via a **read-only** GET probe (safe — no write) of `/v1/related_things/get`: `type` values are `"Department"` (singular) and `"Designations"` (plural, **not** "Designation" — would have been a reasonable but wrong guess), and `Designations` records require a `department_id` pointing at the parent department, matching the join shown in the live data (`department_id`/`department` fields) |
 
@@ -109,6 +113,9 @@ once logged in, so this shouldn't surface in normal use.
 | AddOfficeCash | `src/screens/Finance/AddOfficeCash/` | `POST /v1/finance/office-cash-flow/add` (`branch_id`, `amount`, `type` required; `resource`, `date`, `description`, `is_petty_cash` optional — confirmed via live field-discovery probe). **Submission intentionally disabled** (`ADD_ENABLED = false` in the file) at user's request after an accidental live-write incident during API probing on this and the Charity endpoint; form/API call are fully built and ready, just gated off. |
 | ViewBankLedger | `src/screens/Finance/ViewBankLedger/` | Already built (in the "Missing apis done" commit), but **PROJECT_STATUS hadn't caught up and the underlying GETs were actually broken** — fixed 2026-06-25: `getBankLedger`/`getBankLedgerBalance` were both missing `/v1/` (hard 404, confirmed live), and the response's list lives at `data.data` (paginator), not bare `data` — the screen was silently always rendering "No records found". Running balance now seeded from the response's `opening_balance.balance` (matches web UI's "Opening Balance" row #1) instead of starting at 0. `current-balance` is broken server-side (always returns `"0"`, no working sibling endpoint found, same failure mode as Office Cash Flow) — dropped from the UI; "Total Balance" is now just the running balance's last value |
 | BankDetails | `src/screens/Finance/BankDetails/` | Same situation as ViewBankLedger — fixed 2026-06-25: real route is `/v1/finance/banking-details/get` (was `/finance/banking-details`, missing both `/v1/` and `/get`). List shape uses `account_no` (not `account_number` as the screen assumed). `addBankDetail`'s field contract confirmed via the web admin's "Add Bank Details" form (Branch/Bank Name/Account Title/Account Number) cross-checked against an empty-body validation probe — the web form's "Bank Name"/"Account Number" labels map to API fields `name`/`account_no`. Submission still gated (`ADD_ENABLED = false`) pending an actual live insert test |
+| BalanceSheet | `src/screens/Finance/BalanceSheet/` | **Built 2026-06-25.** The web admin's "Balance Sheet" page is actually an Income Statement (Sales/Expenses breakdown + Net P&L), **not** a true balance sheet — `GET /finance-v2/reports/balance-sheet` (this screen's previous "Best API" guess) returns an empty, structurally different assets/liabilities/equity report because Finance V2 isn't set up for this branch. Built instead on `getSalesExpenseDaily` (`/v1/finance/transactions/get-sales-and-expense-by-category`, already wired in `reports.ts`), confirmed live to return exactly the `sales`/`expenses` breakdown the web page shows. Includes a donut chart for the Sales Breakup, built with `react-native-svg` (already a dependency) since the project has no charting library |
+| DailySalesCounter | `src/screens/Finance/DailySalesCounter/` | **Built 2026-06-25.** `/v1/finance/transactions/get-sales-balance` (this screen's previous "Best API" guess) only returns a single total, not the rich report shown — built instead on three endpoints: `getSalesByServices` (package-level sales, already in `reports.ts`), `getSalesExpenseDaily`'s `expenses` half (same as BalanceSheet), and a new `getSalesByCategoryAndPayment` (`fetch-sales-by-category-and-payment`) for the per-category payment-method breakdown cards (Gym/PT/Guest Pass/etc.), confirmed live — needed the `/v1/` prefix |
+| CafeSalesExpenseReport | `src/screens/Finance/CafeSalesExpenseReport/` | **Built 2026-06-25.** Day-by-day cafe sales (orders/tax/discount/total) and itemized cafe expenses, computed entirely client-side from two already-wired endpoints — `getCafeReport` (`/v1/transaction-report-cafe`) grouped by `date`, and `getExpensesList` (`/v1/expense/get` — **note singular**, `/v1/expenses/get` 404s) filtered to `category_name === 'Cafe Expense'` and grouped by `occurrence_date`. No new endpoint needed; `/orders-detail/generate-cafe-total` (the third API this screen was originally guessed to need) turned out to be redundant once the other two were grouped by day |
 
 ### Fitness
 | Screen | File | API / Notes |
@@ -119,6 +126,16 @@ once logged in, so this shouldn't surface in normal use.
 | TimeSlots | `src/screens/Fitness/TimeSlots/` | **Fixed 2026-06-24** — was a client-side-only mock; now wired to confirmed `GET /v1/fitness/time-slot/get`, `POST .../add`, `PUT .../update/{id}` (update payload unconfirmed) |
 | PTRoster | `src/screens/Fitness/PTRoster/` | `GET /v1/fitness/commission-portal/trainer/roster` via `getPTRosterAdmin` — already correct, discovered already-built-and-working 2026-06-24 (was untracked) |
 | TrainerDiary | `src/screens/Fitness/TrainerDiary/` | **Built 2026-06-25.** Does **not** use `trainer/history` despite that being this row's previous "Best API" guess — confirmed live that route is self-scoped (`"5.5 — My Session History"`) and returns `"No record found"` regardless of a `trainer_id` param when called with a non-trainer (admin) token, so it can't power an HR-side view of an arbitrary trainer's diary. Built on `GET /v1/fitness/commission-portal/hr/sessions` instead (new `getHRSessions` wrapper) — already used via raw `api.get` in `PTAttendance`, and confirmed live 2026-06-25 that it also accepts `start_date`/`end_date` filters (which `PTAttendance` never needed). Trainer dropdown reuses `getGXTrainers` |
+| PTSalesReport | `src/screens/Fitness/PTSalesReport/` | **Built 2026-06-25.** `GET /v1/orders-detail/detailed-sales-report` (already wrapped as `getDetailedSalesReport`), filtered client-side to rows with a non-blank `trainer_name` (the raw endpoint returns ~1600 rows/month across every category, not just PT — confirmed live). End Date isn't returned directly; computed client-side as `sale_date + package_duration` months, matching the web UI's values exactly for the sampled rows. **Caution (found 2026-06-29 building `NewPTBookings`):** this only holds for `quantity: 1` rows — a `quantity: 3` renewal proved the real formula is `sale_date + (package_duration * quantity)` **days**, not months (`package_duration` itself is in days, e.g. `30`, not "1" for "1 month"). This screen doesn't read `quantity` at all, so multi-quantity renewals likely show a wrong End Date — not yet fixed here |
+| TrainerAppointments | `src/screens/Fitness/TrainerAppointments/` | **Built 2026-06-25.** **Not** `trainer/roster` (this row's previous "Best API" guess, a flat client list with no day-of-week data) — confirmed via a web admin screenshot that this is a weekly schedule grid (Time × Mon–Sun, "Free" or a client name per cell). Built on a newly-discovered endpoint, `GET /v1/fitness/trainer-schedule/index` (new `getTrainerSchedule` wrapper) — confirmed live, reproduces the exact screenshot data. `trainer_id` param appears to be ignored server-side (always returns every trainer; filtered client-side instead); `start_date`/`end_date` are required for the `schedule` field to populate at all |
+| GXTrainers | `src/screens/Fitness/GXTrainers/` | **Built 2026-06-25.** **Not** `hr/trainers` (this row's previous "Best API" guess, which returns ~20 PT trainers — far more than the 3 shown in the web admin's "All GX Trainer" table). Confirmed live that "GX Trainer" is just a flag, `is_gx_trainer`, on the staff record — `getStaffList()` filtered client-side to `is_gx_trainer === 1` reproduces the exact 3 rows (same uids, names, order) from the web admin screenshot. Add/Remove (toggling the flag) gated off — `/v1/auth/update/{id}`'s documented fields don't include `is_gx_trainer`, so the write contract is unconfirmed |
+| GXBookings | `src/screens/Fitness/GXBookings/` | **Built 2026-06-25.** Previous "Best API" guess (`/v1/gx/bookings/get`) was a confirmed dead end (404, no replacement found at the time). Turns out GX bookings are just category `15` rows from `detailed-sales-report` — the same endpoint `PTSalesReport` uses for category-2/14/etc. — confirmed live, matches the web admin screenshot exactly. **Caution if reusing this pattern elsewhere:** GX packages' `package_duration` is in **days**, not months like PT packages — End Date here is `sale_date + package_duration` days, vs. `PTSalesReport`'s `+ months` |
+| GXAttendanceReport | `src/screens/Fitness/GXAttendanceReport/` | **Built & confirmed live 2026-06-29.** Previous "Best API" guess (`GET /v1/session-detail-report`, via `getSalesByBootcamp`) was wrong despite returning 200 — that endpoint actually returns a payment-type breakdown report, not session/attendance rows. Built instead on `hr/sessions` (new `getHRSessionsAll` wrapper — see Key API Notes), filtered client-side to `type === 'GX'`. Trainer dropdown reuses the `is_gx_trainer` filter from `GXTrainers`. Confirmed working in the running app by the user |
+| BefitAttendanceReport | `src/screens/Fitness/BefitAttendanceReport/` | **UI built 2026-06-29, data source unconfirmed.** Mirrors `GXAttendanceReport`'s layout exactly (Dates/Quick Dates, Trainer/Package filters, Trainer+Client Attendance toggles, Summary/Detail, paginated table). Filters `hr/sessions` rows to `type === 'Befit'`, but that value was never observed live — `hr/sessions` was checked across 26k+ rows on two branches and only ever returned `'GX'` or `'PT'`. Will most likely show "No records found" until the real Befit endpoint is identified (best path: capture the request from the web admin's Network tab on this exact page) |
+| SPTAttendanceReport | `src/screens/Fitness/SPTAttendanceReport/` | **UI built 2026-06-29, data source unconfirmed.** Same situation as `BefitAttendanceReport` — filters `hr/sessions` to `type === 'SPT'`, an unconfirmed guess; real endpoint not yet found |
+| SessionAttendance | drawer route only — reuses `SalesSessionReport` | **Fixed 2026-06-29.** Confirmed by the user that the web admin's "Session Attendance" (Fitness) is the exact same screen as Sales → Session Report. `Stack.Screen` now points `SessionAttendance` directly at the already-built `SalesSessionReport` component instead of `ComingSoon` — no new screen needed |
+| NewPTBookings | `src/screens/Fitness/NewPTBookings/` | **Built 2026-06-29.** Branch (static) + Available Trainers filter + Search, matching the web admin screenshot exactly (no add form — this is a filtered view of existing "New" PT bookings, not a create form). Same `getDetailedSalesReport` source as `PTSalesReport`, filtered to non-blank `trainer_name` + `sale_type === 'New'`. Does **not** auto-load on focus (matches the web admin's default "No Record Found" until Search is pressed — confirmed live this endpoint otherwise returns real rows immediately, the web's empty default is a frontend choice, not a real empty dataset). "PT Package" and "End Date" use the corrected `session_count * quantity` / `+ (package_duration * quantity)` days formulas (see Key API Notes) |
+| NewPTClients | `src/screens/Fitness/NewPTClients/` | **Built 2026-06-29.** Branch (static) + Client Name + Trainer + Time Reservation (New/Renew) filters + Search, paginated. Same source/fixes as `NewPTBookings`. "Time Slot" column is the endpoint's real `trainer_reservation` field (`Pending`/`Reserved`) — confirmed exact match against the web screenshot, not a placeholder. "Time Reservation: New/Renew" mapped to `sale_type` reproduced 9 of ~11 candidate rows exactly for one sampled trainer/window — closest known field, but the precise filter the web applies isn't 100% confirmed |
 
 ### Nutrition (all done)
 | Screen | File | API |
@@ -138,12 +155,7 @@ once logged in, so this shouldn't surface in normal use.
 
 ---
 
-## 🔴 Remaining ComingSoon — 40 screens
-
-### Sales (1)
-| Screen | API Status | Best API |
-|---|---|---|
-| SalesSessionReport | ✅ | `GET /v1/orders-detail/detailed-sales-report` (fix 500 first) |
+## 🔴 Remaining ComingSoon — 26 screens
 
 ### Human Resource (2)
 | Screen | API Status | Best API / Blocker |
@@ -151,12 +163,9 @@ once logged in, so this shouldn't surface in normal use.
 | DetailedHRReport | ⚠️ | Combine multiple endpoints client-side. Fallback sources confirmed live — see Section 5 of `missing-api.md` |
 | AddStaff | ⚠️ | `POST /v1/auth/register` confirmed exists live, 2026-06-24 (no auth token needed) — was previously assumed missing entirely. Minimum required: `branch_id`, `first_name`, `last_name`, `gender`; full field contract unconfirmed and the backend 500s (`trim()` on a `DateTime`) on incomplete-but-plausible payloads, so `registerStaff()` is added but **not** wired to a screen yet — needs backend fix + more careful field-discovery first |
 
-### Finance (9)
+### Finance (6)
 | Screen | API Status | Best API |
 |---|---|---|
-| DailySalesCounter | ✅ | `GET /finance/transactions/get-sales-balance` |
-| CafeSalesExpenseReport | ✅ | `GET /transaction-report-cafe` + `/v1/expenses/get` + `/orders-detail/generate-cafe-total` |
-| BalanceSheet | ✅ | `GET /finance-v2/reports/balance-sheet` |
 | AddCashInHand | ⚠️ | GET confirmed; add endpoint unconfirmed |
 | AddBankCash | ⚠️ | `POST /finance-v2/transactions/transfer` available |
 | DailyExpenseReport | ⚠️ | `GET /v1/expenses/get` — derive totals client-side |
@@ -164,31 +173,23 @@ once logged in, so this shouldn't surface in normal use.
 | Assets | ⚠️ | `GET /finance/asset/get` likely works; write unconfirmed |
 | DailyOfficeClosing | ⚠️ | Combine `/office-cash-flow/*` + `/transactions/sales-counter-balance` |
 
-### Fitness (22)
+### Fitness (12)
 | Screen | API Status | Best API |
 |---|---|---|
-| PTSalesReport | ✅ | `GET /v1/orders-detail/detailed-sales-report` — exists; the 500 was a missing Bearer token, not a missing route |
-| TrainerAppointments | ✅ | `GET /v1/fitness/commission-portal/trainer/roster` (already correct) |
-| SessionAttendance | ✅ | `POST /v1/fitness/commission-portal/trainer/mark` — in `trainer.ts` (already correct) |
-| NewPTBookings | ✅ | `POST /v1/fitness/commission-portal/hr/sessions` — **fixed 2026-06-24**, was missing `/v1/` (same bug as PTAttendance) |
-| NewPTClients | ✅ | `GET /v1/fitness/commission-portal/hr/clients` — requires `trainer_id`; **fixed 2026-06-24**, was missing `/v1/` |
-| GXTrainers | ✅ | `GET /v1/fitness/commission-portal/hr/trainers` — **fixed 2026-06-24**, was missing `/v1/`. Also now wrapped as `getGXTrainers()` |
-| GXBookings | ❌ | `GET /v1/gx/bookings/get` confirmed 404 live, 2026-06-24 — no replacement route found yet |
-| GXAppointments | ❌ | Same as GXBookings — depends on a `gx/bookings` route that doesn't exist |
+| GXAppointments | ❌ | Looks identical to `TrainerAppointments` (weekly Time×Day grid) but confirmed live 2026-06-25 that it is **not** powered by the same `trainer-schedule/index` endpoint — queried it for all 3 confirmed GX trainers (`is_gx_trainer=1`) across both a 1-week and a full-year date range and got an empty `schedule` for 2 of the 3, despite the web admin screenshot showing real "Vitality Studio" bookings for both. `gx-class/index` was also checked and has no time/trainer linkage. Real data source not yet found — needs the web admin's Network tab, not more guessing |
 | SwitchBookingTime | ⚠️ | No single reschedule endpoint (backend "under progress"). Workarounds confirmed live: `PUT /v1/fitness/commission-portal/hr/sessions/{id}` (HR-side), `GET /v1/orders-detail/update-time-slot/{id}/{time_slot_id}`, `POST /v1/fitness/time-slot-switching/store` + `.../process-request/{id}`, `GET /v1/fitness/commission-portal/trainer/taken-slots`, `PUT /v1/fitness/trainer-schedule/update/{id}` |
 | GXAttendance | ⚠️ | Generic session endpoints; not GX-specific |
-| GXAttendanceReport | ✅ | `GET /v1/session-detail-report` — confirmed exists; pass `branch_id` + `start_date`/`end_date`, can be slow on large ranges |
 | BefitList | ⚠️ | `GET /v1/clients/get` filtered |
 | BefitBookings | ⚠️ | Generic sessions endpoint |
 | BefitAppointments | ⚠️ | Generic sessions endpoint |
 | BefitAttendance | ⚠️ | Generic mark endpoint |
-| BefitAttendanceReport | ✅ | `GET /v1/session-detail-report` — confirmed exists (see GXAttendanceReport note) |
 | SPTList | ⚠️ | `GET /v1/clients/get?category=4` |
 | SPTBookings | ⚠️ | Generic sessions endpoint |
 | SPTAppointments | ⚠️ | Generic sessions endpoint |
 | SPTAttendance | ⚠️ | Generic mark endpoint |
-| SPTAttendanceReport | ✅ | `GET /v1/session-detail-report` — confirmed exists (see GXAttendanceReport note) |
 | ManageAvailability | ⚠️ | `src/screens/Fitness/ManageAvailability/` already exists but is a client-side mock only. Likely real backing: `POST /v1/fitness/time-slot-assignment/add` (`branch_id`, `user_id` trainer, `time_slot_id` confirmed required) — contract beyond those 3 fields unconfirmed; do not probe further without capturing the real payload first |
+
+(`GXAttendanceReport`, `SessionAttendance`, `NewPTBookings`, `NewPTClients` — fully done; `BefitAttendanceReport`/`SPTAttendanceReport` — UI done, data source still unconfirmed; see their rows in Implemented Screens above, moved out of this ComingSoon list 2026-06-29.)
 
 (`GXSlotsList`/`GXClasses`, `AddGXClass`, and `AddGXSlots` were in this list as of 2026-06-19 — all three now have real screens, moved to the Fitness row in Implemented Screens above.)
 
@@ -223,6 +224,19 @@ once logged in, so this shouldn't surface in normal use.
 | `/v1/finance/banking-details/add` | Confirmed live 2026-06-25 via empty-body validation + cross-checked against the web admin's "Add Bank Details" form. Required: `branch_id`, `name`, `account_no` — note the input field names (`name`, `account_no`) differ from the GET response's `bank_name`/`account_no` (the GET echoes `name` back as `bank_name`). `account_title` is shown as required in the web UI but the validator didn't flag it as required. |
 | `/v1/fitness/commission-portal/trainer/history` | Confirmed live 2026-06-25 to be **self-scoped only** — calling it with an admin token and any `trainer_id` param still returns `"No record found"` (the doc comment "5.5 — My Session History" was the clue missed earlier). Not usable for an HR-side "view any trainer's diary" screen; use `hr/sessions` with a `trainer_id` filter instead (see `getHRSessions`). |
 | `/v1/fitness/commission-portal/hr/sessions` | Already used via raw `api.get` in `PTAttendance` (list/create/update/delete), but `start_date`/`end_date` filters were never tried there. Confirmed live 2026-06-25 that they work. Shape per row: `{id, date, day, staff_status, client_status, staff_note, client_note, type, order_id, client_name, client_id, trainer_name, trainer_id, package_name, package_type, package_start_date, package_end_date, branch_name}`. |
+| `/v1/hr/promotion/store` | Confirmed live 2026-06-25 via an empty-body 422: required `branch_id`, `user_id` (**not** `employee_id`, despite the GET response's field being named `employee_id`), `date`, `promotion_type`. A follow-up probe sending only those 4 fields (still safe — no department/designation/salary) attempted a real INSERT for all 4 promotion_type values (`Department`/`Position`/`Salary`/`All`) and failed every time with a foreign-key violation on `previous_department` — so the DB requires a valid department id even for Salary-only promotions, confirming the web form silently carries the staff's current department/designation/salary even when those fields aren't shown for that promotion type. `addPromotion`'s exact field names beyond the confirmed 4 (`previous_department`/`new_department`/etc.) are an educated guess matching the failed INSERT's own column name, not confirmed — gated off in `StaffPromotion`. |
+| `/v1/finance-v2/reports/balance-sheet`, `/v1/finance-v2/reports/profit-and-loss` | Confirmed live 2026-06-25 — both return real, structurally-correct-but-empty responses (`{assets:[], liabilities:[], ...}` / `{income_lines:[], expense_lines:[], ...}`) because Finance V2 isn't set up for this branch. **Not** what powers the web admin's "Balance Sheet" page (see `getSalesExpenseDaily` below). |
+| `/v1/finance/transactions/get-sales-and-expense-by-category` | Already wired (`getSalesExpenseDaily` in `reports.ts`) but newly discovered to be the real engine behind the web admin's "Balance Sheet" page (an Income Statement, not a true balance sheet). Shape: `{sales:[{category, Type: "New"\|"Renew"\|"Mix", total_quantity, total_price}], expenses:[{category: "<name>", total_quantity, total_price}]}` — `category` in `sales` is the Category Code Reference (§5); `Type` distinguishes New vs. Existing within a category (e.g. category `1` + `New` = "Gym-New", + `Renew` = "Gym-Existing"). |
+| `/v1/finance/transactions/fetch-sales-by-category-and-payment` | Confirmed live 2026-06-25 (needed `/v1/`). Shape: `{"<category_code>": [{Cash}, {Cheque}, {"Credit Card"}, {Online}, {"Cafe Assistant"}, {Deposit}, {Postpaid}, {"Salary Deduction"}]}` — powers Daily Sales Counter's per-category payment-method breakdown cards. |
+| `/v1/finance/transactions/get-sales-balance` | Confirmed live 2026-06-25 (needed `/v1/`). Only returns `{balance: <total>}` — a single number, not the rich report the "Daily Sales Counter" web page shows (that's built from `get-sales-by-service-category` + `get-sales-and-expense-by-category` + `fetch-sales-by-category-and-payment` instead). |
+| `/v1/expense/get` | **Singular** `expense`, not `expenses` — `/v1/expenses/get` 404s. Already wired as `getExpensesList` in `employeeDashboard.ts`. Records include `category_name`/`sub_category_name` — filtering client-side to `category_name === 'Cafe Expense'` is how `CafeSalesExpenseReport` derives its itemized expense list. |
+| `/v1/orders-detail/detailed-sales-report` | Already wired (`getDetailedSalesReport` in `reports.ts`). Confirmed live 2026-06-25: returns ~1600 rows/month **across every package category**, not just PT — `PTSalesReport` filters client-side to rows with a non-blank `trainer_name`. No explicit end-date field; the web UI's "End Date" column is `sale_date + package_duration` months (verified matches the sampled rows exactly). |
+| Web admin "Session Report" (Sales) | Looks like a sales report by its drawer label but is actually a session-attendance CRUD screen, functionally identical to `PTAttendance` — confirmed via web admin screenshot. Don't assume drawer labels describe the underlying data; check a screenshot before guessing an API for anything with "Report" in the name. |
+| `/v1/fitness/trainer-schedule/index` | New discovery, 2026-06-25 — powers the web admin's "Trainer Appointments" weekly grid. `trainer_id` param appears to be ignored (always returns every trainer); `start_date`/`end_date` are required for `schedule` to populate (omitted → every slot returns `schedule: []` even for trainers with real bookings). Shape confirmed exactly against a screenshot. **Does not cover GX class schedules** — confirmed live that 2 of the 3 `is_gx_trainer=1` staff return empty schedules here across both a 1-week and full-year range despite having visible GX bookings in the web UI, so GX appointments come from a different, not-yet-found source. |
+| `is_gx_trainer` (staff field, `/v1/auth/get`) | Confirmed live 2026-06-25 — this is what the web admin's "GX Trainers" list actually filters on (3 of 90 staff on branch 15), not a separate GX-trainers endpoint. No confirmed write path yet — `/v1/auth/update/{id}`'s documented fields don't include it. |
+| `/v1/orders-detail/detailed-sales-report` — GX rows (`category: "15"`) | `package_duration` is in **days** for GX packages (e.g. `28` → +28 days), unlike PT-category rows where it's in **months** (e.g. `1` → +1 month). Both confirmed live against the web UI's exact End Date values for their respective categories — don't assume one unit applies to every category. |
+| `/v1/session-detail-report` | Confirmed live 2026-06-29 to be the **wrong** endpoint for attendance reports despite returning 200 — actual shape is `{PaymentType: [[{category, tax, name, payment_method_id, receiving_date}, ...], ...]}`, a payment-method breakdown, not session/attendance rows. Don't reuse this for any future "Attendance Report" screen. |
+| `/v1/fitness/commission-portal/hr/sessions` — `type` field | Confirmed live 2026-06-29 by paging through **26k+ rows on branch 15 (F11) and 11k+ on branch 1 (G13)**: the only `type` values that ever appear are `'GX'` and `'PT'` (plus a handful of legacy rows with `type: ''` that are still GX by package_type/package_name). **No `'Befit'` or `'SPT'` rows exist anywhere in this table on either branch.** `package_type` is not a reliable category discriminator either — both GX and PT rows use `package_type: '2'` (GX class packages specifically use `'15'`). Befit/SPT attendance must come from a different, not-yet-found endpoint — capture it from the web admin's Network tab rather than guessing further. Pagination: this endpoint paginates server-side (web admin shows 25/page); use `getHRSessionsAll` (loops every page) instead of a single large `limit`. |
 
 ---
 
@@ -330,18 +344,26 @@ production.
 | `getBankDetails` | `GET /v1/finance/banking-details/get` (fixed 2026-06-25, was `/finance/banking-details` — missing `/v1/` and `/get`) | BankDetails |
 | `addBankDetail` | `POST /v1/finance/banking-details/add` (fixed 2026-06-25; payload fields corrected to `name`/`account_no` matching the real validator, not `bank_name`/`account_number`) | BankDetails (wired, submission disabled) |
 | `getHRSessions` | `GET /v1/fitness/commission-portal/hr/sessions` (added 2026-06-25 — wraps a route already used raw in `PTAttendance`; confirmed `start_date`/`end_date` filters work) | TrainerDiary |
+| `getHRSessionsAll` | Same endpoint as `getHRSessions`, but loops through every page instead of trusting one `limit` (added 2026-06-29 — the endpoint paginates server-side and a wide date range across all trainers can exceed any single-page guess) | GXAttendanceReport, BefitAttendanceReport, SPTAttendanceReport |
 
 ---
 
 ## Recommended Next Screens (by priority)
 
-**Quick wins — ✅ API ready:**
-1. `StaffPromotion` (add form) — `addPromotion` ready, payload fields unconfirmed (probe carefully, see Known API Notes)
+**Quick wins:** none currently identified — the last batch (`SessionAttendance`, `NewPTBookings`, `NewPTClients`) was finished 2026-06-29 (see below). Remaining Fitness ComingSoon screens (`GXAppointments`, `BefitList`/`Bookings`/`Appointments`/`Attendance`, `SPTList`/`Bookings`/`Appointments`/`Attendance`, `SwitchBookingTime`, `ManageAvailability`) all need real field-discovery before building — see the Fitness ComingSoon table above.
+
+**Done 2026-06-29:**
+- `GXAttendanceReport` (built and confirmed live, see Fitness row in Implemented Screens) — replaced the doc's previous wrong "Best API" guess (`session-detail-report`, actually a payment-breakdown report) with `hr/sessions` filtered to `type === 'GX'`
+- `BefitAttendanceReport`, `SPTAttendanceReport` — UI built (identical layout to `GXAttendanceReport`, matches the web admin screenshots), but the `type === 'Befit'`/`'SPT'` filter is an **unconfirmed guess** — `hr/sessions` was checked across 26k+ rows on two branches and never produced either value. Will likely show empty until the real endpoint is found
+- Added pagination (25/page, matching the web admin's page-number footer) to all three Attendance Report screens, replacing an earlier "fetch everything into one scroll" approach
+- `SessionAttendance` — confirmed by the user to be the same screen as Sales → Session Report; `Stack.Screen` now points it at the existing `SalesSessionReport` component instead of `ComingSoon`
+- `NewPTBookings`, `NewPTClients` (built, see Fitness rows in Implemented Screens) — both use `getDetailedSalesReport`, the same source as `PTSalesReport`. Found and fixed two calculation bugs in the process by diffing raw API rows against web screenshots: "PT Package" is `session_count * quantity` (not `session_count` alone), and "End Date" is `sale_date + (package_duration * quantity)` **days**, not months — `PTSalesReport` likely has the same End Date bug for any `quantity > 1` row (not fixed there yet, flagged in its row above). Also stopped both new screens from auto-loading on focus, matching the web admin's default empty state until "Search" is pressed
 
 **Done 2026-06-25:**
 - `LetterManagement` (built, see HR row in Implemented Screens), `ResourceManager` (built, see HR row in Implemented Screens) — both wired to drawer + stack, replacing their `ComingSoon` placeholders
 - `TrainerDiary` (built, see Fitness row in Implemented Screens) — wired to drawer + stack, replacing its `ComingSoon` placeholder
 - `ViewBankLedger`, `BankDetails` — these already had real screens built (pre-existing, untracked by this doc), but their GET calls were silently 404ing the whole time (missing `/v1/`, plus `BankDetails` was hitting the wrong path entirely). Both fixed — see their rows in Implemented Screens
+- `StaffPromotion` (built, gated submission), `BalanceSheet`, `DailySalesCounter`, `CafeSalesExpenseReport`, `SalesSessionReport`, `PTSalesReport` — see their rows in Implemented Screens for details, including two cases (`BalanceSheet`, `SalesSessionReport`) where the screen's actual web-admin behavior turned out to be completely different from this doc's previous "Best API" guess
 
 **Done 2026-06-24 (see Fitness row in Implemented Screens for details):**
 - `AddGXClass` (built), `AddGXSlots` (UI built, submission gated), `TimeSlots` (wired to real APIs), `GXClasses`/`GXSlotsList` (drawer route fixed), `PTRoster` (discovered already working)

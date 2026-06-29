@@ -3,6 +3,7 @@
 export const ROLES = {
   ADMIN: '3',
   TRAINER: '9',    // Personal Trainer
+  HR: '12',        // HR Department — confirmed live 2026-06-29 via app-login
 };
 
 
@@ -57,5 +58,30 @@ export const ADMIN_HIDDEN_MENUS = [
 
 export const isAdmin = (role?: string | null) => role === ROLES.ADMIN;
 export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
+export const isHR = (role?: string | null) => role === ROLES.HR;
 
 export const hasFullAccess = (role?: string | null) => isAdmin(role);
+
+// HR-role drawer sections — confirmed live 2026-06-29 against the web
+// admin's HR-login menu (Employee Dashboard, Announcements, Human
+// Resource). The RN drawer's existing 'Human Resource' section already
+// matches the web's HR submenu item-for-item; 'Announcements' has no
+// dedicated screen in this app yet and maps to the shared 'Notifications'
+// entry instead.
+export const HR_ALLOWED_MENUS = ['Dashboard', 'Human Resource', 'Notifications'];
+
+// Stack screen names HR users are allowed to navigate to — every screen
+// under the drawer's 'Human Resource' section, plus the always-allowed
+// shared ones. Before this list existed, HR (role '12') wasn't recognized
+// by `isAdmin`, so `protect()` showed <AccessDenied/> on every one of
+// these screens.
+export const HR_ALLOWED_SCREENS = [
+  'Drawer', 'Dashboard', 'Notifications', 'Account',
+  'HRDashboard', 'DetailedHRReport',
+  'ViewStaff', 'AddStaff', 'StaffPromotion', 'StaffFinance', 'StaffAdvances',
+  'SalaryComponent', 'StaffLoans', 'SalaryManagement', 'StaffCommissions',
+  'SessionPortalHR', 'StaffDutyHours', 'EmployeeAttendance', 'PTAttendance',
+  'LeaveQuota', 'LeaveApplications',
+  'LetterManagement',
+  'ResourceManager',
+];
