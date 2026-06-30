@@ -694,6 +694,40 @@ export const getCashInHand = async (params: {
   return res.data;
 };
 
+// Confirmed live 2026-06-30 via a captured HAR of the web admin's "Daily
+// Expense Report" page — single endpoint, all branches in one call. Each
+// `data[]` row is one saved daily-entry record (cash snapshot may be null on
+// rows added as a follow-up expense entry against an existing date/branch,
+// not a new snapshot); `items[]` are that record's individual expense lines
+// with payment/approval fields (paid_amount, is_paid, approved_amount,
+// is_approved). No write (add/update/pay/approve/delete) calls were
+// observed in the capture — do not assume routes for those without
+// confirming them the same way.
+export const getVostroExpenseReport = async (params: { date: string }) => {
+  const res = await api.get('/v1/finance/vostro-expense/report', { params });
+  return res.data;
+};
+
+// Confirmed live 2026-06-30 via a captured HAR of the web admin's "Paid
+// Expense Report" page. The two category params are sent as fixed string
+// literals by the web app on every call (not user-configurable in the UI) —
+// reproduced verbatim, including the inconsistent underscore/hyphen
+// (`cash_from_bank` vs `cash_in-hand`). Response is per-branch summary
+// numbers only (cash_from_bank, cash_in_hand, total_cash, total_expense,
+// balance_cash_in_safe, total_bank_payment) — `branch_name` came back null
+// in the capture, and `cash_expenses`/`bank_expenses` were empty arrays
+// (item shape unconfirmed), so this screen doesn't attempt to render them.
+export const getPaidExpenseReport = async (params: { date: string }) => {
+  const res = await api.get('/v1/expense/paid-report', {
+    params: {
+      date: params.date,
+      cash_from_bank_category: 'cash_from_bank',
+      cash_in_hand_category: 'cash_in-hand',
+    },
+  });
+  return res.data;
+};
+
 export const addCashInHandEntry = async (payload: {
   branch_id: number;
   date: string;
@@ -1157,6 +1191,94 @@ export const getTrainerSchedule = async (params: {
   end_date: string;
 }) => {
   const res = await api.get('/v1/fitness/trainer-schedule/index', { params });
+  return res.data;
+};
+
+// Confirmed live 2026-06-30 via a captured HAR of the web admin's "GX
+// Appointments" page. PROJECT_STATUS.md previously ruled out the plain
+// `trainer-schedule/index` endpoint for GX (empty schedules for real GX
+// trainers) — this `-gx` suffixed sibling is the actual route, same weekly
+// Time×Day grid shape as `getTrainerSchedule`, but paginated **by trainer**
+// server-side (web defaults to 25/page) rather than returning every trainer
+// in one call. `user_id` filters to a single trainer when set.
+export const getGXAppointments = async (params: {
+  branch_id: number;
+  user_id?: number;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/fitness/trainer-schedule/index-gx', { params });
+  return res.data;
+};
+
+// Trainer dropdown for the GX Appointments page — confirmed live 2026-06-30,
+// same capture. Shape: {status, data:[{id, first_name, last_name, branch_id,
+// designation}], message}. `designation_id=1` + `is_gx_trainer=1` are sent
+// as fixed query params by the web app (not user-configurable).
+export const getGXAppointmentTrainers = async (params: { branch_id: number }) => {
+  const res = await api.get('/v1/auth/get-name', {
+    params: { ...params, designation_id: 1, is_gx_trainer: 1 },
+  });
+  return res.data;
+};
+
+// Confirmed live 2026-06-30 via a captured HAR of the web admin's "New
+// Befit Clients" (Befit List) page. `category=16` + `status=1` are sent as
+// fixed params by the web app — 16 isn't in API_REFERENCE.md's documented
+// Category Code Reference (1-15), so this is the first confirmation Befit's
+// code is 16. `trainer_reservation` takes `''` (All) / `Pending` / `Reserved`
+// (all three confirmed live). Every call in the capture 404'd with the
+// standard `{status:false, message:"No record found"}` empty-result shape
+// (genuinely no Befit data on this branch yet, not a broken route) — no
+// non-empty response was ever captured, so the row shape below is inferred
+// from the table's column headers, not confirmed. Re-verify field names
+// against a real row once Befit data exists.
+export const getBefitClients = async (params: {
+  branch_id: number;
+  page?: number;
+  limit?: number;
+  trainer_id?: number;
+  trainer_reservation?: string;
+  client_id?: number;
+}) => {
+  const res = await api.get('/v1/orders-detail/list-trainer-packages', {
+    params: { ...params, category: 16, status: 1 },
+  });
+  return res.data;
+};
+
+// Confirmed live 2026-06-30 via a captured HAR of the web admin's "New
+// Befit Bookings" page. Despite living under `trainer-schedule/`, this is
+// NOT the weekly Time×Day grid shape `getTrainerSchedule`/`getGXAppointments`
+// return — confirmed from the web UI screenshot it's a flat row table (Sr#,
+// Branch Name, Trainer Name, Customer Name, Package Name, PT Package, Start
+// Date, End Date, Action), paginated by row. `type=Befit` is a fixed param
+// (the same route presumably also takes `type=SPT`, unconfirmed). Every
+// captured call 404'd with the standard empty-result shape — no non-empty
+// response was captured, so row field names are inferred from the column
+// headers, not confirmed.
+export const getBefitBookings = async (params: {
+  branch_id: number;
+  user_id?: number;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/fitness/trainer-schedule/new-appointments', {
+    params: { ...params, type: 'Befit' },
+  });
+  return res.data;
+};
+
+// Trainer dropdown for Befit Bookings — confirmed live 2026-06-30, same
+// capture. Unlike GX Appointments' dropdown, `is_gx_trainer` is sent empty
+// (not `1`) — returns every Personal Trainer (`designation_id=1`), not just
+// GX-flagged ones.
+export const getBefitBookingTrainers = async (params: { branch_id: number }) => {
+  const res = await api.get('/v1/auth/get-name', {
+    params: { ...params, designation_id: 1, is_gx_trainer: '' },
+  });
   return res.data;
 };
 

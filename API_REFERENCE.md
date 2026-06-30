@@ -42,6 +42,23 @@ a sign the route is missing.
 The **"In App"** column marks whether the endpoint is already called
 somewhere in `src/api/*.ts`. `—` means not wired yet.
 
+### Role codes
+
+The login response's `user.role` is a numeric string, not a name. Confirmed
+live 2026-06-29 (`/v1/auth/app-login`) for the three roles this app
+distinguishes between in `src/config/permissions.ts`:
+
+| `role` value | Meaning | Recognized as of |
+|---|---|---|
+| `"3"` | Admin (full access) | always |
+| `"9"` | Personal Trainer | always |
+| `"12"` | HR Department | 2026-06-29 — previously unrecognized, meaning every `protect()`-wrapped screen showed `<AccessDenied/>` for HR logins. Fixed via `ROLES.HR`, `HR_ALLOWED_SCREENS`, `HR_ALLOWED_MENUS` |
+
+Any other `role` value (or a blank one, e.g. a brand-new staff record) falls
+through to the generic "Trainer / Employee" branch in both
+`DrawerContent.tsx` and `BottomTabNavigation`'s role checks — it is **not**
+treated as admin and is **not** treated as HR.
+
 ---
 
 ## 1. Authentication
@@ -53,7 +70,7 @@ somewhere in `src/api/*.ts`. `—` means not wired yet.
 | POST | `/auth/refresh` | Refresh JWT token | — |
 | POST | `/auth/logout` | Invalidate session | — |
 | GET | `/auth/user-profile` | Current logged-in user | — |
-| GET | `/auth/get` | All-staff list (paginated). This is the real "staff list" endpoint — `/staff/get` does not exist and will not be added (confirmed live 2026-06-24) | ✅ `employeeDashboard.ts` (`getStaffList`) |
+| GET | `/auth/get` | All-staff list (paginated). This is the real "staff list" endpoint — `/staff/get` does not exist and will not be added (confirmed live 2026-06-24). Params confirmed live 2026-06-29 from the web admin's "View Staff" page HAR capture: `branch_id`, `status` (1/0), `department_id`, `gender` are real server-side filters; the page's "Select Designation" filter is **not** a server param — applied client-side on already-fetched rows. `branch_id` is optional — omitting it (as the web does by default) returns all branches | ✅ `employeeDashboard.ts` (`getStaffList`) |
 | GET | `/auth/get/{id}` | Staff profile by ID (employee profile card). Returns `{status, data:[record]}` — single-element array | ✅ `employeeDashboard.ts` (`getStaffDetail`) |
 | POST | `/auth/update/{id}` | Update staff profile (multipart: cnic, email, phone, address, password, file, image_upload_from) | — |
 | POST | `/auth/register` | Create staff (Add Staff). No auth token required. Confirmed live 2026-06-24: minimum required `branch_id`, `first_name`, `last_name`, `gender`; full contract unconfirmed — backend 500s (`trim()` on a `DateTime`) on incomplete-but-plausible payloads | ✅ `employeeDashboard.ts` (`registerStaff`, not wired to a screen yet) |
@@ -137,7 +154,7 @@ somewhere in `src/api/*.ts`. `—` means not wired yet.
 | Method | Endpoint | Purpose | In App |
 |--------|----------|---------|--------|
 | GET | `/related_things/get-names-list-new` | Payment methods/categories by type | — |
-| GET | `/related_things/get-names-list` | Legacy name list | ✅ `employeeDashboard.ts` (`getExpensePaymentMethods`) |
+| GET | `/related_things/get-names-list` | Legacy name list. Also confirmed live 2026-06-29 (View Staff page HAR) to support `type=Department`/`type=Designations`, returning a flat `{id, name}` array — distinct from `/related_things/get`'s fuller paginated records | ✅ `employeeDashboard.ts` (`getExpensePaymentMethods`, `getDepartmentNames`, `getDesignationNames`) |
 | GET | `/related_things/get` | Full list (paginated), supports `type` filter. Confirmed live 2026-06-24 — previously assumed only the two `get-names-list*` variants existed. Shape: `{id, name, department_id, department, description, type, status}`. **`type` values confirmed live 2026-06-25** (read-only GET, no filter, inspected distinct values): `Department` (singular), `Designations` (plural — not "Designation"), plus unrelated existing types `Cafe`/`PaymentMethod`/`TrainerPackageType`. `Designations` rows have a non-null `department_id`/`department` (the parent); `Department` rows have both null | ✅ `employeeDashboard.ts` (`getRelatedThings`), `ResourceManager` |
 | POST | `/related_things/add` | Create a record. `type` must be exactly `Department` or `Designations`; `Designations` requires `department_id` | ✅ `employeeDashboard.ts` (`addRelatedThing`), `ResourceManager` |
 | PUT | `/related_things/update/{id}` | Update a record | ✅ `employeeDashboard.ts` (`updateRelatedThing`), `ResourceManager` |
@@ -396,6 +413,7 @@ CRUD pattern: `POST .../add`, `GET .../get`, `PUT .../update/{id}`, `PUT .../del
 | GET | `/v1/MISReport/get?bId={branch_id}` | Super-admin dashboard: today's sales/attendance/footfall by category (Gym, PT, GX, Nutrition, Cafe, Physio, CFT) + month-to-date | — |
 | GET | `/v1/search-history/get?branch_id={id}` | Today's front-desk search history (no auth) | — |
 | GET | `/v1/branches/get` | Branch list (for selectors) | — |
+| GET | `/v1/branches/branches-name-list?status=1` | Flat `{id, name}` branch list. Confirmed live 2026-06-29 from the "View Staff" page HAR — powers its Branch filter dropdown | ✅ `employeeDashboard.ts` (`getBranchesNameList`) |
 | GET | `/v1/announcements/index` | Active announcements | ✅ `employeeDashboard.ts` |
 | GET | `/v1/summary` | Generic summary | ✅ `dashboard.ts` |
 

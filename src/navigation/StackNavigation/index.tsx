@@ -126,6 +126,12 @@ import BankDetails from '../../screens/Finance/BankDetails';
 import BalanceSheet from '../../screens/Finance/BalanceSheet';
 import DailySalesCounter from '../../screens/Finance/DailySalesCounter';
 import CafeSalesExpenseReport from '../../screens/Finance/CafeSalesExpenseReport';
+import DailyExpenseReport from '../../screens/Finance/DailyExpenseReport';
+import PaidExpenseReport from '../../screens/Finance/PaidExpenseReport';
+import GXAppointments from '../../screens/Fitness/GXAppointments';
+import BefitList from '../../screens/Fitness/BefitList';
+import BefitBookings from '../../screens/Fitness/BefitBookings';
+import BefitAppointments from '../../screens/Fitness/BefitAppointments';
 import GXClasses from '../../screens/Fitness/GXClasses';
 import AddGXClass from '../../screens/Fitness/AddGXClass';
 import AddGXSlots from '../../screens/Fitness/AddGXSlots';
@@ -374,8 +380,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="Expenses" component={protect(Expenses)} />
                 <Stack.Screen name="AddExpense" component={protect(AddExpense)} />
                 <Stack.Screen name="DailyExpense" component={protect(DailyExpense)} />
-                <Stack.Screen name="DailyExpenseReport" component={protect(ComingSoon)} />
-                <Stack.Screen name="PaidExpenseReport" component={protect(ComingSoon)} />
+                <Stack.Screen name="DailyExpenseReport" component={protect(DailyExpenseReport)} />
+                <Stack.Screen name="PaidExpenseReport" component={protect(PaidExpenseReport)} />
                 <Stack.Screen name="AddCashInHand" component={protect(ComingSoon)} />
                 <Stack.Screen name="ViewCashInHand" component={protect(ViewCashInHand)} />
                 <Stack.Screen name="AddCharity" component={protect(AddCharity)} />
@@ -416,12 +422,12 @@ const AppNavigator = () => {
                 <Stack.Screen name="GXTrainers" component={protect(GXTrainers)} />
                 <Stack.Screen name="GXSlotsList" component={protect(GXClasses)} />
                 <Stack.Screen name="GXBookings" component={protect(GXBookings)} />
-                <Stack.Screen name="GXAppointments" component={protect(ComingSoon)} />
+                <Stack.Screen name="GXAppointments" component={protect(GXAppointments)} />
                 <Stack.Screen name="GXAttendance" component={protect(ComingSoon)} />
                 <Stack.Screen name="GXAttendanceReport" component={protect(GXAttendanceReport)} />
-                <Stack.Screen name="BefitList" component={protect(ComingSoon)} />
-                <Stack.Screen name="BefitBookings" component={protect(ComingSoon)} />
-                <Stack.Screen name="BefitAppointments" component={protect(ComingSoon)} />
+                <Stack.Screen name="BefitList" component={protect(BefitList)} />
+                <Stack.Screen name="BefitBookings" component={protect(BefitBookings)} />
+                <Stack.Screen name="BefitAppointments" component={protect(BefitAppointments)} />
                 <Stack.Screen name="BefitAttendance" component={protect(ComingSoon)} />
                 <Stack.Screen name="BefitAttendanceReport" component={protect(BefitAttendanceReport)} />
                 <Stack.Screen name="SPTList" component={protect(ComingSoon)} />
