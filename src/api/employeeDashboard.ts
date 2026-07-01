@@ -1213,6 +1213,29 @@ export const getGXAppointments = async (params: {
   return res.data;
 };
 
+// Confirmed live 2026-07-01 via HAR of web admin's "SPT Appointments" page.
+// Same Time×Day grid shape as `getGXAppointments` but on the `index-small-pt`
+// endpoint. Trainer dropdown uses `is_gx_trainer=` (empty — all PTs, not just
+// GX-flagged), unlike GX Appointments which sends `is_gx_trainer=1`.
+export const getSPTAppointments = async (params: {
+  branch_id: number;
+  user_id?: number;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/fitness/trainer-schedule/index-small-pt', { params });
+  return res.data;
+};
+
+export const getSPTAppointmentTrainers = async (params: { branch_id: number }) => {
+  const res = await api.get('/v1/auth/get-name', {
+    params: { ...params, designation_id: 1, is_gx_trainer: '' },
+  });
+  return res.data;
+};
+
 // Trainer dropdown for the GX Appointments page — confirmed live 2026-06-30,
 // same capture. Shape: {status, data:[{id, first_name, last_name, branch_id,
 // designation}], message}. `designation_id=1` + `is_gx_trainer=1` are sent
@@ -1279,6 +1302,60 @@ export const getBefitBookingTrainers = async (params: { branch_id: number }) => 
   const res = await api.get('/v1/auth/get-name', {
     params: { ...params, designation_id: 1, is_gx_trainer: '' },
   });
+  return res.data;
+};
+
+// ── Befit Attendance ─────────────────────────────────────────────────────────
+// Confirmed live 2026-07-01 via HAR of web admin's "Befit Attendance" page.
+// Trainer list uses /v1/auth/fetch-name-list/{branch_id}?category=mix (note:
+// different from get-name). Package list per trainer uses
+// /v1/fitness/trainer-schedule/fetch-befit/{trainer_id}?category=16.
+// GET attendance uses /v1/fitness/session-attendance/get with type=Befit,
+// status=0 (Active) or status=1 (Inactive).
+// POST endpoint is NOT CONFIRMED — inferred as /v1/fitness/session-attendance/store
+// from the Laravel REST convention; gate the Add button until confirmed live.
+
+export const getBefitAttendanceTrainers = async (branchId: number) => {
+  const res = await api.get(`/v1/auth/fetch-name-list/${branchId}`, {
+    params: { category: 'mix' },
+  });
+  return res.data;
+};
+
+export const getBefitTrainerPackages = async (trainerId: number) => {
+  const res = await api.get(`/v1/fitness/trainer-schedule/fetch-befit/${trainerId}`, {
+    params: { category: 16 },
+  });
+  return res.data;
+};
+
+export const getBefitAttendance = async (params: {
+  branch_id: number;
+  status: 0 | 1;
+  page?: number;
+  limit?: number;
+  trainer_id?: number;
+  package_id?: number;
+}) => {
+  const res = await api.get('/v1/fitness/session-attendance/get', {
+    params: { ...params, type: 'Befit' },
+  });
+  return res.data;
+};
+
+// NOT CONFIRMED — endpoint inferred from REST convention; do not call until
+// confirmed live from the web admin's Network tab on a successful Add submit.
+export const addBefitAttendance = async (payload: {
+  branch_id: number;
+  user_id: number;
+  package_id: number;
+  time: string;
+  trainer_attendance: string;
+  client_attendance: string;
+  date: string;
+  type: 'Befit';
+}) => {
+  const res = await api.post('/v1/fitness/session-attendance/store', payload);
   return res.data;
 };
 
@@ -1377,6 +1454,127 @@ export const getHRSessionsAll = async (params: {
   return rows;
 };
 
+// ── SPT Attendance ────────────────────────────────────────────────────────────
+// Confirmed live 2026-07-01 via HAR of web admin's "SPT Attendance" page.
+// Main data: GET /v1/packages/gx?category=4 — returns packages with
+//   order_details (booked clients) and time_slot arrays.
+//   Row shape: { id, name, trainer_id, trainer_name, branch_name, start_time,
+//   end_time, session_count, order_details: [], time_slot: [] }
+// Trainers: GET /v1/auth/get-name?designation_id=1&is_gx_trainer= (all PTs)
+// Packages per trainer: GET /v1/packages/names-list?category=4&status=1&user_id=
+// Mark Attendance POST: NOT CONFIRMED — not captured in HAR (no bookings exist).
+
+// GX Attendance — confirmed live 2026-07-01 via HAR. Uses same /v1/packages/gx
+// endpoint as SPTAttendance but without a category filter (category param is
+// empty). Trainers use is_gx_trainer=1; slots use category=15 (getSPTSlots).
+export const getGXAttendancePackages = async (params: {
+  branch_id: number;
+  trainer_id?: number | string;
+  package_id?: number | string;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/packages/gx', { params });
+  return res.data;
+};
+
+export const getSPTAttendancePackages = async (params: {
+  branch_id: number;
+  trainer_id?: number | string;
+  package_id?: number | string;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/packages/gx', {
+    params: { ...params, category: 4 },
+  });
+  return res.data;
+};
+
+export const getSPTAttendancePackageNames = async (params: {
+  branch_id: number;
+  user_id?: number | string;
+}) => {
+  const res = await api.get('/v1/packages/names-list', {
+    params: { ...params, category: 4, status: 1 },
+  });
+  return res.data;
+};
+
+// ── SPT Classes (packages, category 4) ───────────────────────────────────────
+// Confirmed live 2026-07-01 via HAR of web admin's "SPT List" page.
+// `key=category&value=4` filters to Small Group PT packages.
+// Row shape: { id, branch_id, branches_name, package_name, user_id,
+//   user_first_name, user_last_name, price, duration, category, status,
+//   session_count, start_time, end_time, time_slot: [], classes: [] }
+// time_slot=[] means no slot assigned (shows "Pending" in red).
+// classes=[] means no days assigned (shows "Pending" in red).
+// Delete endpoint: NOT CONFIRMED — inferred as PUT /v1/packages/delete/{id}
+// from the REST convention used elsewhere in this codebase.
+
+export const getSPTPackages = async (params: {
+  branch_id: number;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/packages/get', {
+    params: { ...params, key: 'category', value: 4 },
+  });
+  return res.data;
+};
+
+// NOT CONFIRMED — inferred from REST convention.
+export const deleteSPTPackage = async (id: number) => {
+  const res = await api.put(`/v1/packages/delete/${id}`, {});
+  return res.data;
+};
+
+// ── SPT Bookings ──────────────────────────────────────────────────────────────
+// Confirmed live 2026-07-01 via HAR of web admin's "SPT Bookings" page.
+// Trainers dropdown: GET /v1/auth/get-name?designation_id=1&is_gx_trainer=1
+//   (same filter as GX; only GX-flagged PTs appear in SPT Bookings)
+// Slots dropdown per trainer: GET /v1/packages/names-list?category=15&status=1
+//   (category 15 = GX Slot packages, not category 4; this is how the web admin
+//   works — SPT bookings reference GX-style time slots)
+// Clients search: GET /v1/clients/client-name?branch_id= (no branch filter)
+// Bookings list: GET /v1/orders-detail/training-indexing?category=4&status=1
+//   All calls returned "No record found" (no SPT data on this branch yet),
+//   so row field names are inferred from column headers — re-verify once real
+//   rows exist.
+
+export const getSPTBookingTrainers = async (params: { branch_id: number }) => {
+  const res = await api.get('/v1/auth/get-name', {
+    params: { ...params, designation_id: 1, is_gx_trainer: 1 },
+  });
+  return res.data;
+};
+
+export const getSPTSlots = async (params: { branch_id: number; user_id?: number }) => {
+  const res = await api.get('/v1/packages/names-list', {
+    params: { ...params, category: 15, status: 1 },
+  });
+  return res.data;
+};
+
+export const getClientNames = async (params: { branch_id?: number }) => {
+  const res = await api.get('/v1/clients/client-name', { params });
+  return res.data;
+};
+
+export const getSPTBookings = async (params: {
+  branch_id: number;
+  page?: number;
+  limit?: number;
+  user_id?: number | string;
+  package_id?: number | string;
+  client_id?: number | string;
+}) => {
+  const res = await api.get('/v1/orders-detail/training-indexing', {
+    params: { ...params, status: 1, category: 4 },
+  });
+  return res.data;
+};
+
 // ── GX Slot (package, category 15) ───────────────────────────────────────────
 // NOT confirmed safe — see PROJECT_STATUS.md "2026-06-24 — repeat incident".
 // `POST /v1/packages/add` accepted a minimal payload (branch_id, package_name,
@@ -1443,6 +1641,170 @@ export const deleteRelatedThing = async (id: number) => {
 
 export const setRelatedThingStatus = async (id: number, active: boolean) => {
   const res = await api.put(`/v1/related_things/${active ? 'active' : 'inactive'}/${id}`, {});
+  return res.data;
+};
+
+// ── Switch Booking Time ───────────────────────────────────────────────────────
+// Confirmed live 2026-07-01 via HAR — GET index endpoint verified.
+// Form POST endpoint and "Available Bookings" / "Available Time Slots" dropdowns
+// were NOT captured (user never submitted the form).
+export const getSwitchedTimeSlots = async (params: {
+  branch_id: number;
+  trainer_id?: number | string;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/fitness/time-slot-switching/index', { params });
+  return res.data;
+};
+
+export const deleteSwitchedTimeSlot = async (id: number) => {
+  const res = await api.put(`/v1/fitness/time-slot-switching/delete/${id}`, {}); // NOT CONFIRMED
+  return res.data;
+};
+
+export const addSwitchedTimeSlot = async (payload: {
+  branch_id: number;
+  trainer_id?: number;
+  schedule_id?: number;
+  new_time_slot_id?: number;
+  start_date: string;
+  end_date: string;
+  reason?: string;
+}) => {
+  const res = await api.post('/v1/fitness/time-slot-switching/store', payload); // NOT CONFIRMED
+  return res.data;
+};
+
+// ── Detailed HR Report ────────────────────────────────────────────────────────
+// All endpoints confirmed live 2026-07-01 via HAR of the web admin's
+// Detailed HR Report page. `/v1/commissions` is a different path from the
+// existing getHRCommissions which uses the commission-portal sub-path.
+// staff-loans/get returns 422 when staff_id is empty (server bug, same as in
+// HAR); hr/promotion/index returns 500 (separate backend issue). Both are
+// handled gracefully in the screen (shown as empty sections).
+
+export const getHRStaffAttendance = async (params: {
+  branch_id: number;
+  start_date: string;
+  end_date: string;
+  user_id?: number | string;
+  department_id?: number | string;
+  designation_id?: number | string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/attendance/index', {
+    params: { ...params, category: 2, type: 'Staff' },
+  });
+  return res.data;
+};
+
+export const getHRCommissionsReport = async (params: {
+  branch_id: number;
+  start_date: string;
+  end_date: string;
+  user_id?: number | string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/commissions', { params });
+  return res.data;
+};
+
+export const getHRLeaveApplications = async (params: {
+  branch_id: number;
+  user_id?: number | string;
+  status?: number;
+  from_date?: string;
+  to_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/hr/leave-application/index', { params });
+  return res.data;
+};
+
+export const getHRStaffFines = async (params: {
+  branch_id: number;
+  user_id?: number | string;
+  category: 'Fine' | 'Advance';
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/users-finance/get', { params });
+  return res.data;
+};
+
+export const getHRStaffLoans = async (params: {
+  branch_id: number;
+  staff_id?: number | string;
+  start_date?: string;
+  end_date?: string;
+  status?: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/staff-loans/get', { params });
+  return res.data;
+};
+
+export const getHRStaffPromotions = async (params: {
+  branch_id: number;
+  status?: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/hr/promotion/index', { params });
+  return res.data;
+};
+
+// ── Daily Office Closing ─────────────────────────────────────────────────────
+// Confirmed live 2026-07-01 via HAR — endpoint returns all transactions for
+// the branch in the given date range, grouped client-side by transaction_type.
+// Row shape: { id, branch_id, branch_name, transaction_type, category_id,
+// category_name, sub_category_id, sub_category_name, payment_type,
+// cheque_number, amount, description, occurrence_date, status }
+// Known transaction_types from HAR: 'Bank Account', 'Sales Counter', 'Office Counter'.
+export const getDailyOfficeClosing = async (params: {
+  branch_id: number;
+  start_date: string;
+  end_date: string;
+}) => {
+  const res = await api.get('/v1/finance/transactions/fetch-expense-detail', { params });
+  return res.data;
+};
+
+// ── Assets ────────────────────────────────────────────────────────────────────
+// NOT CONFIRMED — endpoints inferred from codebase pattern; no HAR captured.
+export const getAssets = async (params: {
+  branch_id: number;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/finance/assets/get', { params });
+  return res.data;
+};
+
+export const addAsset = async (payload: {
+  branch_id: number;
+  category_id?: number;
+  sub_category_id?: number;
+  name: string;
+  purchase_cost: number;
+  quantity?: number;
+  total_cost?: number;
+  current_value?: number;
+  acquisition_date?: string;
+  vendor_name?: string;
+  vendor_contact?: string;
+  description?: string;
+}) => {
+  const res = await api.post('/v1/finance/assets/add', payload); // NOT CONFIRMED
   return res.data;
 };
 

@@ -616,7 +616,30 @@ const DrawerContent = (props: any) => {
             if (hasChildren) {
               setExpanded(prev => {
                 const next = new Set(prev);
-                next.has(key) ? next.delete(key) : next.add(key);
+                const isOpen = next.has(key);
+                const parent = key.includes('.') ? key.substring(0, key.lastIndexOf('.')) : '';
+
+                // Close all siblings at this level and their descendants (accordion)
+                for (const k of [...next]) {
+                  const kParent = k.includes('.') ? k.substring(0, k.lastIndexOf('.')) : '';
+                  if (kParent === parent && k !== key) {
+                    next.delete(k);
+                    for (const dk of [...next]) {
+                      if (dk.startsWith(k + '.')) next.delete(dk);
+                    }
+                  }
+                }
+
+                if (isOpen) {
+                  // Close this item and cascade-close all its descendants
+                  next.delete(key);
+                  for (const dk of [...next]) {
+                    if (dk.startsWith(key + '.')) next.delete(dk);
+                  }
+                } else {
+                  next.add(key);
+                }
+
                 return next;
               });
             } else {
