@@ -1738,6 +1738,53 @@ export const getHRStaffFines = async (params: {
   return res.data;
 };
 
+// ── Staff Advances (Add form + dropdowns) ────────────────────────────────────
+// Confirmed live 2026-07-03 via HAR of the web admin's "Manage Staff Advances"
+// page. The list GET (`getHRStaffFines` above, `category=Advance`) returned
+// the standard empty-result 404 shape (`{status:false, message:"No record
+// found"}`) — same pattern as Befit/SPT — meaning it's a genuinely confirmed
+// route with no Advance rows on this branch yet, not a dead endpoint.
+// No "Add Advance" submit was captured (Amount was left empty, form never
+// actually submitted) — the write endpoint below is inferred from the
+// `users-finance/get` naming convention, NOT confirmed. Transaction dropdown
+// values only 3 of N confirmed from the screenshot (Bank Account, Sales
+// Counter, Personal) — reused the fuller enum already confirmed live for
+// G13 Cash Ledger (`Bank Account`, `G13`, `Mr Arif`, `Mr Waqas Credit Card`,
+// `Office Counter`, `Personal`, `Sales Counter`) since these transaction-type
+// enums have matched 1:1 across every other finance ledger in this codebase,
+// but that reuse itself is a guess for this specific page. "Return Month"
+// dropdown's exact value format (month name vs number) was never captured —
+// sending full month names as a best guess.
+
+export const getStaffNamesForBranch = async (params: { branch_id: number }) => {
+  const res = await api.get('/v1/auth/get-name', { params });
+  return res.data;
+};
+
+export const getBankingDetailsListing = async (params: { branch_id: number }) => {
+  const res = await api.get('/v1/finance/banking-details/listing', { params });
+  return res.data;
+};
+
+// NOT CONFIRMED — inferred from the `/v1/users-finance/get` naming
+// convention; no submit was ever captured. Gate the Add button until a real
+// submit is captured in a HAR, same pattern as `registerStaff`.
+export const addStaffAdvance = async (payload: {
+  branch_id: number;
+  user_id: number;
+  amount: number;
+  return_month: string;
+  transaction_type: string;
+  payment_method: string;
+  bank_id?: number;
+  reason?: string;
+  occurrence_date?: string;
+  category: 'Advance';
+}) => {
+  const res = await api.post('/v1/users-finance/add', payload);
+  return res.data;
+};
+
 export const getHRStaffLoans = async (params: {
   branch_id: number;
   staff_id?: number | string;
@@ -1813,14 +1860,51 @@ export const addAsset = async (payload: {
 // required, requires at minimum branch_id/first_name/last_name/gender. The
 // full field contract is NOT confirmed — sending an incomplete-but-valid-
 // looking payload triggered a backend 500 (`trim(): Argument #1 ($string)
-// must be of type string, DateTime given` in Controller.php), so this is not
-// yet wired to a screen. Treat as fragile until the backend bug is fixed and
-// the full required-field list is confirmed.
+// must be of type string, DateTime given` in Controller.php). Still not
+// wired to a live submit — treat as fragile until the backend bug is fixed
+// and a real submit is captured in a HAR.
+//
+// 2026-07-03: a HAR of the web admin's "Add Staff" page (Downloads/
+// vostro-new.com.har) only captured the page load — the visible "required"
+// errors are client-side validation, no submit ever fired. But the page's
+// dropdowns confirmed `getBranchesNameList`/`getDepartmentNames`/
+// `getDesignationNames` are the right sources (already wired below), and
+// `GET /v1/auth/get/{id}`'s response shape (branch_id, department_id,
+// designation_id, first_name, last_name, email, official_email, phone,
+// gender, cnic, address, city, country, salary, role, joining, father_name,
+// dob, appointment_date, probation_duration, monthly_medical,
+// emergency_contact_no, blood_group, image) is a strong hint at the field
+// names `register` expects, since Laravel resource controllers typically
+// mirror field names between store/show — but this is inferred, not
+// confirmed. The form's "Card Number" field has no matching field in the
+// GET shape, so it's likely unrelated to this record (possibly the
+// AssignCards/ViewCards module instead) — omitted from the payload below.
+// The AddStaff screen keeps ADD_ENABLED = false until a real submit is
+// captured.
 export const registerStaff = async (payload: {
   branch_id: number;
   first_name: string;
   last_name: string;
-  gender: 'Male' | 'Female';
+  gender: 'Male' | 'Female' | 'Others';
+  father_name?: string;
+  email?: string;
+  official_email?: string;
+  password?: string;
+  cnic?: string;
+  dob?: string;
+  phone?: string;
+  emergency_contact_no?: string;
+  blood_group?: string;
+  city?: string;
+  address?: string;
+  department_id?: number;
+  designation_id?: number;
+  role?: string;
+  joining?: string;
+  appointment_date?: string;
+  probation_duration?: number;
+  salary?: number;
+  monthly_medical?: number;
   [key: string]: any;
 }) => {
   const res = await api.post('/v1/auth/register', payload);

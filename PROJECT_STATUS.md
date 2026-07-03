@@ -1,9 +1,17 @@
 # VostroWorld Mobile — Project Status
 
 Single source of truth for screen implementation progress, API coverage, and
-what's left to build. Updated: **2026-06-29** (GX/Befit/SPT Attendance
-Report built; pagination added to all three to match the web admin's
-25/page layout).
+what's left to build. Updated: **2026-07-03** (zero `ComingSoon` placeholders
+left. All remaining Fitness/Finance screens built via HAR-captured web admin
+endpoints — Befit/SPT List/Bookings/Appointments/Attendance, GX
+Appointments/Attendance, SwitchBookingTime, DetailedHRReport, AddCashInHand,
+AddBankCash, DailyExpenseReport, PaidExpenseReport, Assets,
+DailyOfficeClosing. `AddStaff` and `StaffAdvances` — the last two — built in
+the same session using field/dropdown data reverse-engineered from HAR
+captures of the web admin's "Add New Staff" and "Manage Staff Advances"
+pages. See the section below for exactly which screens have confirmed vs.
+unconfirmed write endpoints — several Add/Save buttons are intentionally
+gated off pending a confirmed submit).
 
 **Base URL:** `https://api.vostro-new.com/public/api`
 **App package:** `com.vostroworld` | React Native 0.83.1
@@ -33,12 +41,20 @@ once logged in, so this shouldn't surface in normal use.
 | Section | Total Screens | ✅ Done | 🔴 ComingSoon |
 |---|---|---|---|
 | Sales | ~25 | 25 | 0 |
-| Human Resource | ~20 | ~19 | 2 |
-| Finance | ~26 | ~22 | 6 |
-| Fitness | ~28 | ~16 | 12 |
+| Human Resource | ~20 | ~20 | 0 |
+| Finance | ~28 | ~28 | 0 |
+| Fitness | ~28 | ~27 | 0 |
 | Nutrition | ~12 | 12 | 0 |
 | Settings / Other | ~15 | ~15 | 0 |
-| **Total pending** | | | **23** |
+| **Total pending** | | | **0** |
+
+Note: "Done" here means a real screen replaces the `ComingSoon` placeholder,
+not that every endpoint on it is confirmed live — several of the screens
+built 2026-07-01 have confirmed GET/read endpoints but **unconfirmed, gated
+POST/DELETE (write) endpoints** inferred from REST convention, never
+captured in a HAR because no live data existed to trigger them. See the
+"⚠️ confirmed reads / unconfirmed writes" notes on each screen's row below
+before assuming a Save/Delete button is safe to enable.
 
 ---
 
@@ -90,6 +106,9 @@ once logged in, so this shouldn't surface in normal use.
 | StaffPromotion | `src/screens/HR/StaffPromotion/` | **Built 2026-06-25.** `GET /v1/hr/promotion/index` (view, via `getPromotions`) + `POST /v1/hr/promotion/store` (via `addPromotion`). Form (Branch, Name, Promotion Type, conditional Department/Designation/Salary fields) matches the web admin UI exactly, including cascading dropdowns sourced from `getRelatedThings`. **Add button intentionally gated off** (`ADD_ENABLED = false`) — a safe empty-body probe found the required field names (`user_id` not `employee_id`), but a follow-up probe (still safe — used only the 4 known-required fields, no department/designation/salary) attempted a real INSERT for every promotion type and failed on a `previous_department` foreign-key violation every time, meaning the full write contract needs one more live test with real values before this can be confidently enabled — see Known API Notes |
 | LetterManagement | `src/screens/HR/LetterManagement/` | **Built 2026-06-25.** `GET /v1/hr/staff-documents/index`, `POST .../store` via `getStaffDocuments`/`addStaffDocument`. Form fields (Branch [static], Staff, Document Category, Document Type, Issue Date, Document Code*, Subject) reverse-engineered from the web admin UI (screenshots), not guessed. Document Category enum confirmed: `Letter`/`Certificate`/`Form`; Document Type dropdown (5 options) only confirmed for the `Letter` category — falls back to a free-text input for `Certificate`/`Form` since those option lists are unconfirmed. `document_code` is required (matches a live validation message seen in the web UI) |
 | ResourceManager | `src/screens/HR/ResourceManager/` | **Built 2026-06-25.** Full CRUD via `getRelatedThings`/`addRelatedThing`/`updateRelatedThing`/`deleteRelatedThing`/`setRelatedThingStatus`. Category toggle (Department / Designations) confirmed live via a **read-only** GET probe (safe — no write) of `/v1/related_things/get`: `type` values are `"Department"` (singular) and `"Designations"` (plural, **not** "Designation" — would have been a reasonable but wrong guess), and `Designations` records require a `department_id` pointing at the parent department, matching the join shown in the live data (`department_id`/`department` fields) |
+| DetailedHRReport | `src/screens/HR/DetailedHRReport/` | **Built 2026-07-01, all endpoints confirmed live via HAR** of the web admin's Detailed HR Report page: `getHRStaffAttendance` (`GET /v1/attendance/index?category=2&type=Staff`), `getHRCommissionsReport` (`GET /v1/commissions` — a different path from the existing `getHRCommissions`, which uses the `commission-portal` sub-path), `getHRLeaveApplications` (`GET /v1/hr/leave-application/index`), plus staff-loans and promotions sections. Two backend bugs observed and handled gracefully (shown as empty sections instead of crashing): `staff-loans/get` returns 422 when `staff_id` is empty (matches the HAR, not an app bug), and `hr/promotion/index` returns a 500 |
+| AddStaff | `src/screens/HR/AddStaff/` | **Built 2026-07-03.** Dropdowns (Branch, Department, Designation) confirmed live via HAR of the web admin's "Add New Staff" page — `getBranchesNameList`, `getDepartmentNames`, `getDesignationNames` (all pre-existing, already confirmed for other screens). Full field layout (23 fields incl. CNIC, DOB, Gender, Emergency Contact, Blood Group, Card Number, Probation Period, image upload) matches the web form exactly, reverse-engineered from a screenshot. ⚠️ `registerStaff` (`POST /v1/auth/register`) is **NOT CONFIRMED** — the HAR only captured the page load (client-side validation blocked the actual submit), and the backend previously 500'd (`trim()` on a `DateTime`) on an incomplete payload. Payload field names are inferred from `GET /v1/auth/get/{id}`'s response shape (Laravel typically mirrors store/show field names) but unconfirmed. Add button gated off (`ADD_ENABLED = false`) until a real submit is captured |
+| StaffAdvances | `src/screens/HR/StaffAdvances/` | **Built 2026-07-03.** List confirmed live via HAR of the web admin's "Manage Staff Advances" page: `getHRStaffFines` (`GET /v1/users-finance/get?category=Advance`, pre-existing) returned the standard empty-result shape (`{status:false,"message":"No record found"}`) — genuinely no Advance rows on this branch, not a dead route, same pattern as Befit/SPT. New wrappers `getStaffNamesForBranch` (`GET /v1/auth/get-name?branch_id=`) and `getBankingDetailsListing` (`GET /v1/finance/banking-details/listing?branch_id=`, a simpler sibling of the existing `getBankDetails`) confirmed live for the Name/Bank Details dropdowns; Payment Method reuses the existing `getExpensePaymentMethods`. Table paginates 25/page with From/To date filters + a Generate button, matching the web admin. ⚠️ `addStaffAdvance` (`POST /v1/users-finance/add`) is **NOT CONFIRMED** — no submit was captured (Amount was left empty in the HAR session); inferred from the `users-finance/get` naming convention. "Transaction" dropdown only has 3 of its values confirmed from the screenshot (Bank Account, Sales Counter, Personal) — the rest are reused from G13 Cash Ledger's confirmed enum as a guess. "Return Month" value format (month name vs number) is unconfirmed. Add button gated off (`ADD_ENABLED = false`) |
 
 ### Finance
 | Screen | File | API / Notes |
@@ -116,6 +135,12 @@ once logged in, so this shouldn't surface in normal use.
 | BalanceSheet | `src/screens/Finance/BalanceSheet/` | **Built 2026-06-25.** The web admin's "Balance Sheet" page is actually an Income Statement (Sales/Expenses breakdown + Net P&L), **not** a true balance sheet — `GET /finance-v2/reports/balance-sheet` (this screen's previous "Best API" guess) returns an empty, structurally different assets/liabilities/equity report because Finance V2 isn't set up for this branch. Built instead on `getSalesExpenseDaily` (`/v1/finance/transactions/get-sales-and-expense-by-category`, already wired in `reports.ts`), confirmed live to return exactly the `sales`/`expenses` breakdown the web page shows. Includes a donut chart for the Sales Breakup, built with `react-native-svg` (already a dependency) since the project has no charting library |
 | DailySalesCounter | `src/screens/Finance/DailySalesCounter/` | **Built 2026-06-25.** `/v1/finance/transactions/get-sales-balance` (this screen's previous "Best API" guess) only returns a single total, not the rich report shown — built instead on three endpoints: `getSalesByServices` (package-level sales, already in `reports.ts`), `getSalesExpenseDaily`'s `expenses` half (same as BalanceSheet), and a new `getSalesByCategoryAndPayment` (`fetch-sales-by-category-and-payment`) for the per-category payment-method breakdown cards (Gym/PT/Guest Pass/etc.), confirmed live — needed the `/v1/` prefix |
 | CafeSalesExpenseReport | `src/screens/Finance/CafeSalesExpenseReport/` | **Built 2026-06-25.** Day-by-day cafe sales (orders/tax/discount/total) and itemized cafe expenses, computed entirely client-side from two already-wired endpoints — `getCafeReport` (`/v1/transaction-report-cafe`) grouped by `date`, and `getExpensesList` (`/v1/expense/get` — **note singular**, `/v1/expenses/get` 404s) filtered to `category_name === 'Cafe Expense'` and grouped by `occurrence_date`. No new endpoint needed; `/orders-detail/generate-cafe-total` (the third API this screen was originally guessed to need) turned out to be redundant once the other two were grouped by day |
+| DailyExpenseReport | `src/screens/Finance/DailyExpenseReport/` | **Built 2026-06-30, confirmed live via HAR.** `getVostroExpenseReport` (`GET /v1/finance/vostro-expense/report`) — single call returns all branches. Each `data[]` row is a saved daily-entry record (cash snapshot may be `null` on rows added as a follow-up expense entry against an existing date/branch); `items[]` are that record's individual expense lines with payment/approval fields. **No write endpoints observed in the capture** — don't assume add/update/pay/approve/delete routes without confirming them the same way |
+| PaidExpenseReport | `src/screens/Finance/PaidExpenseReport/` | **Built 2026-06-30, confirmed live via HAR.** `getPaidExpenseReport` (`GET /v1/expense/paid-report`) — the two category params (`cash_from_bank_category`/`cash_in_hand_category`) are fixed string literals the web app always sends (not user-configurable), including an inconsistent underscore/hyphen (`cash_from_bank` vs `cash_in-hand`) reproduced verbatim. Response is per-branch summary numbers only; `branch_name` came back `null` and `cash_expenses`/`bank_expenses` were empty arrays in the capture (item shape unconfirmed), so the screen doesn't attempt to render them |
+| AddCashInHand | `src/screens/Finance/AddCashInHand/` | **Built 2026-06-29.** `addCashInHandEntry`/`updateCashInHandEntry` (`POST /v1/finance/cash-in-hand/add`, `PUT .../update/{id}`) — wired but not live-tested against a real submit |
+| AddBankCash | `src/screens/Finance/AddBankCash/` | Already built pre-2026-06-29 (see `ViewBankLedger`/`BankDetails` fix note); `addBankCashEntry` (`POST /v1/finance/bank-ledger/add`, required fields `branch_id`/`amount`/`type` confirmed via empty-body probe) — submission still gated (`ADD_ENABLED = false`) |
+| Assets | `src/screens/Finance/Assets/` | **Built 2026-06-29, endpoints NOT CONFIRMED.** `getAssets` (`GET /v1/finance/assets/get`) and `addAsset` (`POST /v1/finance/assets/add`) are both inferred from the codebase's REST-route pattern — no HAR was ever captured for this page, so treat both as unverified until confirmed live |
+| DailyOfficeClosing | `src/screens/Finance/DailyOfficeClosing/` | **Built 2026-06-29, confirmed live via HAR.** `getDailyOfficeClosing` (`GET /v1/finance/transactions/fetch-expense-detail`) returns all transactions for the branch/date-range, grouped client-side by `transaction_type` (`Bank Account`/`Sales Counter`/`Office Counter` observed live) |
 
 ### Fitness
 | Screen | File | API / Notes |
@@ -136,6 +161,17 @@ once logged in, so this shouldn't surface in normal use.
 | SessionAttendance | drawer route only — reuses `SalesSessionReport` | **Fixed 2026-06-29.** Confirmed by the user that the web admin's "Session Attendance" (Fitness) is the exact same screen as Sales → Session Report. `Stack.Screen` now points `SessionAttendance` directly at the already-built `SalesSessionReport` component instead of `ComingSoon` — no new screen needed |
 | NewPTBookings | `src/screens/Fitness/NewPTBookings/` | **Built 2026-06-29.** Branch (static) + Available Trainers filter + Search, matching the web admin screenshot exactly (no add form — this is a filtered view of existing "New" PT bookings, not a create form). Same `getDetailedSalesReport` source as `PTSalesReport`, filtered to non-blank `trainer_name` + `sale_type === 'New'`. Does **not** auto-load on focus (matches the web admin's default "No Record Found" until Search is pressed — confirmed live this endpoint otherwise returns real rows immediately, the web's empty default is a frontend choice, not a real empty dataset). "PT Package" and "End Date" use the corrected `session_count * quantity` / `+ (package_duration * quantity)` days formulas (see Key API Notes) |
 | NewPTClients | `src/screens/Fitness/NewPTClients/` | **Built 2026-06-29.** Branch (static) + Client Name + Trainer + Time Reservation (New/Renew) filters + Search, paginated. Same source/fixes as `NewPTBookings`. "Time Slot" column is the endpoint's real `trainer_reservation` field (`Pending`/`Reserved`) — confirmed exact match against the web screenshot, not a placeholder. "Time Reservation: New/Renew" mapped to `sale_type` reproduced 9 of ~11 candidate rows exactly for one sampled trainer/window — closest known field, but the precise filter the web applies isn't 100% confirmed |
+| GXAppointments | `src/screens/Fitness/GXAppointments/` | **Built 2026-06-30, confirmed live.** Previous "Best API" guess (`trainer-schedule/index`, empty schedules for 2 of 3 GX trainers) was wrong — the real route is a `-gx` suffixed sibling, `getGXAppointments` (`GET /v1/fitness/trainer-schedule/index-gx`), same weekly Time×Day grid shape but paginated **by trainer** server-side (web defaults 25/page) instead of returning every trainer in one call |
+| BefitList | `src/screens/Fitness/BefitList/` | **Built 2026-06-30, confirmed live via HAR** of the web admin's "New Befit Clients" page. `getBefitClients` (`GET /v1/orders-detail/list-trainer-packages?category=16&status=1`) — `category=16` is the first confirmation Befit's category code is 16 (not in `API_REFERENCE.md`'s documented 1–15 list). **Row shape unconfirmed** — every captured call returned the standard empty-result shape (genuinely no Befit data on this branch yet), so fields are inferred from the table's column headers; re-verify once real Befit data exists |
+| BefitBookings | `src/screens/Fitness/BefitBookings/` | **Built 2026-06-30, confirmed live via HAR.** `getBefitBookings` (`GET /v1/fitness/trainer-schedule/new-appointments?type=Befit`) — despite living under `trainer-schedule/`, this is **not** the weekly grid shape; it's a flat row table (Sr#, Branch, Trainer, Customer, Package, PT Package, Start/End Date, Action), confirmed from a web screenshot. Same route presumably also takes `type=SPT` (unconfirmed). **Row shape unconfirmed** — every captured call 404'd with the empty-result shape, no non-empty response was ever captured |
+| BefitAppointments | `src/screens/Fitness/BefitAppointments/` | **Built 2026-06-30, confirmed live via HAR.** Reuses the trainer-dropdown pattern (`getBefitBookingTrainers`, `is_gx_trainer` sent empty → every PT, not just GX-flagged) |
+| BefitAttendance | `src/screens/Fitness/BefitAttendance/` | **Built 2026-07-01. Reads confirmed live via HAR, write NOT CONFIRMED.** Trainer list: `getBefitAttendanceTrainers` (`GET /v1/auth/fetch-name-list/{branch_id}?category=mix`, a different route from `get-name`). Package list per trainer: `getBefitTrainerPackages` (`GET /v1/fitness/trainer-schedule/fetch-befit/{trainer_id}?category=16`). Attendance list: `getBefitAttendance` (`GET /v1/fitness/session-attendance/get?type=Befit&status=0\|1`). ⚠️ `addBefitAttendance` (`POST /v1/fitness/session-attendance/store`) is **NOT CONFIRMED** — inferred from Laravel REST convention, never captured in a HAR (no bookings existed to trigger a real submit); Add button should stay gated until confirmed |
+| SPTList | `src/screens/Fitness/SPTList/` | **Built 2026-07-01, confirmed live via HAR** of the web admin's "SPT List" page. `getSPTPackages` (`GET /v1/packages/get?key=category&value=4`, category 4 = Small Group PT packages). `time_slot: []`/`classes: []` on a row means no slot/days assigned yet (shows "Pending" in red on web, matched here). ⚠️ `deleteSPTPackage` (`PUT /v1/packages/delete/{id}`) is **NOT CONFIRMED** — inferred from the REST convention used elsewhere in the codebase |
+| SPTBookings | `src/screens/Fitness/SPTBookings/` | **Built 2026-07-01, confirmed live via HAR.** Trainers: `getSPTBookingTrainers` (`is_gx_trainer=1` — only GX-flagged PTs appear here, unlike SPT Attendance). Slots per trainer: `getSPTSlots` (`GET /v1/packages/names-list?category=15&status=1` — **category 15**, GX Slot packages, not category 4; this is how the web admin actually works, SPT bookings reference GX-style time slots). Clients: `getClientNames`. Bookings list: `getSPTBookings` (`GET /v1/orders-detail/training-indexing?category=4&status=1`). **Row shape unconfirmed** — every captured call returned "No record found" (no SPT data on this branch yet), fields inferred from column headers |
+| SPTAppointments | `src/screens/Fitness/SPTAppointments/` | **Built 2026-07-01, confirmed live via HAR.** `getSPTAppointments` (`GET /v1/fitness/trainer-schedule/index-small-pt`) — same Time×Day grid shape as `GXAppointments` but on a different endpoint. Trainer dropdown (`getSPTAppointmentTrainers`) uses `is_gx_trainer=` (empty, all PTs) unlike GX Appointments' `is_gx_trainer=1` |
+| SPTAttendance | `src/screens/Fitness/SPTAttendance/` | **Built 2026-07-01. Reads confirmed live via HAR, write NOT CONFIRMED.** Main data: `getSPTAttendancePackages` (`GET /v1/packages/gx?category=4`, returns packages with `order_details` booked clients and `time_slot` arrays). Trainers: `is_gx_trainer=` empty (all PTs). Packages per trainer: `getSPTAttendancePackageNames` (`GET /v1/packages/names-list?category=4&status=1`). ⚠️ Mark Attendance POST is **not captured/wired** — no bookings existed in the HAR to trigger it |
+| GXAttendance | `src/screens/Fitness/GXAttendance/` | **Built 2026-07-01, confirmed live via HAR.** `getGXAttendancePackages` — same `/v1/packages/gx` endpoint as SPT Attendance but with an empty `category` param; trainers use `is_gx_trainer=1`, slots use `category=15` (`getSPTSlots`, reused) |
+| SwitchBookingTime | `src/screens/Fitness/SwitchBookingTime/` | **Built 2026-07-01. Read confirmed live via HAR, write NOT CONFIRMED.** List: `getSwitchedTimeSlots` (`GET /v1/fitness/time-slot-switching/index`) — verified live. ⚠️ `addSwitchedTimeSlot` (`POST .../store`) and `deleteSwitchedTimeSlot` (`PUT .../delete/{id}`) are **NOT CONFIRMED** — the "Available Bookings"/"Available Time Slots" dropdowns and the form submit were never captured because the user never submitted the form during the HAR session |
 
 ### Nutrition (all done)
 | Screen | File | API |
@@ -155,41 +191,28 @@ once logged in, so this shouldn't surface in normal use.
 
 ---
 
-## 🔴 Remaining ComingSoon — 26 screens
+## 🔴 Remaining ComingSoon — 0 screens
 
-### Human Resource (2)
-| Screen | API Status | Best API / Blocker |
-|---|---|---|
-| DetailedHRReport | ⚠️ | Combine multiple endpoints client-side. Fallback sources confirmed live — see Section 5 of `missing-api.md` |
-| AddStaff | ⚠️ | `POST /v1/auth/register` confirmed exists live, 2026-06-24 (no auth token needed) — was previously assumed missing entirely. Minimum required: `branch_id`, `first_name`, `last_name`, `gender`; full field contract unconfirmed and the backend 500s (`trim()` on a `DateTime`) on incomplete-but-plausible payloads, so `registerStaff()` is added but **not** wired to a screen yet — needs backend fix + more careful field-discovery first |
+Every screen that used to route to the `ComingSoon` placeholder has a real
+screen now. `AddStaff` and `StaffAdvances` (both HR) were the last two,
+built 2026-07-03 — see their rows in Implemented Screens above (Human
+Resource section) for exactly which endpoints are confirmed vs. gated.
 
-### Finance (6)
-| Screen | API Status | Best API |
-|---|---|---|
-| AddCashInHand | ⚠️ | GET confirmed; add endpoint unconfirmed |
-| AddBankCash | ⚠️ | `POST /finance-v2/transactions/transfer` available |
-| DailyExpenseReport | ⚠️ | `GET /v1/expenses/get` — derive totals client-side |
-| PaidExpenseReport | ⚠️ | `GET /v1/expenses/get` or `/finance/all-expenses/expenses-sum-by-category` |
-| Assets | ⚠️ | `GET /finance/asset/get` likely works; write unconfirmed |
-| DailyOfficeClosing | ⚠️ | Combine `/office-cash-flow/*` + `/transactions/sales-counter-balance` |
+This does **not** mean every write endpoint in the app is confirmed live —
+several Add/Save buttons across recently-built screens are intentionally
+disabled (`ADD_ENABLED = false`) pending a HAR-confirmed submit: `AddStaff`,
+`StaffAdvances`, `StaffPromotion`, `AddOfficeCash`, `AddBankCash`,
+`BankDetails`, `AddGXSlots`, `BefitAttendance`, `SPTAttendance`,
+`SwitchBookingTime`, `SPTList`'s delete. See each screen's row in
+Implemented Screens for specifics before assuming a button is safe to
+enable.
 
-### Fitness (12)
-| Screen | API Status | Best API |
-|---|---|---|
-| GXAppointments | ❌ | Looks identical to `TrainerAppointments` (weekly Time×Day grid) but confirmed live 2026-06-25 that it is **not** powered by the same `trainer-schedule/index` endpoint — queried it for all 3 confirmed GX trainers (`is_gx_trainer=1`) across both a 1-week and a full-year date range and got an empty `schedule` for 2 of the 3, despite the web admin screenshot showing real "Vitality Studio" bookings for both. `gx-class/index` was also checked and has no time/trainer linkage. Real data source not yet found — needs the web admin's Network tab, not more guessing |
-| SwitchBookingTime | ⚠️ | No single reschedule endpoint (backend "under progress"). Workarounds confirmed live: `PUT /v1/fitness/commission-portal/hr/sessions/{id}` (HR-side), `GET /v1/orders-detail/update-time-slot/{id}/{time_slot_id}`, `POST /v1/fitness/time-slot-switching/store` + `.../process-request/{id}`, `GET /v1/fitness/commission-portal/trainer/taken-slots`, `PUT /v1/fitness/trainer-schedule/update/{id}` |
-| GXAttendance | ⚠️ | Generic session endpoints; not GX-specific |
-| BefitList | ⚠️ | `GET /v1/clients/get` filtered |
-| BefitBookings | ⚠️ | Generic sessions endpoint |
-| BefitAppointments | ⚠️ | Generic sessions endpoint |
-| BefitAttendance | ⚠️ | Generic mark endpoint |
-| SPTList | ⚠️ | `GET /v1/clients/get?category=4` |
-| SPTBookings | ⚠️ | Generic sessions endpoint |
-| SPTAppointments | ⚠️ | Generic sessions endpoint |
-| SPTAttendance | ⚠️ | Generic mark endpoint |
-| ManageAvailability | ⚠️ | `src/screens/Fitness/ManageAvailability/` already exists but is a client-side mock only. Likely real backing: `POST /v1/fitness/time-slot-assignment/add` (`branch_id`, `user_id` trainer, `time_slot_id` confirmed required) — contract beyond those 3 fields unconfirmed; do not probe further without capturing the real payload first |
+`ManageAvailability` has a real (non-`ComingSoon`) screen but its Add button
+still only mutates local state — tracked separately under "UI Built, API
+Exists, Not Connected" below, since it was never a literal `ComingSoon`
+placeholder to begin with.
 
-(`GXAttendanceReport`, `SessionAttendance`, `NewPTBookings`, `NewPTClients` — fully done; `BefitAttendanceReport`/`SPTAttendanceReport` — UI done, data source still unconfirmed; see their rows in Implemented Screens above, moved out of this ComingSoon list 2026-06-29.)
+(`GXAttendanceReport`, `SessionAttendance`, `NewPTBookings`, `NewPTClients`, `DetailedHRReport` — fully done; `BefitAttendanceReport`/`SPTAttendanceReport` — UI done, data source still unconfirmed; `GXAppointments`, `SwitchBookingTime`, `GXAttendance`, `BefitList`/`Bookings`/`Appointments`/`Attendance`, `SPTList`/`Bookings`/`Appointments`/`Attendance` — built 2026-06-30/07-01, reads confirmed live via HAR, several writes still gated/unconfirmed; see their rows in Implemented Screens above.)
 
 (`GXSlotsList`/`GXClasses`, `AddGXClass`, and `AddGXSlots` were in this list as of 2026-06-19 — all three now have real screens, moved to the Fitness row in Implemented Screens above.)
 
@@ -350,9 +373,21 @@ production.
 
 ## Recommended Next Screens (by priority)
 
-**Quick wins:** none currently identified — the last batch (`SessionAttendance`, `NewPTBookings`, `NewPTClients`) was finished 2026-06-29 (see below). Remaining Fitness ComingSoon screens (`GXAppointments`, `BefitList`/`Bookings`/`Appointments`/`Attendance`, `SPTList`/`Bookings`/`Appointments`/`Attendance`, `SwitchBookingTime`, `ManageAvailability`) all need real field-discovery before building — see the Fitness ComingSoon table above.
+**Quick wins:** No screens left to build — `AddStaff` and `StaffAdvances` (built 2026-07-03) were the last two. The only outstanding gap now is enabling the **gated writes** across recently-built screens (`AddStaff`, `StaffAdvances`, the 2026-07-01 Befit/SPT/SwitchBookingTime screens, etc.) once their POST/DELETE endpoints are confirmed via a real HAR capture — someone needs to actually submit those forms in the web admin (with real or throwaway test data) and re-export the HAR so the request/response can be captured and the field contract locked down.
 
-**Done 2026-06-29:**
+**Done 2026-07-03 (the last two ComingSoon screens):**
+- `AddStaff`, `StaffAdvances` — see their rows in Implemented Screens (Human Resource). Both built from HAR captures + screenshots of the web admin forms; both have confirmed-live dropdowns/list reads but gated (unconfirmed) submit endpoints
+
+**Done 2026-07-01 (Befit/SPT/GX, reads confirmed via HAR):**
+- `SPTList`, `SPTBookings`, `SPTAppointments`, `SPTAttendance`, `GXAttendance`, `SwitchBookingTime`, `BefitAttendance`, `DetailedHRReport` — all built with confirmed-live GET endpoints (see their rows in Implemented Screens). Several write endpoints (`addBefitAttendance`, SPT attendance mark, `deleteSPTPackage`, `addSwitchedTimeSlot`/`deleteSwitchedTimeSlot`) are wired but **NOT CONFIRMED** — inferred from REST convention, never captured in a HAR because no live bookings existed on the test branch to trigger a real submit. Add/Delete buttons on these should stay gated until confirmed the same way the reads were (capture a real submit from the web admin's Network tab)
+
+**Done 2026-06-30 (Befit/GX, first batch):**
+- `BefitList`, `BefitBookings`, `BefitAppointments`, `GXAppointments` — built via HAR capture. `BefitList`/`BefitBookings` row shapes are **inferred from column headers**, not confirmed — every captured call returned an empty result (no Befit data exists on the test branch yet), so re-verify field names once real rows appear
+
+**Done 2026-06-29/30 (Finance, second batch):**
+- `AddCashInHand`, `Assets`, `DailyOfficeClosing` (2026-06-29), `DailyExpenseReport`, `PaidExpenseReport` (2026-06-30) — see their rows in Implemented Screens (Finance). `Assets`' endpoints are the one exception with **no HAR captured at all** (inferred purely from the codebase's REST pattern) — treat as unverified until confirmed live. (`AddBankCash` was already built earlier, in the `ViewBankLedger`/`BankDetails` fix — not part of this batch.)
+
+**Done 2026-06-29 (Fitness Attendance Reports):**
 - `GXAttendanceReport` (built and confirmed live, see Fitness row in Implemented Screens) — replaced the doc's previous wrong "Best API" guess (`session-detail-report`, actually a payment-breakdown report) with `hr/sessions` filtered to `type === 'GX'`
 - `BefitAttendanceReport`, `SPTAttendanceReport` — UI built (identical layout to `GXAttendanceReport`, matches the web admin screenshots), but the `type === 'Befit'`/`'SPT'` filter is an **unconfirmed guess** — `hr/sessions` was checked across 26k+ rows on two branches and never produced either value. Will likely show empty until the real endpoint is found
 - Added pagination (25/page, matching the web admin's page-number footer) to all three Attendance Report screens, replacing an earlier "fetch everything into one scroll" approach
@@ -370,9 +405,12 @@ production.
 
 **Still blocked:**
 - `ManageAvailability` — still a client-side mock. Likely real backing is `POST /v1/fitness/time-slot-assignment/add` (`branch_id`, `user_id` trainer, `time_slot_id` confirmed required via an **accidental live insert** during this session's discovery — see Known Issues) — contract beyond those 3 fields unconfirmed, don't probe further without capturing the real payload first
-- `GXBookings`, `GXAppointments` — depend on `/v1/gx/bookings/get`, confirmed 404 with no known replacement
-- `AddStaff` — `auth/register` exists but the backend 500s on incomplete payloads; needs backend fix + field-discovery before wiring
-- `SwitchBookingTime` — no single dedicated reschedule endpoint; would need to combine several workaround routes (see Fitness table)
+- `AddStaff`'s submit — screen is built (see Implemented Screens), but `auth/register`'s full field contract is still unconfirmed and the backend previously 500'd on an incomplete payload; gated off (`ADD_ENABLED = false`) until a real submit is captured
+- `StaffAdvances`'s submit — screen is built (see Implemented Screens), reads confirmed live; `users-finance/add` is an inferred endpoint, gated off until confirmed
+
+**No longer blocked (fixed 2026-06-30/07-01):**
+- `GXBookings`'s dead end (`/v1/gx/bookings/get`, 404) didn't block `GXAppointments` after all — the real route turned out to be a `-gx` suffixed sibling of `trainer-schedule/index`, confirmed live 2026-06-30
+- `SwitchBookingTime` — the list view (`time-slot-switching/index`) was confirmed live 2026-07-01; only the add/delete actions remain unconfirmed (see its row in Implemented Screens)
 
 **No longer blocked (fixed 2026-06-24):**
 - PTAttendance, NewPTBookings, NewPTClients, GXTrainers — all were missing `/v1/`, now fixed

@@ -103,6 +103,8 @@ import LetterManagement from '../../screens/HR/LetterManagement';
 import ResourceManager from '../../screens/HR/ResourceManager';
 import StaffPromotion from '../../screens/HR/StaffPromotion';
 import DetailedHRReport from '../../screens/HR/DetailedHRReport';
+import AddStaff from '../../screens/HR/AddStaff';
+import StaffAdvances from '../../screens/HR/StaffAdvances';
 import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
 import Expenses from '../../screens/Finance/Expenses';
 import AddExpense from '../../screens/Finance/AddExpense';
@@ -348,9 +350,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="HRDashboard" component={protect(HRDashboard)} />
                 <Stack.Screen name="ViewStaff" component={protect(ViewStaff)} />
                 <Stack.Screen name="DetailedHRReport" component={protect(DetailedHRReport)} />
-                <Stack.Screen name="AddStaff" component={protect(ComingSoon)} />
+                <Stack.Screen name="AddStaff" component={protect(AddStaff)} />
                 <Stack.Screen name="StaffPromotion" component={protect(StaffPromotion)} />
-                <Stack.Screen name="StaffAdvances" component={protect(ComingSoon)} />
+                <Stack.Screen name="StaffAdvances" component={protect(StaffAdvances)} />
                 <Stack.Screen name="SalaryComponent" component={protect(SalaryComponent)} />
                 <Stack.Screen name="StaffCommissions" component={protect(StaffCommissions)} />
                 <Stack.Screen name="SessionPortalHR" component={protect(SessionPortalHR)} />

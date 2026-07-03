@@ -210,7 +210,7 @@ const StaffPromotion = () => {
           <Text style={styles.hint}>! The Fields With *Must Be Filled.</Text>
           {!ADD_ENABLED && (
             <Text style={styles.disabledNote}>
-              Adding promotions is temporarily disabled while the API contract is confirmed (the form below is ready to go — see PROJECT_STATUS.md).
+              Adding promotions is temporarily disabled while the API contract is confirmed (the form below is ready to go).
             </Text>
           )}
 
