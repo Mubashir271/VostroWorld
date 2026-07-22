@@ -96,6 +96,7 @@ import StaffDutyHours from '../../screens/HR/StaffDutyHours';
 import PTAttendance from '../../screens/HR/PTAttendance';
 import SalesSessionReport from '../../screens/Sales/SalesSessionReport';
 import SessionPortalHR from '../../screens/HR/SessionPortalHR';
+import HRSessionCommissionPortal from '../../screens/HR/HRSessionCommissionPortal';
 import StaffCommissions from '../../screens/HR/StaffCommissions';
 import SalaryComponent from '../../screens/HR/SalaryComponent';
 import LeaveQuota from '../../screens/HR/LeaveQuota';
@@ -201,6 +202,18 @@ import FootfallReportScreen from '../../screens/reports/FootfallReport';
 // ── Coming Soon placeholder ───────────────────────────────────────────────────
 import ComingSoon from '../../screens/ComingSoon';
 
+// ── Physiotherapy screens ─────────────────────────────────────────────────────
+import PhysiotherapyDashboard from '../../screens/Physiotherapy/PhysiotherapyDashboard';
+import PhysiotherapyAppointments from '../../screens/Physiotherapy/PhysiotherapyAppointments';
+import PhysiotherapyPrescriptions from '../../screens/Physiotherapy/PhysiotherapyPrescriptions';
+import PhysiotherapyGX from '../../screens/Physiotherapy/PhysiotherapyGX';
+import AddPhysioPrescriptionScreen from '../../screens/Physiotherapy/AddPhysioPrescription';
+import PhysiotherapyDailyClientReferralScreen from '../../screens/Physiotherapy/PhysiotherapyDailyClientReferral';
+import AddPhysioDailyReferralScreen from '../../screens/Physiotherapy/AddPhysioDailyReferral';
+import PhysiotherapyPatientDetailsScreen from '../../screens/Physiotherapy/PhysiotherapyPatientDetails';
+import PhysiotherapyClientResponsesScreen from '../../screens/Physiotherapy/PhysiotherapyClientResponses';
+import AddPhysioClientResponseScreen from '../../screens/Physiotherapy/AddPhysioClientResponse';
+
 // ── Nutrition screens ─────────────────────────────────────────────────────────
 import NutritionPackagesScreen from '../../screens/Nutrition/NutritionPackages';
 import AddMealsPlanScreen from '../../screens/Nutrition/AddMealsPlan';
@@ -246,6 +259,16 @@ const ProtectedScreen = ({
 // Wraps a screen so non-admins see <AccessDenied /> instead of the real screen
 const protect = (Comp: React.ComponentType<any>) =>
     (props: any) => <ProtectedScreen component={Comp} {...props} />;
+
+// Admin keeps the original Session Portal (client package renewals); HR gets
+// the dedicated Session & Commission Portal (Sessions/Commissions/Session
+// Report tabs) mirroring the web admin's hr-session-portal page.
+const SessionPortalRoute = (props: any) => {
+    const profile = useSelector((state: any) => state.user.profile);
+    return isHR(profile?.role)
+        ? <HRSessionCommissionPortal {...props} />
+        : <SessionPortalHR {...props} />;
+};
 
 // ─── AppNavigator ─────────────────────────────────────────────────────────────
 
@@ -355,7 +378,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="StaffAdvances" component={protect(StaffAdvances)} />
                 <Stack.Screen name="SalaryComponent" component={protect(SalaryComponent)} />
                 <Stack.Screen name="StaffCommissions" component={protect(StaffCommissions)} />
-                <Stack.Screen name="SessionPortalHR" component={protect(SessionPortalHR)} />
+                <Stack.Screen name="SessionPortalHR" component={protect(SessionPortalRoute)} />
                 <Stack.Screen name="StaffDutyHours" component={protect(StaffDutyHours)} />
                 <Stack.Screen name="EmployeeAttendance" component={protect(EmployeeAttendance)} />
                 <Stack.Screen name="PTAttendance" component={protect(PTAttendance)} />
@@ -468,6 +491,18 @@ const AppNavigator = () => {
                 <Stack.Screen name="ViewDietPlanIssued" component={protect(DietPlanIssuedScreen)} />
                 <Stack.Screen name="HealthCamps" component={protect(HealthCampsScreen)} />
                 <Stack.Screen name="ReferralSheet" component={protect(ReferralSheetScreen)} />
+
+                {/* ── Admin: Physiotherapy ── */}
+                <Stack.Screen name="PhysiotherapyDashboard" component={protect(PhysiotherapyDashboard)} />
+                <Stack.Screen name="PhysiotherapyAppointments" component={protect(PhysiotherapyAppointments)} />
+                <Stack.Screen name="PhysiotherapyPrescriptions" component={protect(PhysiotherapyPrescriptions)} />
+                <Stack.Screen name="AddPhysioPrescription" component={protect(AddPhysioPrescriptionScreen)} />
+                <Stack.Screen name="PhysiotherapyGX" component={protect(PhysiotherapyGX)} />
+                <Stack.Screen name="PhysiotherapyDailyClientReferral" component={protect(PhysiotherapyDailyClientReferralScreen)} />
+                <Stack.Screen name="AddPhysioDailyReferral" component={protect(AddPhysioDailyReferralScreen)} />
+                <Stack.Screen name="PhysiotherapyPatientDetails" component={protect(PhysiotherapyPatientDetailsScreen)} />
+                <Stack.Screen name="PhysiotherapyClientResponses" component={protect(PhysiotherapyClientResponsesScreen)} />
+                <Stack.Screen name="AddPhysioClientResponse" component={protect(AddPhysioClientResponseScreen)} />
             </Stack.Navigator>
         </View>
     );

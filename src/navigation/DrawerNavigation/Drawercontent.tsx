@@ -432,6 +432,21 @@ const MENU = [
     ],
   },
 
+  // ── Admin: Physiotherapy ──────────────────────────────────────────────────
+  {
+    title: 'Physiotherapy',
+    icon: 'medical-bag',
+    children: [
+      { title: 'Dashboard', screen: 'PhysiotherapyDashboard' },
+      { title: 'Appointments', screen: 'PhysiotherapyAppointments' },
+      { title: 'Prescriptions', screen: 'PhysiotherapyPrescriptions' },
+      { title: 'GX', screen: 'PhysiotherapyGX' },
+      { title: 'Daily Client Referral', screen: 'PhysiotherapyDailyClientReferral' },
+      { title: 'Patient Details', screen: 'PhysiotherapyPatientDetails' },
+      { title: 'Client Responses', screen: 'PhysiotherapyClientResponses' },
+    ],
+  },
+
   // ── Settings / Approval / Notifications ───────────────────────────────────
   { title: 'Settings', icon: 'cog', screen: 'Settings' },
   { title: 'Approval', icon: 'check-circle', screen: 'ApprovalsScreen' },

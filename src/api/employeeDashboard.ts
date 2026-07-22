@@ -116,7 +116,7 @@ export const getHRCommissions = async (params: {
   user_id?: number;
   limit?: number;
 }) => {
-  const res = await api.get('/v1/fitness/commission-portal/hr/commissions', { params });
+  const res = await api.get('/v1/commissions', { params });
   return res.data;
 };
 
@@ -1418,13 +1418,100 @@ export const getGXTrainers = async (params: { branch_id: number }) => {
 export const getHRSessions = async (params: {
   branch_id: number;
   trainer_id?: number;
+  client_id?: number;
   status?: 'Active' | 'Inactive';
+  staff_status?: string;
+  client_status?: string;
   start_date?: string;
   end_date?: string;
   limit?: number;
   page?: number;
 }) => {
   const res = await api.get('/v1/fitness/commission-portal/hr/sessions', { params });
+  return res.data;
+};
+
+// Confirmed live via HAR of the web admin's "HR Session Portal" page
+// (hr-session-portal), 2026-07-06. Create/update/delete already used
+// (raw `api` calls) in PTAttendance for the same endpoint; wrapped here for
+// reuse by the HR Session & Commission Portal screen.
+export const createHRSession = async (payload: {
+  branch_id: number;
+  trainer_id: number;
+  client_id: number;
+  order_id: number;
+  package_id: number;
+  date: string;
+  time_slot?: string;
+  staff_status: string;
+  client_status: string;
+}) => {
+  const res = await api.post('/v1/fitness/commission-portal/hr/sessions', payload);
+  return res.data;
+};
+
+export const updateHRSession = async (id: number, payload: {
+  staff_status?: string;
+  client_status?: string;
+  status?: 'Active' | 'Inactive';
+}) => {
+  const res = await api.put(`/v1/fitness/commission-portal/hr/sessions/${id}`, payload);
+  return res.data;
+};
+
+export const deleteHRSession = async (id: number) => {
+  const res = await api.delete(`/v1/fitness/commission-portal/hr/sessions/${id}`);
+  return res.data;
+};
+
+// Per-trainer commission breakdown for the HR Session & Commission Portal's
+// "Commissions" tab. Confirmed live via HAR 2026-07-06. Response shape per
+// trainer: {id, name, uid, branch, joining, department, designation,
+// last_month_paid, commission: {commission_per, gross_commission,
+// pt_commission, gx_commission, small_pt_commission, paid_commission,
+// outstanding_commission, payment_progress, payout_status, payout_date,
+// total_delivered_sessions, total_payable_no_show_sessions,
+// total_package_sessions, total_remaining_contract_sessions,
+// total_client_no_show_sessions, total_trainer_no_show_sessions,
+// total_client_cancel_sessions, total_trainer_cancel_sessions,
+// formula_guide, details:[...]}}.
+export const getHRPortalCommissions = async (params: {
+  branch_id: number;
+  trainer_id?: number;
+  start_date: string;
+  end_date: string;
+  limit?: number;
+}) => {
+  const res = await api.get('/v1/fitness/commission-portal/hr/commissions', { params });
+  return res.data;
+};
+
+// Per-trainer client roster for the Session Report tab's Active/Old Client
+// filters. Confirmed live via HAR 2026-07-06. `include_expired=1` returns
+// every order (active + expired); filter client-side by `order_status` /
+// `sessions_remaining` to split Active vs Old.
+export const getHRPortalClients = async (params: {
+  trainer_id: number;
+  branch_id?: number;
+  include_expired?: 0 | 1;
+}) => {
+  const res = await api.get('/v1/fitness/commission-portal/hr/clients', { params });
+  return res.data;
+};
+
+// NOT CONFIRMED — no payout/record-payment call was captured live; endpoint
+// path and payload are inferred from the commissions response shape
+// (payout_status/payout_date/paid_commission). Screen must handle failure
+// gracefully until confirmed against the real backend.
+export const recordHRCommissionPayment = async (payload: {
+  trainer_id: number;
+  branch_id: number;
+  start_date: string;
+  end_date: string;
+  amount: number;
+  note?: string;
+}) => {
+  const res = await api.post('/v1/fitness/commission-portal/hr/commissions/pay', payload);
   return res.data;
 };
 

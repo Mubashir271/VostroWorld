@@ -11,6 +11,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { RootState } from '../../../redux/store';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 import api from '../../../api/service';
+import { getHRSessionsAll } from '../../../api/employeeDashboard';
 
 interface Trainer {
   id: number;
@@ -51,8 +52,9 @@ const BRANCH_OPTIONS = [
 
 const TRAINER_STATUSES = ['Contacted', 'Delivered', 'No Show', 'Cancel'];
 const CLIENT_STATUSES = ['Delivered', 'No Show', 'Cancel'];
+const PAGE_SIZE = 25;
 
-const fmtDate = (d: Date) => d.toISOString().split('T')[0];
+const fmtDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const Dropdown = ({ label, options, value, onChange }: {
   label: string;
@@ -81,6 +83,33 @@ const Dropdown = ({ label, options, value, onChange }: {
   );
 };
 
+const Pagination = ({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (n: number) => void }) => {
+  if (totalPages <= 1) return null;
+  return (
+    <View style={styles.pagination}>
+      <TouchableOpacity disabled={page === 1} onPress={() => onChange(1)}>
+        <Text style={[styles.pageEdgeText, page === 1 && styles.pageDisabledText]}>First Page</Text>
+      </TouchableOpacity>
+      <TouchableOpacity disabled={page === 1} onPress={() => onChange(Math.max(1, page - 1))}>
+        <Text style={[styles.pageArrow, page === 1 && styles.pageDisabledText]}>‹</Text>
+      </TouchableOpacity>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pageNumScroll}>
+        {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(n => (
+          <TouchableOpacity key={n} onPress={() => onChange(n)} style={[styles.pageNum, page === n && styles.pageNumActive]}>
+            <Text style={[styles.pageNumText, page === n && styles.pageNumTextActive]}>{n}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <TouchableOpacity disabled={page === totalPages} onPress={() => onChange(Math.min(totalPages, page + 1))}>
+        <Text style={[styles.pageArrow, page === totalPages && styles.pageDisabledText]}>›</Text>
+      </TouchableOpacity>
+      <TouchableOpacity disabled={page === totalPages} onPress={() => onChange(totalPages)}>
+        <Text style={[styles.pageEdgeText, page === totalPages && styles.pageDisabledText]}>Last Page</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const PTAttendance = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
@@ -95,12 +124,9 @@ const PTAttendance = () => {
   const [loadingInit, setLoadingInit] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   const [activePage, setActivePage] = useState(1);
-  const [activeLastPage, setActiveLastPage] = useState(1);
   const [inactivePage, setInactivePage] = useState(1);
-  const [inactiveLastPage, setInactiveLastPage] = useState(1);
 
   const [filterTrainerId, setFilterTrainerId] = useState('');
 
@@ -142,44 +168,32 @@ const PTAttendance = () => {
     }
   }, [formBranch, branchId]);
 
-  const loadSessions = useCallback(async (isRefresh = false, aPage = 1, iPage = 1) => {
+  // Fetches every backend page for Active/Inactive (a single trainer/branch's
+  // session list is small enough to hold in full) so it can be paginated
+  // 25/page client-side with numbered page controls, matching the web
+  // admin's own pagination instead of an infinite "Load More" scroll.
+  const loadSessions = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
 
     const bid = branchId;
-    const tId = filterTrainerId || undefined;
+    const tId = filterTrainerId ? Number(filterTrainerId) : undefined;
 
     const [activeRes, inactiveRes] = await Promise.allSettled([
-      api.get('/v1/fitness/commission-portal/hr/sessions', {
-        params: { branch_id: bid, trainer_id: tId, status: 'Active', limit: 25, page: aPage },
-      }),
-      api.get('/v1/fitness/commission-portal/hr/sessions', {
-        params: { branch_id: bid, trainer_id: tId, status: 'Inactive', limit: 25, page: iPage },
-      }),
+      getHRSessionsAll({ branch_id: bid, trainer_id: tId, status: 'Active' }),
+      getHRSessionsAll({ branch_id: bid, trainer_id: tId, status: 'Inactive' }),
     ]);
 
-    if (activeRes.status === 'fulfilled') {
-      const raw = activeRes.value.data?.data ?? activeRes.value.data ?? {};
-      const list: Session[] = raw.data ?? (Array.isArray(raw) ? raw : []);
-      setActiveLastPage(raw.last_page ?? 1);
-      setActiveSessions(aPage === 1 ? list : prev => [...prev, ...list]);
-      setActivePage(aPage);
-    } else if (aPage === 1) setActiveSessions([]);
-
-    if (inactiveRes.status === 'fulfilled') {
-      const raw = inactiveRes.value.data?.data ?? inactiveRes.value.data ?? {};
-      const list: Session[] = raw.data ?? (Array.isArray(raw) ? raw : []);
-      setInactiveLastPage(raw.last_page ?? 1);
-      setInactiveSessions(iPage === 1 ? list : prev => [...prev, ...list]);
-      setInactivePage(iPage);
-    } else if (iPage === 1) setInactiveSessions([]);
+    setActiveSessions(activeRes.status === 'fulfilled' ? (activeRes.value as Session[]) : []);
+    setActivePage(1);
+    setInactiveSessions(inactiveRes.status === 'fulfilled' ? (inactiveRes.value as Session[]) : []);
+    setInactivePage(1);
 
     setRefreshing(false);
-    setLoadingMore(false);
   }, [branchId, filterTrainerId]);
 
   const init = useCallback(async () => {
     setLoadingInit(true);
-    await Promise.allSettled([loadTrainers(), loadSessions(false, 1, 1)]);
+    await Promise.allSettled([loadTrainers(), loadSessions(false)]);
     setLoadingInit(false);
   }, [loadTrainers, loadSessions]);
 
@@ -217,7 +231,7 @@ const PTAttendance = () => {
       setFormTrainerStatus('');
       setFormClientStatus('');
       setRoster([]);
-      loadSessions(false, 1, 1);
+      loadSessions(false);
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'Failed to add session';
       dispatch(showSnackbar({ message: msg, type: 'error' }));
@@ -234,7 +248,7 @@ const PTAttendance = () => {
       });
       dispatch(showSnackbar({ message: 'Session updated', type: 'success' }));
       setEditSession(null);
-      loadSessions(false, 1, 1);
+      loadSessions(false);
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'Failed to update session';
       dispatch(showSnackbar({ message: msg, type: 'error' }));
@@ -245,7 +259,7 @@ const PTAttendance = () => {
     try {
       await api.put(`/v1/fitness/commission-portal/hr/sessions/${session.id}`, { status: 'Inactive' });
       dispatch(showSnackbar({ message: 'Session marked inactive', type: 'success' }));
-      loadSessions(false, 1, 1);
+      loadSessions(false);
     } catch {
       dispatch(showSnackbar({ message: 'Could not update status', type: 'error' }));
     }
@@ -255,7 +269,7 @@ const PTAttendance = () => {
     try {
       await api.put(`/v1/fitness/commission-portal/hr/sessions/${session.id}`, { status: 'Active' });
       dispatch(showSnackbar({ message: 'Session activated', type: 'success' }));
-      loadSessions(false, 1, 1);
+      loadSessions(false);
     } catch {
       dispatch(showSnackbar({ message: 'Could not activate session', type: 'error' }));
     }
@@ -265,7 +279,7 @@ const PTAttendance = () => {
     try {
       await api.delete(`/v1/fitness/commission-portal/hr/sessions/${session.id}`);
       dispatch(showSnackbar({ message: 'Session deleted', type: 'success' }));
-      loadSessions(false, 1, 1);
+      loadSessions(false);
     } catch {
       dispatch(showSnackbar({ message: 'Failed to delete session', type: 'error' }));
     }
@@ -286,9 +300,14 @@ const PTAttendance = () => {
     }
   };
 
-  const renderSessionRow = (session: Session, idx: number, isActive: boolean) => (
+  const activeTotalPages = Math.max(1, Math.ceil(activeSessions.length / PAGE_SIZE));
+  const activePagedRows = activeSessions.slice((activePage - 1) * PAGE_SIZE, activePage * PAGE_SIZE);
+  const inactiveTotalPages = Math.max(1, Math.ceil(inactiveSessions.length / PAGE_SIZE));
+  const inactivePagedRows = inactiveSessions.slice((inactivePage - 1) * PAGE_SIZE, inactivePage * PAGE_SIZE);
+
+  const renderSessionRow = (session: Session, idx: number, srNumber: number, isActive: boolean) => (
     <View key={session.id} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
-      <Text style={[styles.td, styles.colSr]}>{idx + 1}</Text>
+      <Text style={[styles.td, styles.colSr]}>{srNumber}</Text>
       <Text style={[styles.td, styles.colName]}>{session.trainer_name ?? '-'}</Text>
       <Text style={[styles.td, styles.colName]}>{session.client_name ?? '-'}</Text>
       <Text style={[styles.td, styles.colPkg]}>{session.package_name ?? '-'}</Text>
@@ -342,7 +361,7 @@ const PTAttendance = () => {
 
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadSessions(true, 1, 1)} colors={['#E63946']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadSessions(true)} colors={['#E63946']} />}
       >
         {/* Add Form */}
         <View style={styles.formCard}>
@@ -436,7 +455,7 @@ const PTAttendance = () => {
               label="Filter by Trainer"
               options={[{ label: 'All Trainers', value: '' }, ...trainerOptions]}
               value={filterTrainerId}
-              onChange={v => { setFilterTrainerId(v); loadSessions(false, 1, 1); }}
+              onChange={v => { setFilterTrainerId(v); loadSessions(false); }}
             />
           </View>
         </View>
@@ -455,21 +474,17 @@ const PTAttendance = () => {
               <Text style={[styles.th, styles.colDate]}>Date</Text>
               <Text style={[styles.th, styles.colActions]}>Actions</Text>
             </View>
-            {activeSessions.length === 0 ? (
+            {activePagedRows.length === 0 ? (
               <View style={styles.emptyRow}>
                 <Icon name="dumbbell" size={40} color="#ddd" />
                 <Text style={styles.emptyText}>No active sessions</Text>
               </View>
             ) : (
-              activeSessions.map((s, i) => renderSessionRow(s, i, true))
+              activePagedRows.map((s, i) => renderSessionRow(s, i, (activePage - 1) * PAGE_SIZE + i + 1, true))
             )}
           </View>
         </ScrollView>
-        {activePage < activeLastPage && (
-          <TouchableOpacity style={styles.loadMoreBtn} onPress={() => { setLoadingMore(true); loadSessions(false, activePage + 1, inactivePage); }} disabled={loadingMore}>
-            {loadingMore ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.loadMoreText}>Load More Active</Text>}
-          </TouchableOpacity>
-        )}
+        <Pagination page={activePage} totalPages={activeTotalPages} onChange={setActivePage} />
 
         {/* Inactive Sessions */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Inactive Session Attendance</Text>
@@ -485,21 +500,17 @@ const PTAttendance = () => {
               <Text style={[styles.th, styles.colDate]}>Date</Text>
               <Text style={[styles.th, styles.colActions]}>Actions</Text>
             </View>
-            {inactiveSessions.length === 0 ? (
+            {inactivePagedRows.length === 0 ? (
               <View style={styles.emptyRow}>
                 <Icon name="dumbbell" size={40} color="#ddd" />
                 <Text style={styles.emptyText}>No inactive sessions</Text>
               </View>
             ) : (
-              inactiveSessions.map((s, i) => renderSessionRow(s, i, false))
+              inactivePagedRows.map((s, i) => renderSessionRow(s, i, (inactivePage - 1) * PAGE_SIZE + i + 1, false))
             )}
           </View>
         </ScrollView>
-        {inactivePage < inactiveLastPage && (
-          <TouchableOpacity style={[styles.loadMoreBtn, { backgroundColor: '#607D8B' }]} onPress={() => { setLoadingMore(true); loadSessions(false, activePage, inactivePage + 1); }} disabled={loadingMore}>
-            {loadingMore ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.loadMoreText}>Load More Inactive</Text>}
-          </TouchableOpacity>
-        )}
+        <Pagination page={inactivePage} totalPages={inactiveTotalPages} onChange={setInactivePage} />
       </ScrollView>
     </View>
   );
@@ -548,8 +559,15 @@ const styles = StyleSheet.create({
   actionBtn: { padding: 5, backgroundColor: '#E3F2FD', borderRadius: 6 },
   emptyRow: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, paddingHorizontal: 16 },
   emptyText: { fontSize: 13, color: '#aaa', marginTop: 8 },
-  loadMoreBtn: { marginTop: 10, backgroundColor: '#E63946', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  loadMoreText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 14, marginBottom: 16, flexWrap: 'wrap' },
+  pageEdgeText: { fontSize: 12, fontWeight: '700', color: '#E63946' },
+  pageArrow: { fontSize: 16, fontWeight: '700', color: '#E63946', paddingHorizontal: 4 },
+  pageDisabledText: { color: '#BBB' },
+  pageNumScroll: { flexGrow: 0, maxWidth: 220 },
+  pageNum: { width: 30, height: 30, borderRadius: 6, borderWidth: 1, borderColor: '#EFEFEF', backgroundColor: '#FAFAFA', alignItems: 'center', justifyContent: 'center', marginHorizontal: 3 },
+  pageNumActive: { backgroundColor: '#E63946', borderColor: '#E63946' },
+  pageNumText: { fontSize: 12, fontWeight: '600', color: '#555' },
+  pageNumTextActive: { color: '#FFF' },
   statusDelivered: { color: '#43A047', fontWeight: '700' },
   statusNoShow: { color: '#E63946', fontWeight: '700' },
   statusCancel: { color: '#FB8C00', fontWeight: '700' },

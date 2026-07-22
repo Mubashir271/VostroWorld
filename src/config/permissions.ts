@@ -1,6 +1,7 @@
 // src/config/permissions.ts
 
 export const ROLES = {
+  SUPER_ADMIN: '1', // confirmed live via /v1/auth/app-login (admin@vostroworld.com)
   ADMIN: '3',
   TRAINER: '9',    // Personal Trainer
   HR: '12',        // HR Department — confirmed live 2026-06-29 via app-login
@@ -56,7 +57,7 @@ export const ADMIN_HIDDEN_MENUS = [
   'HR Management', // trainer-only HR section; admin uses 'Human Resource'
 ];
 
-export const isAdmin = (role?: string | null) => role === ROLES.ADMIN;
+export const isAdmin = (role?: string | null) => role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
 export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
 export const isHR = (role?: string | null) => role === ROLES.HR;
 

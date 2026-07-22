@@ -22,15 +22,15 @@ interface CommRecord {
   staff_name: string;
   department: string;
   designation: string;
-  pt_percentage?: number;
-  commission_per?: number;
+  commission_per?: number;        // PT %
+  gross_commission: number;
   pt_commission?: number;
-  commission?: number;
-  studio_commission?: number;
-  spt_commission?: number;
-  gross_commission?: number;
+  gx_commission?: number;
+  small_pt_commission?: number;
+  paid_commission?: number;
+  outstanding_commission?: number;
   payout_status?: string;
-  payout_date?: string;
+  payout_date?: string | null;
 }
 
 const Rs = (n: any) => `Rs ${Number(n || 0).toLocaleString()}/-`;
@@ -42,16 +42,17 @@ const apiDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const STATUS_COLOR: Record<string, string> = {
-  paid:     '#2E7D32',
-  settled:  '#2E7D32',
-  partial:  '#E65100',
-  unpaid:   '#C62828',
+  paid: '#2E7D32',
+  settled: '#2E7D32',
+  partial: '#E65100',
+  unpaid: '#C62828',
 };
 
 const ROW_BG: Record<string, string> = {
-  paid:    '#E8F5E9',
+  paid: '#E8F5E9',
   settled: '#E8F5E9',
   partial: '#FFF8E1',
+  unpaid: '#FFEBEE',   // Light red for unpaid
 };
 
 const COLS = [
@@ -98,12 +99,29 @@ const StaffCommissions = () => {
     setLoading(true);
     try {
       const res = await getHRCommissions({
-        branch_id:  branchId,
+        branch_id: branchId,
         start_date: apiDate(fromDate),
-        end_date:   apiDate(toDate),
+        end_date: apiDate(toDate),
         limit: 200,
       });
-      const data: CommRecord[] = res?.data ?? [];
+
+      const rawData = res?.data?.data ?? res?.data ?? [];
+      const data: CommRecord[] = rawData.map((item: any) => ({
+        id: item.id,
+        staff_name: item.name || item.staff_name || '-',
+        department: item.department || 'Fitness',
+        designation: item.designation || 'Personal Trainer',
+        commission_per: Number(item.commission?.commission_per ?? 0),
+        gross_commission: Number(item.commission?.gross_commission ?? item.commission?.commission ?? 0),
+        pt_commission: Number(item.commission?.pt_commission ?? 0),
+        gx_commission: Number(item.commission?.gx_commission ?? 0),
+        small_pt_commission: Number(item.commission?.small_pt_commission ?? 0),
+        paid_commission: Number(item.commission?.paid_commission ?? 0),
+        outstanding_commission: Number(item.commission?.outstanding_commission ?? 0),
+        payout_status: item.commission?.payout_status || 'unpaid',
+        payout_date: item.commission?.payout_date,
+      }));
+
       setRecords(data);
       setFiltered(data);
       setTrainerList(data.map(r => r.staff_name).filter(Boolean));
@@ -124,25 +142,30 @@ const StaffCommissions = () => {
     setTrainerModal(false);
   };
 
-  const getStatusKey = (r: CommRecord) =>
-    (r.payout_status ?? '').toLowerCase();
+  const getStatusKey = (r: CommRecord) => {
+    const status = String(r.payout_status || '').toLowerCase().trim();
+    const paid = Number(r.paid_commission) || 0;
+    const gross = Number(r.gross_commission) || 0;
+
+    if (status === 'settled' || status === 'paid' || status === 'completed') return 'settled';
+    if (gross === 0 && paid === 0) return 'settled';
+    if (gross > 0 && paid >= gross) return 'settled';
+    if (paid > 0 && paid < gross) return 'partial';
+    return 'unpaid';
+  };
 
   const getCell = (key: string, r: CommRecord): string => {
-    const pt = r.pt_commission ?? r.commission ?? 0;
-    const st = r.studio_commission ?? 0;
-    const sp = r.spt_commission ?? 0;
-    const gross = r.gross_commission ?? pt + st + sp;
     switch (key) {
-      case 'name':    return r.staff_name || '-';
-      case 'dept':    return r.department || '-';
-      case 'desig':   return r.designation || '-';
-      case 'pt_per':  return `${r.pt_percentage ?? r.commission_per ?? 0}%`;
-      case 'pt_comm': return Rs(pt);
-      case 'studio':  return Rs(st);
-      case 'spt':     return Rs(sp);
-      case 'gross':   return Rs(gross);
-      case 'date':    return r.payout_date || '-';
-      default:        return '';
+      case 'name': return r.staff_name || '-';
+      case 'dept': return r.department || '-';
+      case 'desig': return r.designation || '-';
+      case 'pt_per': return `${r.commission_per ?? 0}%`;
+      case 'pt_comm': return Rs(r.pt_commission);
+      case 'studio': return Rs(r.gx_commission);
+      case 'spt': return Rs(r.small_pt_commission);
+      case 'gross': return Rs(r.gross_commission);
+      case 'date': return r.payout_date || '-';
+      default: return '';
     }
   };
 
@@ -274,11 +297,18 @@ const StaffCommissions = () => {
                         );
                       }
                       if (c.key === 'action') {
+                        const isSettled = sk === 'settled';
                         return (
-                          <View key={c.key} style={[s.cell, { width: c.width }]}>
-                            <TouchableOpacity style={s.recBtn}>
-                              <Text style={s.recBtnText}>Record Payment</Text>
-                            </TouchableOpacity>
+                          <View key={c.key} style={[s.cell, { width: c.width, justifyContent: 'center' }]}>
+                            {isSettled ? (
+                              <View style={[s.badge, { backgroundColor: '#2E7D32', paddingHorizontal: 14, paddingVertical: 6 }]}>
+                                <Text style={[s.badgeText, { fontSize: 12 }]}>Settled</Text>
+                              </View>
+                            ) : (
+                              <TouchableOpacity style={s.recBtn}>
+                                <Text style={s.recBtnText}>Record Payment</Text>
+                              </TouchableOpacity>
+                            )}
                           </View>
                         );
                       }

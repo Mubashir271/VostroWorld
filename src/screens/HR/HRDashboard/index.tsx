@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { RootState } from '../../../redux/store';
-import { getHRDashboard } from '../../../api/employeeDashboard';
+import { getHRDashboard, getStaffList, getBranchesNameList } from '../../../api/employeeDashboard';
 import api from '../../../api/service';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -281,11 +281,7 @@ const CollapsibleSection = ({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-const BRANCH_OPTIONS = [
-  { id: '0', label: 'All Branches', branch_id: undefined },
-  { id: '1', label: 'F 11', branch_id: 1 },
-  { id: '2', label: 'G 13', branch_id: 2 },
-];
+const ALL_BRANCHES_OPTION = { id: '0', label: 'All Branches', branch_id: undefined as number | undefined };
 
 const HRDashboard = () => {
   const navigation = useNavigation<any>();
@@ -295,8 +291,24 @@ const HRDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [selectedBranch, setSelectedBranch] = useState(BRANCH_OPTIONS[0]);
+  // Fetched from /v1/branches/branches-name-list — HAR-confirmed real ids are
+  // F 11 = 15, G 13 = 1 (not the reverse), so this must stay dynamic rather
+  // than hardcoded.
+  const [branchOptions, setBranchOptions] = useState([ALL_BRANCHES_OPTION]);
+  const [selectedBranch, setSelectedBranch] = useState(ALL_BRANCHES_OPTION);
   const [branchModalVisible, setBranchModalVisible] = useState(false);
+
+  useEffect(() => {
+    getBranchesNameList()
+      .then(res => {
+        const branches = res?.data ?? [];
+        setBranchOptions([
+          ALL_BRANCHES_OPTION,
+          ...branches.map((b: any) => ({ id: String(b.id), label: b.name, branch_id: b.id as number | undefined })),
+        ]);
+      })
+      .catch(() => {});
+  }, []);
 
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -319,90 +331,97 @@ const HRDashboard = () => {
         return;
       }
 
-      // Fallback: combine multiple endpoints.
-      // NOTE: attendance works at /attendance/index (no v1 prefix); approvals at /v1/hr/...
-      const attParams = (dateStr: string) => ({
-        params: { branch_id: bId, category: 2, start_date: dateStr, end_date: dateStr, limit: 9999 },
-      });
+      // Fallback: combine multiple endpoints, matching the web admin's own
+      // HR dashboard network calls (HAR-confirmed 2026-07-15):
+      //   /v1/auth/get?status=1&limit=1000                (staff roster)
+      //   /v1/attendance/index?category=2&type=Staff&start_date=prev&end_date=next  (ONE 3-day range call, not 3 separate ones)
+      //   /v1/hr/employee-duty-hour-requests/index, /v1/hr/staff-documents/index    (approvals)
+      // Real branch ids from /v1/branches/branches-name-list: F 11 = 15, G 13 = 1.
+      const f11Id = branchOptions.find(o => o.label === 'F 11')?.branch_id ?? 15;
+      const g13Id = branchOptions.find(o => o.label === 'G 13')?.branch_id ?? 1;
 
-      const [dutyReqRes, docReqRes, attPrevRes, attTodayRes, attNextRes] =
-        await Promise.allSettled([
-          api.get('/v1/hr/employee-duty-hour-requests/index', {
-            params: { branch_id: bId, approval_status: 'Pending', limit: 1 },
-          }),
-          api.get('/v1/hr/staff-documents/index', {
-            params: { branch_id: bId, approval_status: 'Pending', limit: 1 },
-          }),
-          api.get('/v1/attendance/index', attParams(prevStr)),
-          api.get('/v1/attendance/index', attParams(todayStr)),
-          api.get('/v1/attendance/index', attParams(nextStr)),
-        ]);
+      const [staffRes, attRes, dutyReqRes, docReqRes] = await Promise.allSettled([
+        getStaffList({ branch_id: bId, status: 1, limit: 1000 }),
+        api.get('/v1/attendance/index', {
+          params: { branch_id: bId, category: 2, type: 'Staff', start_date: prevStr, end_date: nextStr, limit: 1000, page: 1 },
+        }),
+        api.get('/v1/hr/employee-duty-hour-requests/index', {
+          params: { branch_id: bId, approval_status: 'Pending', limit: 1 },
+        }),
+        api.get('/v1/hr/staff-documents/index', {
+          params: { branch_id: bId, approval_status: 'Pending', limit: 1 },
+        }),
+      ]);
 
       const ok = <T,>(r: PromiseSettledResult<T>): T | null =>
         r.status === 'fulfilled' ? r.value : null;
 
-      // Parse an attendance response into summary counts + per-branch breakdowns.
-      // uid prefix "SF11" = F-11 branch, "SG13" = G-13 branch.
-      const parseAttDay = (res: PromiseSettledResult<any>, dateStr: string) => {
-        const raw = ok(res);
-        const list: any[] = raw?.data?.data?.data ?? raw?.data?.data ?? [];
-        const total: number = raw?.data?.data?.total ?? list.length;
+      // ── Staff roster (source of truth for headcount / dept / birthdays / anniversaries) ──
+      const staffRaw = ok(staffRes);
+      const staff: any[] = staffRaw?.data?.data ?? [];
 
-        const present = list.filter((a: any) => a.attendance_status === 'Present').length;
-        const late    = list.filter((a: any) => a.is_late === 1).length;
-        const absent  = list.filter((a: any) => a.attendance_status === 'Absent').length;
-        const on_leave = list.filter((a: any) => a.attendance_status === 'Leave').length;
+      const totalStaff = staff.length;
+      const f11Total = staff.filter((s: any) => s.branch_id === f11Id).length;
+      const g13Total = staff.filter((s: any) => s.branch_id === g13Id).length;
 
-        const isF11 = (a: any) => String(a.attendee?.uid ?? '').startsWith('SF');
-        const isG13 = (a: any) => String(a.attendee?.uid ?? '').startsWith('SG');
+      const deptMap: Record<string, { total: number; f11: number; g13: number }> = {};
+      staff.forEach((s: any) => {
+        const dept = s.department || 'Other';
+        if (!deptMap[dept]) deptMap[dept] = { total: 0, f11: 0, g13: 0 };
+        deptMap[dept].total++;
+        if (s.branch_id === f11Id) deptMap[dept].f11++;
+        if (s.branch_id === g13Id) deptMap[dept].g13++;
+      });
+      const depts = Object.entries(deptMap)
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([name, d]) => ({ name, total: d.total, f11: d.f11, g13: d.g13 }));
 
-        const f11List = list.filter(isF11);
-        const g13List = list.filter(isG13);
+      const nowMonth = date.getMonth();
+      const validDate = (s?: string) => s && s !== '0000-00-00';
+      const birthdays: PersonRow[] = staff
+        .filter((s: any) => validDate(s.dob) && new Date(s.dob).getMonth() === nowMonth)
+        .map((s: any) => ({
+          name: s.name, branch: s.branch, designation: s.designation, department: s.department,
+          date: s.dob, age: new Date().getFullYear() - new Date(s.dob).getFullYear(),
+        }));
+      const anniversaries: PersonRow[] = staff
+        .filter((s: any) => validDate(s.join_date) && new Date(s.join_date).getMonth() === nowMonth)
+        .map((s: any) => ({
+          name: s.name, branch: s.branch, designation: s.designation, department: s.department,
+          date: s.join_date, age: new Date().getFullYear() - new Date(s.join_date).getFullYear(),
+        }));
 
+      // ── Attendance (one 3-day-range call, split client-side by row.date) ──
+      const attRaw = ok(attRes);
+      const attList: any[] = (attRaw as any)?.data?.data?.data ?? [];
+
+      const parseAttDay = (dateStr: string) => {
+        const list = attList.filter((a: any) => a.date === dateStr);
+        const byBranch = (branchId: number) => {
+          const l = list.filter((a: any) => a.branch_id === branchId);
+          return {
+            present: l.filter((a: any) => a.attendance_status === 'Present').length,
+            late:    l.filter((a: any) => a.is_late === 1).length,
+            absent:  l.filter((a: any) => a.attendance_status === 'Absent').length,
+            on_leave: l.filter((a: any) => a.attendance_status === 'Leave').length,
+          };
+        };
         return {
           date: dateStr,
-          present,
-          late,
-          absent,
-          on_leave,
-          total,
-          f11: {
-            present: f11List.filter((a: any) => a.attendance_status === 'Present').length,
-            late:    f11List.filter((a: any) => a.is_late === 1).length,
-            absent:  f11List.filter((a: any) => a.attendance_status === 'Absent').length,
-            on_leave: f11List.filter((a: any) => a.attendance_status === 'Leave').length,
-          },
-          g13: {
-            present: g13List.filter((a: any) => a.attendance_status === 'Present').length,
-            late:    g13List.filter((a: any) => a.is_late === 1).length,
-            absent:  g13List.filter((a: any) => a.attendance_status === 'Absent').length,
-            on_leave: g13List.filter((a: any) => a.attendance_status === 'Leave').length,
-          },
+          present: list.filter((a: any) => a.attendance_status === 'Present').length,
+          late:    list.filter((a: any) => a.is_late === 1).length,
+          absent:  list.filter((a: any) => a.attendance_status === 'Absent').length,
+          on_leave: list.filter((a: any) => a.attendance_status === 'Leave').length,
+          total: list.length,
+          f11: byBranch(f11Id),
+          g13: byBranch(g13Id),
           _list: list,
         };
       };
 
-      const prevDay  = parseAttDay(attPrevRes, prevStr);
-      const todayDay = parseAttDay(attTodayRes, todayStr);
-      const nextDay  = parseAttDay(attNextRes, nextStr);
-
-      // Derive staff count from today's total attendance records (all on-schedule staff).
-      const totalStaff = todayDay.total;
-      const f11Total = todayDay._list.filter((a: any) => String(a.attendee?.uid ?? '').startsWith('SF')).length;
-      const g13Total = todayDay._list.filter((a: any) => String(a.attendee?.uid ?? '').startsWith('SG')).length;
-
-      // Group today's attendance by designation for department summary.
-      const desigMap: Record<string, { total: number; f11: number; g13: number }> = {};
-      todayDay._list.forEach((a: any) => {
-        const dept = a.designation || 'Other';
-        if (!desigMap[dept]) desigMap[dept] = { total: 0, f11: 0, g13: 0 };
-        desigMap[dept].total++;
-        if (String(a.attendee?.uid ?? '').startsWith('SF')) desigMap[dept].f11++;
-        if (String(a.attendee?.uid ?? '').startsWith('SG')) desigMap[dept].g13++;
-      });
-      const depts = Object.entries(desigMap)
-        .sort((a, b) => b[1].total - a[1].total)
-        .map(([name, d]) => ({ name, total: d.total, f11: d.f11, g13: d.g13 }));
+      const prevDay  = parseAttDay(prevStr);
+      const todayDay = parseAttDay(todayStr);
+      const nextDay  = parseAttDay(nextStr);
 
       // Pending approvals
       const dutyRaw = ok(dutyReqRes);
@@ -415,6 +434,8 @@ const HRDashboard = () => {
         f11_staff:   f11Total,
         g13_staff:   g13Total,
         departments: depts,
+        birthdays,
+        anniversaries,
         attendance: {
           previous_day: prevDay,
           today:        todayDay,
@@ -446,7 +467,7 @@ const HRDashboard = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [date, selectedBranch]);
+  }, [date, selectedBranch, branchOptions]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -550,7 +571,7 @@ const HRDashboard = () => {
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Select Branch</Text>
-            {BRANCH_OPTIONS.map(opt => (
+            {branchOptions.map(opt => (
               <TouchableOpacity
                 key={opt.id}
                 style={[styles.modalOption, selectedBranch.id === opt.id && styles.modalOptionSelected]}

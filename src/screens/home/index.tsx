@@ -86,11 +86,6 @@ export default function DashboardScreen() {
     const lastName = profile?.lastName || '';
     const fullName = `${firstName} ${lastName}`.trim();
 
-    const role =
-        profile?.type ||
-        profile?.role ||
-        'Staff';
-
     const branchId = profile?.branchId || null;
 
     const branchName =
@@ -124,11 +119,22 @@ export default function DashboardScreen() {
         setClientsG13(g13?.all_clients || 0);
     }, []);
 
-    const fetchTodaySales = useCallback(async () => {
-        if (!branchId) return;
-        const res = await getTodaySummary(branchId);
+    const sumTodaySales = (res: any) => {
         const row = res?.immediate?.[0];
-        if (row) setTodaySales((row.pending || 0) + (row.Credit_Card || 0) + (row.Online || 0) + (row.Cash || 0));
+        return row ? (row.pending || 0) + (row.Credit_Card || 0) + (row.Online || 0) + (row.Cash || 0) : 0;
+    };
+
+    const fetchTodaySales = useCallback(async () => {
+        // Super Admin has no single branch_id (profile.branchId is 0/null — "all
+        // branches"), and /v1/summary requires one, so sum F-11 + G-13 instead of
+        // skipping the fetch entirely, mirroring the clientsF11/clientsG13 pattern above.
+        if (!branchId) {
+            const [f11, g13] = await Promise.all([getTodaySummary(15), getTodaySummary(1)]);
+            setTodaySales(sumTodaySales(f11) + sumTodaySales(g13));
+            return;
+        }
+        const res = await getTodaySummary(branchId);
+        setTodaySales(sumTodaySales(res));
     }, [branchId]);
 
     const fetchDashboard = useCallback(async (isRefresh = false) => {
@@ -163,7 +169,7 @@ export default function DashboardScreen() {
             ? { uri: profile.image }
             : require('../../assets/img/userIcon.png');
 
-    const headerTitle = isAdmin(role) ? 'Vostro Admin' : 'Vostro Employee';
+    const headerTitle = userIsAdmin ? 'Vostro Admin' : 'Vostro Employee';
 
     return (
         <>

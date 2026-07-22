@@ -15,14 +15,16 @@ from:
   missing routes. See `PROJECT_STATUS.md`'s "Critical: every route needs the
   `/v1/` prefix" section and Known API Notes for the fixes applied 2026-06-24.
 
-
-  Admin login: f11@vostroworld.com
+  Admin login: <f11@vostroworld.com>
   vostro@8402
 
-  Trainer Login: maryeamshareef@gmail.com
+  Super admin login : <admin@vostroworld.com>
+  vostro@@8402
+
+  Trainer Login: <maryeamshareef@gmail.com>
   Maryam123
 
-  HR Login: hr@vostroworld.com
+  HR Login: <hr@vostroworld.com>
   experiaflimbbc,
 **Base URL:** `https://api.vostro-new.com/public/api/v1` (prod) /
 `https://dev-api.vostro-new.com/public/api/v1` (dev)
@@ -627,32 +629,38 @@ back to free text for those two categories.
 ## 8. Standard Response Formats
 
 **Success — single/list:**
+
 ```json
 { "status": true, "message": "Record found", "data": { } }
 ```
 
 **Success — paginated (Helper pattern):**
+
 ```json
 { "status": true, "message": "Record found", "data": [ ], "totalRecord": 120, "totalPages": 12 }
 ```
 
 **Success — paginated (Nutrition pattern):**
+
 ```json
 { "status": true, "message": "Appointments retrieved successfully", "data": [ ],
   "pagination": { "total_record": 120, "total_pages": 12, "current_page": 1, "per_page": 15 } }
 ```
 
 **Created (201):**
+
 ```json
 { "status": true, "message": "The record was inserted successfully!.." }
 ```
 
 **Validation error (422):**
+
 ```json
 { "status": false, "message": "The branch id field is required." }
 ```
 
 **Not found (404):**
+
 ```json
 { "status": false, "message": "No record found" }
 ```
