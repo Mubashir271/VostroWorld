@@ -216,9 +216,9 @@ const AccountScreen = () => {
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteBtn}>
+            {/* <TouchableOpacity style={styles.deleteBtn}>
               <Text style={styles.deleteText}>Delete Account</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
         </ScrollView>

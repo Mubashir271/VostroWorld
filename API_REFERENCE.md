@@ -18,6 +18,14 @@ from:
   Admin login: <f11@vostroworld.com>
   vostro@8402
 
+  F -11 Branch Admin Login
+  Email: <f11@vostrowold.com>
+  vostro@8402
+
+  G-13 Branch Admin Login
+  Email: <g13@vostroworld.com>
+  vostro@8402
+
   Super admin login : <admin@vostroworld.com>
   vostro@@8402
 
@@ -26,6 +34,15 @@ from:
 
   HR Login: <hr@vostroworld.com>
   experiaflimbbc,
+
+  <fitnessmanagerf11@gmail.com>
+  vostro@8402
+
+  <fitnessmanagerg13@gmail.com>
+  Vostro@333
+
+Nutritionsit login: <samramunir8@gmail.com>
+  Password: sam@123
 **Base URL:** `https://api.vostro-new.com/public/api/v1` (prod) /
 `https://dev-api.vostro-new.com/public/api/v1` (dev)
 

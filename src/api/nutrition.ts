@@ -198,3 +198,35 @@ export const getClientHub = (params: {
   limit?: number;
   page?: number;
 }) => api.get('/v1/nutrition/client-hub', { params });
+
+// ── Image Gallery (Nutritionist login only) ─────────────────────────────────
+
+// No pagination — the web admin (nutritionist login) loads up to 200 images
+// in one call and filters server-side via `search`, confirmed live 2026-07-23.
+export const getNutritionGallery = (params: {
+  branch_id: number;
+  search?: string;
+  limit?: number;
+}) => api.get('/v1/nutrition/gallery', { params });
+
+// Upload/delete were not captured live (the HAR only had the list+search
+// calls) — endpoint path, method and the multipart field name ('image')
+// are inferred from this app's other file-upload endpoints (see
+// employeeDashboard.ts's staff-documents upload); re-verify once an image
+// has been successfully uploaded from the app.
+export const uploadNutritionGalleryImage = (payload: {
+  branch_id: number;
+  title: string;
+  image: { uri: string; name: string; type: string };
+}) => {
+  const formData = new FormData();
+  formData.append('branch_id', String(payload.branch_id));
+  formData.append('title', payload.title);
+  formData.append('image', payload.image as any);
+  return api.post('/v1/nutrition/gallery', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const deleteNutritionGalleryImage = (id: number) =>
+  api.delete(`/v1/nutrition/gallery/${id}`);

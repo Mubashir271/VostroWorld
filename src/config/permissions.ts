@@ -4,6 +4,7 @@ export const ROLES = {
   SUPER_ADMIN: '1', // confirmed live via /v1/auth/app-login (admin@vostroworld.com)
   ADMIN: '3',
   TRAINER: '9',    // Personal Trainer
+  NUTRITIONIST: '10', // confirmed live 2026-07-23 via /v1/auth/get (designation "Nutritionist")
   HR: '12',        // HR Department — confirmed live 2026-06-29 via app-login
 };
 
@@ -60,6 +61,7 @@ export const ADMIN_HIDDEN_MENUS = [
 export const isAdmin = (role?: string | null) => role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
 export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
 export const isHR = (role?: string | null) => role === ROLES.HR;
+export const isNutritionist = (role?: string | null) => role === ROLES.NUTRITIONIST;
 
 export const hasFullAccess = (role?: string | null) => isAdmin(role);
 
@@ -85,4 +87,38 @@ export const HR_ALLOWED_SCREENS = [
   'LeaveQuota', 'LeaveApplications',
   'LetterManagement',
   'ResourceManager',
+];
+
+// Nutritionist-role drawer sections — confirmed live 2026-07-23 against the
+// web admin's Nutritionist-login menu (Employee Dashboard, Fitness > GX
+// Classes only, Nutrition in full including the new Image Gallery screen).
+export const NUTRITIONIST_ALLOWED_MENUS = ['Dashboard', 'Fitness', 'Nutrition', 'Notifications'];
+
+// Within Fitness, the nutritionist login only shows GX Classes (no SOPs,
+// Befit, SPT, Fitness Plan, etc. — those stay admin/trainer-only).
+export const NUTRITIONIST_ALLOWED_FITNESS_CHILDREN = ['GX Classes'];
+
+// Within Nutrition, the web's nutritionist login hides 'Nutrition Packages'
+// and 'Nutrition Assessments' (admin-only) but adds 'Image Gallery', which
+// has no admin-side menu entry yet — it's nutritionist-only for now.
+export const NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN = [
+  'Meals Plan', 'Clients Details', 'Dashboard', 'Appointments',
+  'Diet Plan Issued', 'Health Camps', 'Referral Sheet', 'Image Gallery',
+  'Assessment Questionnaire',
+];
+
+// Stack screen names nutritionists are allowed to navigate to — every GX
+// Classes screen under Fitness, every screen under Nutrition, plus the
+// always-allowed shared ones.
+export const NUTRITIONIST_ALLOWED_SCREENS = [
+  'Drawer', 'Dashboard', 'Notifications', 'Account',
+  // Fitness — GX Classes only
+  'AddGXSlots', 'AddGXClass', 'GXTrainers', 'GXSlotsList', 'GXBookings',
+  'GXAppointments', 'GXAttendance', 'GXAttendanceReport',
+  // Nutrition
+  'AddMealsPlan', 'ViewMealsPlan', 'ClientsDetails', 'NutritionDashboard',
+  'NutritionAppointments', 'AddNutritionAppointment', 'ViewDietPlanIssued',
+  'AddDietPlanIssued', 'HealthCamps', 'ReferralSheet',
+  'AddAssessmentQuestionnaire', 'ViewAssessmentQuestionnaire',
+  'NutritionImageGallery',
 ];

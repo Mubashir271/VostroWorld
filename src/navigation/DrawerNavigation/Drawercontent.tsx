@@ -13,10 +13,14 @@ import { clearCredentials } from '../../utils/biometrics';
 import {
   isAdmin,
   isHR,
+  isNutritionist,
   TRAINER_ALLOWED_MENUS,
   TRAINER_ALLOWED_HR_CHILDREN,
   ADMIN_HIDDEN_MENUS,
   HR_ALLOWED_MENUS,
+  NUTRITIONIST_ALLOWED_MENUS,
+  NUTRITIONIST_ALLOWED_FITNESS_CHILDREN,
+  NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
@@ -422,6 +426,7 @@ const MENU = [
       { title: 'Diet Plan Issued', screen: 'ViewDietPlanIssued' },
       { title: 'Health Camps', screen: 'HealthCamps' },
       { title: 'Referral Sheet', screen: 'ReferralSheet' },
+      { title: 'Image Gallery', screen: 'NutritionImageGallery' },
       {
         title: 'Assessment Questionnaire',
         children: [
@@ -481,6 +486,33 @@ const filterMenuForRole = (
     // HR: only Dashboard, Human Resource, Notifications — confirmed live
     // 2026-06-29 against the web admin's HR-login menu.
     return menu.filter(item => HR_ALLOWED_MENUS.includes(item.title));
+  }
+
+  if (isNutritionist(role)) {
+    // Nutritionist: Dashboard, Fitness (GX Classes only), Nutrition (full,
+    // minus admin-only Packages/Assessments), Notifications — confirmed
+    // live 2026-07-23 against the web admin's Nutritionist-login menu.
+    return menu
+      .filter(item => NUTRITIONIST_ALLOWED_MENUS.includes(item.title))
+      .map(item => {
+        if (item.title === 'Fitness' && item.children) {
+          return {
+            ...item,
+            children: item.children.filter(c =>
+              NUTRITIONIST_ALLOWED_FITNESS_CHILDREN.includes(c.title),
+            ),
+          };
+        }
+        if (item.title === 'Nutrition' && item.children) {
+          return {
+            ...item,
+            children: item.children.filter(c =>
+              NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN.includes(c.title),
+            ),
+          };
+        }
+        return item;
+      });
   }
 
   // Trainer: keep only allowed sections

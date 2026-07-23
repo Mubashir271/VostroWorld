@@ -57,7 +57,7 @@ import OrderDetail from '../../screens/CafeOperations/Orders/OrderDetail';
 import AccessDenied from '../../screens/AccessDenied';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
-import { isAdmin, isHR, HR_ALLOWED_SCREENS } from '../../config/permissions';
+import { isAdmin, isHR, isNutritionist, HR_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS } from '../../config/permissions';
 import AttendanceScreen from '../../screens/Attendance';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
@@ -230,6 +230,7 @@ import AddAssessmentQuestionnaireScreen from '../../screens/Nutrition/AddAssessm
 import AddNutritionAppointmentScreen from '../../screens/Nutrition/AddNutritionAppointment';
 import AddNutritionAssessmentsScreen from '../../screens/Nutrition/AddNutritionAssessments';
 import AddDietPlanIssuedScreen from '../../screens/Nutrition/AddDietPlanIssued';
+import NutritionImageGalleryScreen from '../../screens/Nutrition/NutritionImageGallery';
 
 const Stack = createStackNavigator();
 
@@ -248,8 +249,9 @@ const ProtectedScreen = ({
     const userIsAdmin = isAdmin(profile?.role);
     const screenName = rest?.route?.name;
     const hrAllowed = isHR(profile?.role) && !!screenName && HR_ALLOWED_SCREENS.includes(screenName);
+    const nutritionistAllowed = isNutritionist(profile?.role) && !!screenName && NUTRITIONIST_ALLOWED_SCREENS.includes(screenName);
 
-    if (!userIsAdmin && !hrAllowed) {
+    if (!userIsAdmin && !hrAllowed && !nutritionistAllowed) {
         return <AccessDenied />;
     }
 
@@ -491,6 +493,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="ViewDietPlanIssued" component={protect(DietPlanIssuedScreen)} />
                 <Stack.Screen name="HealthCamps" component={protect(HealthCampsScreen)} />
                 <Stack.Screen name="ReferralSheet" component={protect(ReferralSheetScreen)} />
+                <Stack.Screen name="NutritionImageGallery" component={protect(NutritionImageGalleryScreen)} />
 
                 {/* ── Admin: Physiotherapy ── */}
                 <Stack.Screen name="PhysiotherapyDashboard" component={protect(PhysiotherapyDashboard)} />
