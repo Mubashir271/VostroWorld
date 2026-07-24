@@ -5,7 +5,21 @@ export const ROLES = {
   ADMIN: '3',
   TRAINER: '9',    // Personal Trainer
   NUTRITIONIST: '10', // confirmed live 2026-07-23 via /v1/auth/get (designation "Nutritionist")
+  FITNESS_MANAGER: '11', // confirmed live 2026-07-23 via /v1/auth/app-login (fitnessmanagerf11@/g13@)
   HR: '12',        // HR Department — confirmed live 2026-06-29 via app-login
+};
+
+// Human-readable label for a role id — used wherever the UI would otherwise
+// fall back to showing the raw numeric role (e.g. the Employee Dashboard
+// badge row when profile.designation isn't populated from the login
+// response, which only carries designation_id, not the text label).
+export const ROLE_LABELS: Record<string, string> = {
+  [ROLES.SUPER_ADMIN]: 'Super Admin',
+  [ROLES.ADMIN]: 'Admin',
+  [ROLES.TRAINER]: 'Personal Trainer',
+  [ROLES.NUTRITIONIST]: 'Nutritionist',
+  [ROLES.FITNESS_MANAGER]: 'Fitness Manager',
+  [ROLES.HR]: 'HR Department',
 };
 
 
@@ -62,6 +76,7 @@ export const isAdmin = (role?: string | null) => role === ROLES.ADMIN || role ==
 export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
 export const isHR = (role?: string | null) => role === ROLES.HR;
 export const isNutritionist = (role?: string | null) => role === ROLES.NUTRITIONIST;
+export const isFitnessManager = (role?: string | null) => role === ROLES.FITNESS_MANAGER;
 
 export const hasFullAccess = (role?: string | null) => isAdmin(role);
 
@@ -119,6 +134,59 @@ export const NUTRITIONIST_ALLOWED_SCREENS = [
   'AddMealsPlan', 'ViewMealsPlan', 'ClientsDetails', 'NutritionDashboard',
   'NutritionAppointments', 'AddNutritionAppointment', 'ViewDietPlanIssued',
   'AddDietPlanIssued', 'HealthCamps', 'ReferralSheet',
+  'AddAssessmentQuestionnaire', 'ViewAssessmentQuestionnaire',
+  'NutritionImageGallery',
+];
+
+// Fitness-Manager-role drawer sections — confirmed live 2026-07-23 against
+// the web admin's Fitness-Manager-login menu (Employee Dashboard,
+// Announcements, Fitness in a curated subset that also pulls in two
+// Human-Resource-section items, Nutrition in a subset that additionally
+// includes Nutrition Assessments vs. the nutritionist login).
+export const FITNESS_MANAGER_ALLOWED_MENUS = ['Dashboard', 'Fitness', 'Nutrition', 'Notifications'];
+
+// Within Fitness, the web's fitness-manager login shows this curated list
+// (missing 'Session Attendance Report' and 'Session Tracker' vs. admin) —
+// 'Staff Commissions' and 'Session Portal (HR)' are then appended on top,
+// pulled in from the Human Resource section (see Drawercontent.tsx).
+export const FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN = [
+  'SOPs', 'Trainer Diary', 'Personal Trainer Diary', 'PT Sales Report',
+  'Switch Booking Time', 'Trainer Appointments', 'Session Attendance',
+  'New PT Bookings', 'New PT Clients', 'GX Classes', 'Befit', 'SPT',
+  'Fitness Plan', 'Trainer Schedule',
+];
+
+// Within Nutrition, the fitness-manager login includes 'Nutrition
+// Assessments' (unlike the nutritionist login, which hides it) but — per
+// 2026-07-23 decision — skips the trailing 'Clients' item pending
+// confirmation of what it maps to.
+export const FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN = [
+  'Meals Plan', 'Nutrition Assessments', 'Clients Details', 'Dashboard',
+  'Appointments', 'Diet Plan Issued', 'Health Camps', 'Referral Sheet',
+  'Image Gallery', 'Assessment Questionnaire',
+];
+
+// Stack screen names fitness managers are allowed to navigate to — the
+// curated Fitness subset (+ the two appended HR-section screens), the
+// Nutrition subset above, plus the always-allowed shared ones.
+export const FITNESS_MANAGER_ALLOWED_SCREENS = [
+  'Drawer', 'Dashboard', 'Notifications', 'Account',
+  // Fitness (curated)
+  'SOPs', 'TrainerDiary', 'PersonalTrainerDiary', 'PTSalesReport',
+  'SwitchBookingTime', 'TrainerAppointments', 'SessionAttendance',
+  'NewPTBookings', 'NewPTClients',
+  'AddGXSlots', 'AddGXClass', 'GXTrainers', 'GXSlotsList', 'GXBookings',
+  'GXAppointments', 'GXAttendance', 'GXAttendanceReport',
+  'BefitList', 'BefitBookings', 'BefitAppointments', 'BefitAttendance', 'BefitAttendanceReport',
+  'SPTList', 'SPTBookings', 'SPTAppointments', 'SPTAttendance', 'SPTAttendanceReport',
+  'ViewFitnessPlans', 'AddFitnessPlan', 'ManageExercises',
+  'TimeSlots', 'ManageAvailability',
+  // Appended from Human Resource
+  'StaffCommissions', 'SessionPortalHR',
+  // Nutrition
+  'AddMealsPlan', 'ViewMealsPlan', 'AddNutritionAssessments', 'ViewNutritionAssessments',
+  'ClientsDetails', 'NutritionDashboard', 'NutritionAppointments', 'AddNutritionAppointment',
+  'ViewDietPlanIssued', 'AddDietPlanIssued', 'HealthCamps', 'ReferralSheet',
   'AddAssessmentQuestionnaire', 'ViewAssessmentQuestionnaire',
   'NutritionImageGallery',
 ];

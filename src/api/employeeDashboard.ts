@@ -516,29 +516,37 @@ export const getEmployeeDashboardStats = async (params: {
 }) => {
   const today = new Date().toISOString().split('T')[0];
 
-  const [salary, dutyRequests, dutySlots, leaveQuota, documents, attendance] =
-    await Promise.all([
-      getMySalarySlip(params),
-      api.get('/v1/hr/employee-duty-hour-requests/index', {
-        params: { ...params, limit: 100 },
-      }),
-      api.get('/v1/staff-timing/index', {
-        params: { branch_id: params.branch_id, staff_id: params.user_id, status: 1, limit: 999999 },
-      }),
-      api.get('/v1/hr/leaves-quota/index', {
-        params: { ...params, status: 1, limit: 100 },
-      }),
-      api.get('/v1/hr/staff-documents/index', {
-        params: { ...params, approval_status: 'Approved', status: 1, limit: 100 },
-      }),
-      getAttendanceList({
-        branch_id: params.branch_id,
-        member_id: params.user_id,
-        start_date: today,
-        end_date: today,
-        limit: 1,
-      }),
-    ]);
+  const results = await Promise.allSettled([
+    getMySalarySlip(params),
+    api.get('/v1/hr/employee-duty-hour-requests/index', {
+      params: { ...params, limit: 100 },
+    }),
+    api.get('/v1/staff-timing/index', {
+      params: { branch_id: params.branch_id, staff_id: params.user_id, status: 1, limit: 999999 },
+    }),
+    api.get('/v1/hr/leaves-quota/index', {
+      params: { ...params, status: 1, limit: 100 },
+    }),
+    api.get('/v1/hr/staff-documents/index', {
+      params: { ...params, approval_status: 'Approved', status: 1, limit: 100 },
+    }),
+    getAttendanceList({
+      branch_id: params.branch_id,
+      member_id: params.user_id,
+      start_date: today,
+      end_date: today,
+      limit: 1,
+    }),
+  ]);
+
+  // Each sub-fetch is independent — confirmed live 2026-07-23 that
+  // /v1/attendance/index 404s with "No record found" on any day the
+  // employee hasn't checked in yet. Promise.all used to fail the whole
+  // batch on that single rejection, zeroing out salary/duty-slots/leave
+  // balance/etc even though those calls had already succeeded.
+  const [salary, dutyRequests, dutySlots, leaveQuota, documents, attendance] = results.map(
+    (r) => (r.status === 'fulfilled' ? r.value : null),
+  );
 
   const currentSalary = salary?.data?.[0]?.salary || 0;
 

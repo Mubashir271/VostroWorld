@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Modal, TextInput, Platform, Image,
+  ActivityIndicator, Modal, TextInput, Platform,
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -341,7 +342,7 @@ const AddStaff = () => {
               <Text style={styles.uploadBtnText}>Choose File</Text>
             </TouchableOpacity>
             <Text style={styles.uploadFileName} numberOfLines={1}>{photoUri ? photoUri.split('/').pop() : 'no file selected'}</Text>
-            {!!photoUri && <Image source={{ uri: photoUri }} style={styles.preview} />}
+            {!!photoUri && <FastImage source={{ uri: photoUri }} style={styles.preview} />}
           </View>
 
           <View style={styles.btnRow}>

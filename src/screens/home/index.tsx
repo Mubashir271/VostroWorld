@@ -12,6 +12,7 @@ import {
     RefreshControl,
     Dimensions
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { Attendance, Edit_fill, Features, Finance, Fitness, ManageStaff, NewRegistration, Package, Payments, ViewReports } from '../../assets/icons';
 import AppHeader from '../../components/AppHeader';
 import { useNavigation } from '@react-navigation/native';
@@ -22,7 +23,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin } from '../../config/permissions';
+import { isAdmin, ROLE_LABELS } from '../../config/permissions';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 // ──────────────────────────────────────────────
@@ -257,12 +258,12 @@ export default function DashboardScreen() {
                                     <View style={styles.empCardMain}>
                                         <Text style={styles.empCardBadge}>EMPLOYEE DASHBOARD</Text>
                                         <View style={styles.empCardRow}>
-                                            <Image source={avatarSource} style={styles.empAvatar} />
+                                            <FastImage source={avatarSource} style={styles.empAvatar} />
                                             <View style={styles.empCardInfo}>
                                                 <Text style={styles.empName}>{fullName}</Text>
                                                 <Text style={styles.empDesc}>Profile, leave requests, salary & HR approvals</Text>
                                                 <View style={styles.empTags}>
-                                                    {[(profile as any)?.designation ?? profile?.role, (profile as any)?.department, branchName].filter(Boolean).map((tag: string) => (
+                                                    {[(profile as any)?.designation ?? ROLE_LABELS[profile?.role ?? ''], (profile as any)?.department, branchName].filter(Boolean).map((tag: string) => (
                                                         <View key={tag} style={styles.empTag}>
                                                             <Text style={styles.empTagText}>{tag}</Text>
                                                         </View>

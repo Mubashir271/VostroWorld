@@ -57,7 +57,7 @@ import OrderDetail from '../../screens/CafeOperations/Orders/OrderDetail';
 import AccessDenied from '../../screens/AccessDenied';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
-import { isAdmin, isHR, isNutritionist, HR_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS } from '../../config/permissions';
+import { isAdmin, isHR, isNutritionist, isFitnessManager, HR_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS } from '../../config/permissions';
 import AttendanceScreen from '../../screens/Attendance';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
@@ -250,8 +250,9 @@ const ProtectedScreen = ({
     const screenName = rest?.route?.name;
     const hrAllowed = isHR(profile?.role) && !!screenName && HR_ALLOWED_SCREENS.includes(screenName);
     const nutritionistAllowed = isNutritionist(profile?.role) && !!screenName && NUTRITIONIST_ALLOWED_SCREENS.includes(screenName);
+    const fitnessManagerAllowed = isFitnessManager(profile?.role) && !!screenName && FITNESS_MANAGER_ALLOWED_SCREENS.includes(screenName);
 
-    if (!userIsAdmin && !hrAllowed && !nutritionistAllowed) {
+    if (!userIsAdmin && !hrAllowed && !nutritionistAllowed && !fitnessManagerAllowed) {
         return <AccessDenied />;
     }
 

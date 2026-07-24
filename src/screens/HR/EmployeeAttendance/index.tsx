@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl, TextInput, Platform, Image,
+  ActivityIndicator, RefreshControl, TextInput, Platform,
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -314,7 +315,7 @@ const EmployeeAttendance = () => {
                       <Text style={[styles.td, styles.colId]}>{rec.attendee?.uid ?? '-'}</Text>
                       <View style={[styles.colName, styles.colNameRow]}>
                         {rec.attendee?.image ? (
-                          <Image source={{ uri: rec.attendee.image }} style={styles.avatar} />
+                          <FastImage source={{ uri: rec.attendee.image }} style={styles.avatar} />
                         ) : (
                           <View style={styles.avatarPlaceholder}>
                             <Icon name="account" size={16} color="#bbb" />

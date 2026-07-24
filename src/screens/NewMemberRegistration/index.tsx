@@ -6,8 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -133,7 +133,7 @@ const NewMemberRegistrationScreen = () => {
               <TouchableOpacity style={styles.photoContainer} onPress={handlePickPhoto}>
                 <View style={styles.photoCircle}>
                   {photoUri ? (
-                    <Image
+                    <FastImage
                       source={{ uri: photoUri }}
                       style={{ width: 96, height: 96, borderRadius: 48 }}
                     />
@@ -379,7 +379,7 @@ const NewMemberRegistrationScreen = () => {
               <View style={styles.summaryProfileRow}>
                 <View style={styles.bigAvatar}>
                   {photoUri ? (
-                    <Image source={{ uri: photoUri }} style={styles.bigAvatarImage} />
+                    <FastImage source={{ uri: photoUri }} style={styles.bigAvatarImage} />
                   ) : (
                     <Text style={styles.bigAvatarText}>
                       {formData.firstName ? formData.firstName[0].toUpperCase() : 'A'}

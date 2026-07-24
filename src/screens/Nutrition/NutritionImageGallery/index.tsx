@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  ActivityIndicator, RefreshControl, Image, Alert,
+  ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -101,7 +102,7 @@ const NutritionImageGallery = () => {
 
   const renderItem = ({ item }: { item: GalleryImage }) => (
     <View style={styles.card}>
-      <Image source={{ uri: item.image_url }} style={styles.thumb} />
+      <FastImage source={{ uri: item.image_url }} style={styles.thumb} />
       <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
         <Icon name="trash-can" size={14} color="#FFF" />
       </TouchableOpacity>

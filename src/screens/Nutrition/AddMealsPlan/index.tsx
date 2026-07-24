@@ -8,10 +8,10 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -217,7 +217,7 @@ const AddMealsPlan = () => {
         />
         {cell.photo ? (
           <View style={cell_styles.thumbWrap}>
-            <Image source={{ uri: cell.photo }} style={cell_styles.thumb} />
+            <FastImage source={{ uri: cell.photo }} style={cell_styles.thumb} />
             <TouchableOpacity
               style={cell_styles.removePhoto}
               onPress={() =>

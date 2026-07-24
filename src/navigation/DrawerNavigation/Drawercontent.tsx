@@ -14,6 +14,7 @@ import {
   isAdmin,
   isHR,
   isNutritionist,
+  isFitnessManager,
   TRAINER_ALLOWED_MENUS,
   TRAINER_ALLOWED_HR_CHILDREN,
   ADMIN_HIDDEN_MENUS,
@@ -21,6 +22,9 @@ import {
   NUTRITIONIST_ALLOWED_MENUS,
   NUTRITIONIST_ALLOWED_FITNESS_CHILDREN,
   NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN,
+  FITNESS_MANAGER_ALLOWED_MENUS,
+  FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN,
+  FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
@@ -486,6 +490,41 @@ const filterMenuForRole = (
     // HR: only Dashboard, Human Resource, Notifications — confirmed live
     // 2026-06-29 against the web admin's HR-login menu.
     return menu.filter(item => HR_ALLOWED_MENUS.includes(item.title));
+  }
+
+  if (isFitnessManager(role)) {
+    // Fitness Manager: Dashboard, Fitness (curated subset + two Human
+    // Resource items appended), Nutrition (curated subset), Notifications —
+    // confirmed live 2026-07-23 against the web admin's Fitness-Manager
+    // login menu.
+    const hrSection = menu.find(item => item.title === 'Human Resource');
+    const staffCommissions = hrSection?.children
+      ?.flatMap(c => (c as any).children ?? [c])
+      .find(c => c.title === 'Staff Commissions');
+    const sessionPortalHR = hrSection?.children
+      ?.flatMap(c => (c as any).children ?? [c])
+      .find(c => c.title === 'Session Portal (HR)');
+
+    return menu
+      .filter(item => FITNESS_MANAGER_ALLOWED_MENUS.includes(item.title))
+      .map(item => {
+        if (item.title === 'Fitness' && item.children) {
+          const curated = item.children.filter(c =>
+            FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN.includes(c.title),
+          );
+          const appended = [staffCommissions, sessionPortalHR].filter(Boolean) as typeof item.children;
+          return { ...item, children: [...curated, ...appended] };
+        }
+        if (item.title === 'Nutrition' && item.children) {
+          return {
+            ...item,
+            children: item.children.filter(c =>
+              FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN.includes(c.title),
+            ),
+          };
+        }
+        return item;
+      });
   }
 
   if (isNutritionist(role)) {

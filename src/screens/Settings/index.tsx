@@ -1,7 +1,8 @@
 import {
   StyleSheet, Text, View, ScrollView,
-  TouchableOpacity, Image, Switch, Alert,
+  TouchableOpacity, Switch, Alert,
 } from 'react-native'
+import FastImage from '@d11/react-native-fast-image'
 import React, { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '../../redux/store'
@@ -159,7 +160,7 @@ const Settings = () => {
                   <>
                     <TouchableOpacity style={styles.logoPlaceholder} onPress={handleUpdateAppImage}>
                       {appImage ? (
-                        <Image source={{ uri: appImage }} style={styles.logoImage} />
+                        <FastImage source={{ uri: appImage }} style={styles.logoImage} />
                       ) : (
                         <Text style={styles.logoText}>{initials}</Text>
                       )}

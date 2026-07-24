@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
+import FastImage from '@d11/react-native-fast-image'
 import React, { useCallback, useState } from 'react'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -142,7 +143,7 @@ const AccountScreen = () => {
           {/* Profile Section */}
           <View style={styles.profileSection}>
             <View style={styles.profileContent}>
-              <Image
+              <FastImage
                 source={avatarSource}
                 style={styles.profileImage}
               />

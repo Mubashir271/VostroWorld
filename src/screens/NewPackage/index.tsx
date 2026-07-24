@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
-  Image,
 } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -138,7 +138,7 @@ const NewPackage = () => {
           <View style={styles.section}>
             <Text style={styles.label}>Package Image</Text>
             <View style={styles.imageContainer}>
-              <Image
+              <FastImage
                 source={{ uri: 'https://via.placeholder.com/400x180?text=Gym+Equipment' }}
                 style={styles.packageImage}
               />

@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { ImageSourcePropType } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 
 interface ProfileHeaderProps {
   name: string;
@@ -25,11 +26,10 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       {/* Avatar */}
 <View style={styles.avatarContainer}>
   {avatar ? (
-    typeof avatar === 'string' ? (
-      <Image source={{ uri: avatar }} style={styles.avatar} />
-    ) : (
-      <Image source={avatar} style={styles.avatar} />
-    )
+    <FastImage
+      source={typeof avatar === 'string' ? { uri: avatar } : (avatar as any)}
+      style={styles.avatar}
+    />
   ) : (
     <View style={styles.avatarPlaceholder}>
       <Text style={styles.avatarText}>{name.charAt(0)}</Text>
