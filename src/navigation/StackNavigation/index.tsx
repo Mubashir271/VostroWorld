@@ -263,12 +263,14 @@ const ProtectedScreen = ({
 const protect = (Comp: React.ComponentType<any>) =>
     (props: any) => <ProtectedScreen component={Comp} {...props} />;
 
-// Admin keeps the original Session Portal (client package renewals); HR gets
-// the dedicated Session & Commission Portal (Sessions/Commissions/Session
-// Report tabs) mirroring the web admin's hr-session-portal page.
+// Admin keeps the original Session Portal (client package renewals); HR and
+// Fitness Manager get the dedicated Session & Commission Portal
+// (Sessions/Commissions/Session Report tabs) mirroring the web admin's
+// hr-session-portal page — confirmed live the fitness-manager login sees the
+// same tabbed portal as HR, not the admin's plain one.
 const SessionPortalRoute = (props: any) => {
     const profile = useSelector((state: any) => state.user.profile);
-    return isHR(profile?.role)
+    return (isHR(profile?.role) || isFitnessManager(profile?.role))
         ? <HRSessionCommissionPortal {...props} />
         : <SessionPortalHR {...props} />;
 };

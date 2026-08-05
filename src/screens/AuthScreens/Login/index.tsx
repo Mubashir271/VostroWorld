@@ -70,7 +70,7 @@ const Login = () => {
             dispatch(setUser({ token: access_token, user }));
             showSnackbar('Login successful!');
             setTimeout(() => {
-                (navigation as any).replace('Drawer');
+                (navigation as any).reset({ index: 0, routes: [{ name: 'Drawer' }] });
             }, 500);
 
             return true; // success

@@ -26,7 +26,7 @@ const SecurityQuestions = () => {
     };
 
     const handleSubmit = () => {
-       navigation.navigate('Drawer')
+       navigation.reset({ index: 0, routes: [{ name: 'Drawer' }] })
     
         showSnackbar('Answers submitted');
         // You can also navigate to the next screen here

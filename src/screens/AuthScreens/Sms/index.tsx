@@ -47,7 +47,7 @@ const SMS = () => {
                 </Text>
                 <VerificationCodeInput
                     phoneOrEmail={maskPhone(phone)}
-                    onVerify={() => navigation.navigate('Drawer')}
+                    onVerify={() => navigation.reset({ index: 0, routes: [{ name: 'Drawer' }] })}
                     onUseBackup={() => showSnackbar('Use backup pressed')}
                     onBackToLogin={() => navigation.replace('Login')}
                 />

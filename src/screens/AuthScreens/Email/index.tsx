@@ -57,7 +57,7 @@ const Email = () => {
                 </Text>
                 <VerificationCodeInput
                     phoneOrEmail={maskEmail(email)}
-                    onVerify={() => navigation.navigate('Drawer')}
+                    onVerify={() => navigation.reset({ index: 0, routes: [{ name: 'Drawer' }] })}
                     onUseBackup={() => showSnackbar('Use backup pressed')}
                     onBackToLogin={() => navigation.replace('Login')}
                 />

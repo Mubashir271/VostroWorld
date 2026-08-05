@@ -8,7 +8,7 @@ import {
   AccountTab, HomeTab, MembersTab, PackageTab, ReportsTab,
 } from '../../assets/icons';
 import { RootState } from '../../redux/store';
-import { isAdmin, isHR } from '../../config/permissions';
+import { isAdmin, isHR, isNutritionist, isFitnessManager } from '../../config/permissions';
 
 // ── Stacks ───────────────────────────────────────────────────────────────────
 import HomeStack from '../stacks/HomeStack';
@@ -22,6 +22,11 @@ import MyClientsScreen from '../../screens/MyClientsScreen';
 import AttendanceScreen from '../../screens/Attendance';
 import TrainerRoster from '../../screens/trainer/TrainerRoster';
 import ViewStaffScreen from '../../screens/HR/ViewStaff';
+
+// ── Nutritionist / Fitness Manager screens ─────────────────────────────────────
+import NutritionDashboardScreen from '../../screens/Nutrition/NutritionDashboard';
+import GXAttendanceScreen from '../../screens/Fitness/GXAttendance';
+import HRSessionCommissionPortal from '../../screens/HR/HRSessionCommissionPortal';
 
 const Tab = createBottomTabNavigator();
 
@@ -64,6 +69,8 @@ const BottomTabNavigation = () => {
   const profile = useSelector((state: RootState) => state.user.profile);
   const userIsAdmin = isAdmin(profile?.role || profile?.type);
   const userIsHR = isHR(profile?.role);
+  const userIsNutritionist = isNutritionist(profile?.role);
+  const userIsFitnessManager = isFitnessManager(profile?.role);
 
   return (
     <Tab.Navigator screenOptions={screenOptions}>
@@ -93,6 +100,28 @@ const BottomTabNavigation = () => {
             component={ReportsStack}
             options={{ tabBarIcon: imgIcon(ReportsTab) }}
           />
+        </>
+      ) : userIsNutritionist || userIsFitnessManager ? (
+        /* ── Nutritionist / Fitness Manager tabs ── */
+        <>
+          <Tab.Screen
+            name="NutritionTab"
+            component={NutritionDashboardScreen}
+            options={{ tabBarLabel: 'Nutrition', tabBarIcon: mcIcon('food-apple') }}
+          />
+          {userIsNutritionist ? (
+            <Tab.Screen
+              name="AttendanceTab"
+              component={GXAttendanceScreen}
+              options={{ tabBarLabel: 'Attendance', tabBarIcon: mcIcon('calendar-check') }}
+            />
+          ) : (
+            <Tab.Screen
+              name="SessionPortalTab"
+              component={HRSessionCommissionPortal}
+              options={{ tabBarLabel: 'Sessions', tabBarIcon: mcIcon('clipboard-text-outline') }}
+            />
+          )}
         </>
       ) : (
         /* ── Trainer / Employee tabs ── */

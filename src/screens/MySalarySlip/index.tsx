@@ -10,6 +10,7 @@ import AppHeader from '../../components/AppHeader';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
 import { getMySalarySlip } from '../../api/employeeDashboard';
+import { ROLE_LABELS } from '../../config/permissions';
 
 interface SlipData {
   id: number;
@@ -58,19 +59,58 @@ const MySalarySlip = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // /v1/salary (the per-period payroll slip) 404s for staff who haven't had
+  // a slip generated for the current period yet — confirmed live for a
+  // Fitness Manager account via HAR capture of the web admin hitting the
+  // same endpoint for the same user. Falling back to the base salary
+  // already on the staff profile (from /v1/auth/get, loaded at login) means
+  // the screen still shows the real number instead of "No salary slip
+  // available" for an employee who does have a salary, just no slip yet.
+  const profileFallbackSlip = useCallback((): SlipData | null => {
+    if (!profile) return null;
+    return {
+      id: profile.id,
+      name: `${profile.firstName} ${profile.lastName}`.trim(),
+      uid: profile.uid,
+      branch: profile.branchName ?? '',
+      department: '',
+      designation: ROLE_LABELS[profile.role ?? ''] ?? '',
+      joining: profile.joining,
+      salary: profile.salary || 0,
+      medical: profile.monthlyMedical || 0,
+      fine: 0,
+      advance: 0,
+      reward: 0,
+      loan: 0,
+      cafe: 0,
+      detections: 0,
+      components_addition: 0,
+      components_deduction: 0,
+      commission: {
+        commission_per: 0,
+        commission: profile.commission || 0,
+        pt_commission: 0,
+        gx_commission: 0,
+        total_delivered_sessions: 0,
+        total_payable_no_show_sessions: 0,
+      },
+    };
+  }, [profile]);
+
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const res = await getMySalarySlip({ branch_id: branchId, user_id: userId });
       const data = res?.data;
-      setSlip(Array.isArray(data) ? data[0] : data ?? null);
+      const record = Array.isArray(data) ? data[0] : data ?? null;
+      setSlip(record ?? profileFallbackSlip());
     } catch {
-      // non-blocking
+      setSlip(profileFallbackSlip());
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [branchId, userId]);
+  }, [branchId, userId, profileFallbackSlip]);
 
   useEffect(() => { load(); }, [load]);
 

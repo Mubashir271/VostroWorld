@@ -464,9 +464,20 @@ const MENU = [
 // ─── Navigation helper ───────────────────────────────────────────────────────
 
 // ─── Navigation helper ───────────────────────────────────────────────────────
-const navigateTo = (navigation: any, screen: string) => {
+// Screens that are also a bottom tab's root for certain roles must be reached
+// by switching tab focus, not by pushing a second instance on the root Stack —
+// pushing a duplicate on top of the already-mounted tab causes a torn/split
+// render on iOS when the duplicate is popped back (react-native-screens
+// compositing over a live sibling instance of the same screen).
+const navigateTo = (navigation: any, screen: string, role?: string | null) => {
   if (screen === 'Dashboard') {
     navigation.navigate('Main', { screen: 'Home' });
+  } else if (screen === 'NutritionDashboard' && (isNutritionist(role) || isFitnessManager(role))) {
+    navigation.navigate('Main', { screen: 'NutritionTab' });
+  } else if (screen === 'GXAttendance' && isNutritionist(role)) {
+    navigation.navigate('Main', { screen: 'AttendanceTab' });
+  } else if (screen === 'SessionPortalHR' && isFitnessManager(role)) {
+    navigation.navigate('Main', { screen: 'SessionPortalTab' });
   } else {
     navigation.navigate(screen);
   }
@@ -730,7 +741,7 @@ const DrawerContent = (props: any) => {
               });
             } else {
               setActive(item.title);
-              navigateTo(navigation, item.screen ?? item.title);
+              navigateTo(navigation, item.screen ?? item.title, profile?.role);
             }
           }}
         >

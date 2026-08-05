@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 import {
@@ -142,8 +143,12 @@ const HRSessionCommissionPortal = () => {
     <View style={styles.container}>
       <AppHeader
         title="Session & Commission Portal"
-        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
-        onLeftPress={() => navigation.goBack()}
+        leftIcon={
+          navigation.canGoBack()
+            ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
+            : <BurgerSVG width={24} height={24} />
+        }
+        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
       />
 
       <View style={styles.tabRow}>

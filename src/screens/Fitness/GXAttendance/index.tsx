@@ -8,6 +8,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import {
   getGXAttendancePackages,
@@ -112,9 +113,13 @@ const GXAttendance = () => {
     <View style={styles.root}>
       <AppHeader
         title="GX Attendance"
-        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        leftIcon={
+          navigation.canGoBack()
+            ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
+            : <BurgerSVG width={24} height={24} />
+        }
         rightIcon={<NotificationSVG width={24} height={24} />}
-        onLeftPress={() => navigation.goBack()}
+        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
         onRightPress={() => navigation.navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />

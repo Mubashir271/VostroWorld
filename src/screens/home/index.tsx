@@ -82,6 +82,7 @@ export default function DashboardScreen() {
     const { profile, appImage } = useSelector(
         (state: RootState) => state.user
     );
+    const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
     const firstName = profile?.firstName || 'User';
     const lastName = profile?.lastName || '';
@@ -164,11 +165,13 @@ export default function DashboardScreen() {
         fetchDashboard(true).then(() => setRefreshing(false));
     }, [fetchDashboard]);
 
-    const avatarSource = appImage
-        ? { uri: appImage }
-        : profile?.image
-            ? { uri: profile.image }
-            : require('../../assets/img/userIcon.png');
+    const avatarSource = avatarLoadFailed
+        ? require('../../assets/img/userIcon.png')
+        : appImage
+            ? { uri: appImage }
+            : profile?.image
+                ? { uri: profile.image }
+                : require('../../assets/img/userIcon.png');
 
     const headerTitle = userIsAdmin ? 'Vostro Admin' : 'Vostro Employee';
 
@@ -258,7 +261,11 @@ export default function DashboardScreen() {
                                     <View style={styles.empCardMain}>
                                         <Text style={styles.empCardBadge}>EMPLOYEE DASHBOARD</Text>
                                         <View style={styles.empCardRow}>
-                                            <FastImage source={avatarSource} style={styles.empAvatar} />
+                                            <FastImage
+                                                source={avatarSource}
+                                                style={styles.empAvatar}
+                                                onError={() => setAvatarLoadFailed(true)}
+                                            />
                                             <View style={styles.empCardInfo}>
                                                 <Text style={styles.empName}>{fullName}</Text>
                                                 <Text style={styles.empDesc}>Profile, leave requests, salary & HR approvals</Text>
@@ -277,10 +284,10 @@ export default function DashboardScreen() {
                                     <View style={styles.empAttendPanel}>
                                         <View style={styles.empAttendBox}>
                                             <Text style={styles.empAttendLine}>Today: {new Date().toLocaleDateString()}</Text>
-                                            <Text style={styles.empAttendLine}>Check In:  {empStats.todayAttendance?.checkin_time_12h  || '—'}</Text>
-                                            <Text style={styles.empAttendLine}>Check Out: {empStats.todayAttendance?.checkout_time_12h || '—'}</Text>
+                                            <Text style={styles.empAttendLine}>Check In:  {empStats.todayAttendance?.checkin_time_12h  || 'N/A'}</Text>
+                                            <Text style={styles.empAttendLine}>Check Out: {empStats.todayAttendance?.checkout_time_12h || 'N/A'}</Text>
                                             <Text style={[styles.empAttendLine, { color: empStats.todayAttendance ? '#22c55e' : '#ef4444', fontWeight: '600' }]}>
-                                                Status: {empStats.todayAttendance ? 'Present' : 'Absent'}
+                                                Status: {empStats.todayAttendance ? 'Present' : 'N/A'}
                                             </Text>
                                         </View>
                                         <View style={styles.empAttendBox}>
@@ -293,7 +300,7 @@ export default function DashboardScreen() {
                                 {/* Stat cards — horizontal scroll */}
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.empStatsScroll}>
                                     {[
-                                        { label: 'Current Salary',     value: `Rs ${empStats.currentSalary.toLocaleString()}`, sub: 'Latest payroll snapshot',      icon: 'cash' },
+                                        { label: 'Current Salary',     value: `Rs ${(empStats.currentSalary || profile?.salary || 0).toLocaleString()}`, sub: 'Latest payroll snapshot',      icon: 'cash' },
                                         { label: 'Pending Requests',   value: empStats.pendingRequests,                        sub: 'Duty-hour requests awaiting',   icon: 'clock-alert' },
                                         { label: 'Duty Slots',         value: empStats.dutySlotsCount,                         sub: 'Active work days',              icon: 'calendar-clock' },
                                         { label: 'Leave Balance',      value: empStats.leaveBalance,                           sub: 'Remaining leave days',          icon: 'calendar-minus' },

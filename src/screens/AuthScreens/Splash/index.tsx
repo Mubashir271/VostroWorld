@@ -22,7 +22,7 @@ const Splash = ({ navigation }: { navigation: any }) => {
     }).start(() => {
       // Check if user has a token (is logged in)
       if (token) {
-        navigation.replace('Drawer'); // Go to main drawer/app if logged in
+        navigation.reset({ index: 0, routes: [{ name: 'Drawer' }] }); // Go to main drawer/app if logged in
       } else {
         navigation.replace('WelcomeAdmin'); // Go to welcome if not logged in
       }

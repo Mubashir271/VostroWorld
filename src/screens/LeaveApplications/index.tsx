@@ -24,9 +24,8 @@ import {
 
 interface QuotaItem {
   leave_type: string;
-  total_leaves: number;
-  used_leaves: number;
-  remaining_leaves: number;
+  number_of_leaves: number;
+  leaves_taken: number;
 }
 
 interface ApplicationItem {
@@ -294,11 +293,13 @@ const LeaveApplications = () => {
                   <View>
                     <Text style={styles.quotaType}>{q.leave_type}</Text>
                     <Text style={styles.quotaTaken}>
-                      Taken: {q.used_leaves ?? 0} of {q.total_leaves ?? 0}
+                      Taken: {q.leaves_taken ?? 0} of {q.number_of_leaves ?? 0}
                     </Text>
                   </View>
                   <View style={styles.quotaBadge}>
-                    <Text style={styles.quotaBadgeText}>{q.remaining_leaves ?? 0} LEFT</Text>
+                    <Text style={styles.quotaBadgeText}>
+                      {Math.max(0, (q.number_of_leaves ?? 0) - (q.leaves_taken ?? 0))} LEFT
+                    </Text>
                   </View>
                 </View>
               ))

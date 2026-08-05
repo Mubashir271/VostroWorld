@@ -16,6 +16,7 @@ import {
 } from '../../../api/nutrition';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 
 const DEMO = {
   total_appointments: 387,
@@ -91,8 +92,8 @@ const QUICK_ACTIONS = [
   { icon: 'calendar-plus', label: 'New Appointment', screen: 'AddNutritionAppointment', color: '#1E88E5' },
   { icon: 'format-list-bulleted', label: 'All Appointments', screen: 'NutritionAppointments', color: '#43A047' },
   { icon: 'notebook-outline', label: 'Diet Plans', screen: 'ViewMealsPlan', color: '#1A1A1A' },
-  { icon: 'hospital-building', label: 'Health Camps', screen: 'NutritionDashboard', color: '#8E24AA' },
-  { icon: 'account-plus-outline', label: 'Referral Sheet', screen: 'NutritionDashboard', color: '#FB8C00' },
+  { icon: 'hospital-building', label: 'Health Camps', screen: 'HealthCamps', color: '#8E24AA' },
+  { icon: 'account-plus-outline', label: 'Referral Sheet', screen: 'ReferralSheet', color: '#FB8C00' },
   { icon: 'account-multiple-outline', label: 'Clients Details', screen: 'ClientsDetails', color: '#E63946' },
 ];
 
@@ -187,9 +188,13 @@ const NutritionDashboard = () => {
     <View style={styles.container}>
       <AppHeader
         title="Nutrition Dashboard"
-        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        leftIcon={
+          navigation.canGoBack()
+            ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
+            : <BurgerSVG width={24} height={24} />
+        }
         rightIcon={<NotificationSVG width={24} height={24} />}
-        onLeftPress={() => navigation.goBack()}
+        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
         onRightPress={() => navigation.navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />

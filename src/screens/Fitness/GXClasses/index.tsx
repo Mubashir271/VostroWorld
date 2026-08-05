@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootState } from '../../../redux/store';
 import { getGXClasses } from '../../../api/employeeDashboard';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 
 interface GXClass {
   id: number;
@@ -141,8 +142,13 @@ const GXClasses = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#333" />
+        <TouchableOpacity
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
+          style={styles.backBtn}
+        >
+          {navigation.canGoBack()
+            ? <Icon name="arrow-left" size={24} color="#333" />
+            : <BurgerSVG width={24} height={24} />}
         </TouchableOpacity>
         <Text style={styles.headerTitle}>GX Slots</Text>
         <View style={{ width: 32 }} />
