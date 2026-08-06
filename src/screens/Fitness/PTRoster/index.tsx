@@ -33,7 +33,7 @@ const STATUS_TABS = ['All', 'Active', 'Expired'];
 const PTRoster = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [groups, setGroups] = useState<TrainerGroup[]>([]);
   const [loading, setLoading] = useState(true);

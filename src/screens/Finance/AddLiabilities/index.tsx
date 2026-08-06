@@ -48,7 +48,7 @@ const emptyRow = (id: number): LiabilityRow => ({
 const AddLiabilities = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [rows, setRows] = useState<LiabilityRow[]>([emptyRow(1), emptyRow(2), emptyRow(3)]);
   const [nextId, setNextId] = useState(4);

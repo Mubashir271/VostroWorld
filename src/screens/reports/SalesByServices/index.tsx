@@ -30,7 +30,7 @@ const COLORS = ['#2563EB', '#16A34A', '#7C3AED', '#D97706', '#E63946', '#0891B2'
 const SalesByServicesScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [data, setData]           = useState<any[]>([]);
   const [loading, setLoading]     = useState(false);

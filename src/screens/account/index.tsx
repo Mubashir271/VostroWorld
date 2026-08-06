@@ -8,6 +8,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
 import { logoutUser } from '../../redux/slices/userSlice';
+import { isNutritionist } from '../../config/permissions';
 
 
 const AccountScreen = () => {
@@ -34,6 +35,7 @@ const AccountScreen = () => {
   const { profile, appImage } = useSelector(
     (state: RootState) => state.user
   );
+  const userIsNutritionist = isNutritionist(profile?.role);
   const avatarSource = appImage
     ? { uri: appImage }
     : profile?.image
@@ -122,10 +124,10 @@ const AccountScreen = () => {
         title="My Account"
         // leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
         leftIcon={<BurgerSVG width={24} height={24} />}
-        rightIcon={<Icon name="cog-outline" size={24} color="#1A1A1A" />}
+        rightIcon={userIsNutritionist ? undefined : <Icon name="cog-outline" size={24} color="#1A1A1A" />}
         // onLeftPress={() => navigation.goBack()}
         onLeftPress={() => navigation.openDrawer()}
-        onRightPress={() => navigation.navigate('Settings')}
+        onRightPress={userIsNutritionist ? undefined : () => navigation.navigate('Settings')}
         backgroundColor="#FFE5E5"
       />
       <View style={styles.container}>
@@ -174,7 +176,7 @@ const AccountScreen = () => {
           </View>
 
           {/* Security */}
-          <View style={styles.section}>
+          {/* <View style={styles.section}>
             <Text style={styles.sectionTitle}>Security</Text>
             {securityItems.map((item, index) => (
               <TouchableOpacity key={index} style={styles.listItem}>
@@ -182,10 +184,10 @@ const AccountScreen = () => {
                 <Icon name={item.icon} size={20} color="#999" />
               </TouchableOpacity>
             ))}
-          </View>
+          </View> */}
 
           {/* Preferences */}
-          <View style={styles.section}>
+          {/* <View style={styles.section}>
             <Text style={styles.sectionTitle}>Preferences</Text>
             {preferenceItems.map((item, index) => (
               <TouchableOpacity key={index} style={styles.listItem}>
@@ -196,7 +198,7 @@ const AccountScreen = () => {
                 <Icon name={item.icon} size={20} color="#999" />
               </TouchableOpacity>
             ))}
-          </View>
+          </View> */}
 
           {/* About App */}
           <View style={styles.section}>

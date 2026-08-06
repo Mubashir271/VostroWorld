@@ -103,7 +103,7 @@ const PAGE_SIZE = 25;
 const GXAttendanceReport = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = profile?.branchName ?? 'Branch';
 
   const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return fmt(d); });

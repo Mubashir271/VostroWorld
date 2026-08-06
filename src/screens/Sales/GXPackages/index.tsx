@@ -54,7 +54,7 @@ const mapPackage = (p: any): GXPackageItem => ({
 const GXPackages = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [packages, setPackages] = useState<GXPackageItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,7 +63,7 @@ const GXPackages = () => {
 
   useEffect(() => {
     getGXClasses({ branch_id: branchId })
-      .then(res => setClasses(res?.data?.data ?? []))
+      .then(res => setClasses(res?.data ?? []))
       .catch(() => setClasses([]));
   }, [branchId]);
 

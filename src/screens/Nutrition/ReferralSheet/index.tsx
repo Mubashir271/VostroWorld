@@ -37,11 +37,16 @@ const today = fmt(new Date());
 const ReferralSheet = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [weekStart, setWeekStart] = useState(today);
   const [weekEnd, setWeekEnd] = useState(today);
   const [pickerFor, setPickerFor] = useState<'start' | 'end' | null>(null);
+  // Matches the web admin's default behaviour (confirmed via HAR): on load it
+  // fetches with no week_start/week_end at all and shows every record. The
+  // date fields here are only applied as a filter once the user actually
+  // picks a date — otherwise every load looked like "No Records Found".
+  const [dateFilterActive, setDateFilterActive] = useState(false);
 
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +62,11 @@ const ReferralSheet = () => {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const res = await getReferrals({ branch_id: branchId, week_start: weekStart, week_end: weekEnd });
+      const res = await getReferrals({
+        branch_id: branchId,
+        nutritionist_id: profile?.id,
+        ...(dateFilterActive ? { week_start: weekStart, week_end: weekEnd } : {}),
+      });
       const data = res.data?.data ?? [];
       setRecords(Array.isArray(data) ? data : []);
     } catch {
@@ -66,7 +75,7 @@ const ReferralSheet = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [branchId, weekStart, weekEnd]);
+  }, [branchId, profile?.id, weekStart, weekEnd, dateFilterActive]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,6 +89,7 @@ const ReferralSheet = () => {
     const iso = fmt(date);
     if (pickerFor === 'start') { setWeekStart(iso); if (iso > weekEnd) setWeekEnd(iso); }
     else setWeekEnd(iso);
+    setDateFilterActive(true);
     setPickerFor(null);
   };
 
@@ -228,8 +238,16 @@ const ReferralSheet = () => {
         <View style={styles.banner}>
           <View style={styles.bannerLeft}>
             <Icon name="calendar-range" size={16} color="#FFF" />
-            <Text style={styles.bannerText}>{longDisplay(weekStart)} – {longDisplay(weekEnd)}</Text>
+            <Text style={styles.bannerText}>
+              {dateFilterActive ? `${longDisplay(weekStart)} – ${longDisplay(weekEnd)}` : 'All Records'}
+            </Text>
           </View>
+          {dateFilterActive && (
+            <TouchableOpacity style={styles.addBtn} onPress={() => setDateFilterActive(false)}>
+              <Icon name="close" size={14} color="#1A1A1A" />
+              <Text style={styles.addBtnText}>Clear Filter</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
             <Icon name="plus" size={14} color="#1A1A1A" />
             <Text style={styles.addBtnText}>Add to this week</Text>

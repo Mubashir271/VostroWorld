@@ -54,7 +54,7 @@ const BalanceWidget = ({ label, total, lastDebit, lastCredit }: { label: string;
 const FinanceDashboard = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [data, setData] = useState<FinanceData | null>(null);
   const [loading, setLoading] = useState(true);

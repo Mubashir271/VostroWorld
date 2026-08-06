@@ -77,7 +77,7 @@ const LeaveApplications = () => {
   const dispatch   = useDispatch<any>();
   const { profile } = useSelector((state: RootState) => state.user);
 
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const userId   = profile?.id ?? 0;
 
   // ── Data state ──────────────────────────────────────────────────────────────

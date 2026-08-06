@@ -54,7 +54,7 @@ const withRunningBalance = (rows: Omit<PettyCashRow, '_debit' | '_credit' | '_ba
 const PettyCashLedger = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [startDate, setStartDate] = useState(yearStart());
   const [endDate, setEndDate] = useState(today());

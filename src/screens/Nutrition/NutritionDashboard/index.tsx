@@ -100,7 +100,7 @@ const QUICK_ACTIONS = [
 const NutritionDashboard = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -281,7 +281,7 @@ const NutritionDashboard = () => {
           {/* Health Camps */}
           <View style={styles.rowHeader}>
             <Text style={styles.sectionTitle}>Health Camps</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('NutritionDashboard')}>
+            <TouchableOpacity onPress={() => navigation.navigate('HealthCamps')}>
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -305,7 +305,7 @@ const NutritionDashboard = () => {
           {/* Referral Sheet */}
           <View style={styles.rowHeader}>
             <Text style={styles.sectionTitle}>Referral Sheet</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('NutritionDashboard')}>
+            <TouchableOpacity onPress={() => navigation.navigate('ReferralSheet')}>
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
           </View>

@@ -64,7 +64,7 @@ const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
 const MembersScreen = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);

@@ -125,7 +125,7 @@ const HRSessionCommissionPortal = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.user);
-  const defaultBranch = profile?.branchId ?? 1;
+  const defaultBranch = profile?.branchId || '';
 
   const [activeTab, setActiveTab] = useState<PortalTab>('Sessions');
   const [trainers, setTrainers] = useState<Trainer[]>([]);

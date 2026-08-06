@@ -14,7 +14,7 @@ import { getCafeCategories, createCafeCategory } from '../../../api/cafe';
 const CafeCategories = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [rows, setRows]           = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);

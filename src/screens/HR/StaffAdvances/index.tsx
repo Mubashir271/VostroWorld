@@ -76,7 +76,7 @@ const EMPTY_FORM = {
 const StaffAdvances = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [records, setRecords] = useState<AdvanceRecord[]>([]);
   const [totalPages, setTotalPages] = useState(1);

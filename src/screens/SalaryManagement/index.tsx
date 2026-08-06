@@ -82,7 +82,7 @@ const TABLE_W = COLS.reduce((s, c) => s + c.width, 0);
 const SalaryManagement = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const now = new Date();
   const [selMonth, setSelMonth] = useState(now.getMonth());

@@ -29,7 +29,7 @@ const TrainerRoster = () => {
   const { roster, loading } = useSelector((state: RootState) => state.trainer);
   const { profile } = useSelector((state: RootState) => state.user);
 
-  const branchId  = profile?.branchId ?? 1;
+  const branchId  = profile?.branchId || '';
   const trainerId = profile?.id;
   const firstName = profile?.firstName ?? '';
   const lastName  = profile?.lastName  ?? '';

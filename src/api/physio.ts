@@ -2,13 +2,13 @@ import api from './service';
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 
-export const getPhysioDashboard = (params: { branch_id: number; week_start?: string }) =>
+export const getPhysioDashboard = (params: { branch_id: number | string; week_start?: string }) =>
   api.get('/v1/physio/dashboard', { params });
 
 // ── Appointments ─────────────────────────────────────────────────────────────
 
 export const getPhysioAppointments = (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
   search?: string;
@@ -17,13 +17,13 @@ export const getPhysioAppointments = (params: {
   end_date?: string;
 }) => api.get('/v1/physio/appointments', { params });
 
-export const getPhysioAppointmentPhysios = (params: { branch_id: number }) =>
+export const getPhysioAppointmentPhysios = (params: { branch_id: number | string }) =>
   api.get('/v1/physio/appointments/physios', { params });
 
 // ── Prescriptions ─────────────────────────────────────────────────────────────
 
 export const getPhysioPrescriptions = (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
   search?: string;
@@ -35,7 +35,7 @@ export const getPhysioPrescriptions = (params: {
 // (snake_cased) — not yet confirmed against a live payload, re-verify once
 // a prescription has been successfully created from the app.
 export const addPhysioPrescription = (payload: {
-  branch_id: number;
+  branch_id: number | string;
   physiotherapist_id?: number;
   client_id?: number;
   prescription_date: string;
@@ -63,20 +63,20 @@ export const addPhysioPrescription = (payload: {
 
 // No pagination — the web admin loads the full client list in one call and
 // filters server-side via `search`.
-export const getPhysioGX = (params: { branch_id: number; search?: string }) =>
+export const getPhysioGX = (params: { branch_id: number | string; search?: string }) =>
   api.get('/v1/physio/gx', { params });
 
 // ── Daily Client Referrals ───────────────────────────────────────────────────
 
 export const getPhysioDailyReferrals = (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
   search?: string;
   date?: string;
 }) => api.get('/v1/physio/daily-referrals', { params });
 
-export const getPhysioDailyReferralTrainers = (params: { branch_id: number }) =>
+export const getPhysioDailyReferralTrainers = (params: { branch_id: number | string }) =>
   api.get('/v1/physio/daily-referrals/trainers', { params });
 
 // Field names below mirror the web admin's "Add Daily Referral" form labels
@@ -84,7 +84,7 @@ export const getPhysioDailyReferralTrainers = (params: { branch_id: number }) =>
 // only has the GET calls, no submit), re-verify once a referral has been
 // successfully created from the app.
 export const addPhysioDailyReferral = (payload: {
-  branch_id: number;
+  branch_id: number | string;
   physiotherapist_id?: number;
   referral_date: string;
   patient_name?: string;
@@ -103,7 +103,7 @@ export const addPhysioDailyReferral = (payload: {
 // response fields are inferred from the module naming convention and the
 // search placeholder; re-verify once real rows are returned.
 export const getPhysioPatientDetails = (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
   search?: string;
@@ -116,7 +116,7 @@ export const getPhysioPatientDetails = (params: {
 // The endpoint path and list response fields are inferred (no data fetch was
 // captured); re-verify once real rows exist.
 export const getPhysioClientResponses = (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
   search?: string;
@@ -131,7 +131,7 @@ export const getPhysioClientResponses = (params: {
 // unconfirmed (no submit was captured), re-verify once a response has been
 // successfully created from the app.
 export const addPhysioClientResponse = (payload: {
-  branch_id: number;
+  branch_id: number | string;
   physiotherapist_id?: number;
   timestamp?: string;
   name?: string;

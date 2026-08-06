@@ -46,7 +46,7 @@ const emptyRow = (id: number): ExpenseRow => ({
 const AddExpense = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [categories, setCategories] = useState<Option[]>([]);
   const [subCategories, setSubCategories] = useState<Option[]>([]);

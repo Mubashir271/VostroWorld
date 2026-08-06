@@ -29,7 +29,7 @@ const today = () => fmt(new Date());
 const AddKeene = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = profile?.branch_name ?? 'Branch';
 
   const [amount, setAmount] = useState('');

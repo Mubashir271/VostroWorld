@@ -43,7 +43,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; icon: string }
 const StaffFinance = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [records, setRecords] = useState<FinanceRecord[]>([]);
   const [filtered, setFiltered] = useState<FinanceRecord[]>([]);

@@ -60,7 +60,7 @@ const daysAhead = (n: number) => { const d = new Date(); d.setDate(d.getDate() +
 const GXAppointments = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = profile?.branchName ?? 'Branch';
 
   const [trainers, setTrainers] = useState<Trainer[]>([]);

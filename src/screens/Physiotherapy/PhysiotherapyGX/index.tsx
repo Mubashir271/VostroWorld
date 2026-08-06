@@ -23,7 +23,7 @@ interface GXClient {
 const PhysiotherapyGX = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [list, setList] = useState<GXClient[]>([]);
   const [loading, setLoading] = useState(true);

@@ -117,7 +117,7 @@ const DateField = ({
 const AddMealsPlan = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = (profile as any)?.branchName ?? `Branch ${branchId}`;
 
   // Header fields

@@ -60,7 +60,7 @@ const TABLE_W = COLS.reduce((s, c) => s + c.width, 0);
 const TrainerDiary = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [trainerId, setTrainerId] = useState('');

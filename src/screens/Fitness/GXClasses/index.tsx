@@ -6,10 +6,11 @@ import {
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootState } from '../../../redux/store';
 import { getGXClasses } from '../../../api/employeeDashboard';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
+import AppHeader from '../../../components/AppHeader';
+import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
 interface GXClass {
   id: number;
@@ -23,26 +24,33 @@ interface GXClass {
   status: string;
 }
 
-// /v1/fitness/gx-class/index returns { id, package_id, name, day, status,
-// package: { id, slot_name, description, branch_id, branch_name } } — no
-// trainer/capacity/duration/session-count/time-slot fields, so those show as
-// a dash below until the backend exposes them.
-const mapGXClass = (raw: any): GXClass => ({
-  id: raw.id,
-  branch: raw.package?.branch_name ?? '',
-  trainer_name: '',
-  class_name: raw.name ?? raw.package?.slot_name ?? '—',
-  booking_space: 0,
-  duration: '',
-  total_sessions: 0,
-  time_slot: raw.day ?? '',
-  status: raw.status === '1' || raw.status === 1 ? 'Active' : 'Inactive',
-});
+// /v1/packages/gx (confirmed live 2026-08-06, matches the web admin's GX
+// Slots List exactly) returns the full shape: trainer_name, booking_capacity,
+// duration (in days), session_count, and a time_slot array — empty when no
+// slot has been assigned yet, which the web shows as "Pending".
+const mapGXClass = (raw: any): GXClass => {
+  const slot = raw.time_slot?.[0];
+  return {
+    id: raw.id,
+    branch: raw.branch_name ?? '',
+    trainer_name: raw.trainer_name ?? '',
+    class_name: raw.name ?? '—',
+    booking_space: raw.booking_capacity ?? 0,
+    duration: raw.duration != null ? `${raw.duration} Days` : '',
+    total_sessions: raw.session_count ?? 0,
+    time_slot: slot ? `${slot.start_time} To ${slot.end_time}` : 'Pending',
+    // No genuine status field exists on this endpoint (confirmed live
+    // 2026-08-06) — the web's own GX Slots table doesn't have a Status
+    // column at all, it only shows "Pending" in the Time Slot column when
+    // none is assigned. Mirror that instead of a fabricated Active/Inactive.
+    status: slot ? 'Active' : 'Pending',
+  };
+};
 
 const GXClasses = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [classes, setClasses] = useState<GXClass[]>([]);
   const [filtered, setFiltered] = useState<GXClass[]>([]);
@@ -55,7 +63,7 @@ const GXClasses = () => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const res = await getGXClasses({ branch_id: branchId, limit: 100 });
-      const raw: any[] = res?.data?.data ?? [];
+      const raw: any[] = res?.data ?? [];
       const data: GXClass[] = raw.map(mapGXClass);
       setClasses(data);
       setFiltered(data);
@@ -140,19 +148,19 @@ const GXClasses = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
-          style={styles.backBtn}
-        >
-          {navigation.canGoBack()
-            ? <Icon name="arrow-left" size={24} color="#333" />
-            : <BurgerSVG width={24} height={24} />}
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>GX Slots</Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <View style={styles.container}>
+      <AppHeader
+        title="GX Slots"
+        leftIcon={
+          navigation.canGoBack()
+            ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
+            : <BurgerSVG width={24} height={24} />
+        }
+        rightIcon={<NotificationSVG width={24} height={24} />}
+        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
+        onRightPress={() => navigation.navigate('Notifications')}
+        backgroundColor="#FFE5E5"
+      />
 
       <View style={styles.searchRow}>
         <Icon name="magnify" size={20} color="#888" style={styles.searchIcon} />
@@ -191,15 +199,12 @@ const GXClasses = () => {
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', margin: 12, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 14, color: '#333' },

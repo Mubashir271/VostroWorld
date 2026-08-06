@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -10,20 +10,12 @@ import {
     Image,
     ActivityIndicator,
     ScrollView,
-    Alert,
 } from 'react-native';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import CheckBox from '../../../components/Checkbox';
-import { useDispatch, useSelector } from 'react-redux';
-import { setUser, setBiometricEnabled } from '../../../redux/slices/userSlice';
-import { RootState } from '../../../redux/store';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../../redux/slices/userSlice';
 import api from '../../../api/service';
-import {
-    checkBiometricAvailability,
-    promptBiometric,
-    saveCredentials,
-    getCredentials,
-} from '../../../utils/biometrics';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -31,27 +23,10 @@ const Login = () => {
     const [remember, setRemember] = useState(false);
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [biometricReady, setBiometricReady] = useState(false);
 
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const { showSnackbar } = useSnackbarStore();
-    const biometricEnabled = useSelector((state: RootState) => state.user.biometricEnabled);
-
-    // Check on mount whether biometric login is set up and ready
-    useEffect(() => {
-        const init = async () => {
-            try {
-                const { available } = await checkBiometricAvailability();
-                if (!available || !biometricEnabled) return;
-                const creds = await getCredentials();
-                setBiometricReady(!!creds);
-            } catch {
-                // biometrics not available — ignore
-            }
-        };
-        init();
-    }, [biometricEnabled]);
 
     const doLogin = async (loginEmail: string, loginPassword: string) => {
         setLoading(true);
@@ -106,50 +81,7 @@ const Login = () => {
             return;
         }
 
-        const success = await doLogin(email, password);
-        if (!success) return;
-
-        // After first successful login, offer to enable biometric
-        try {
-            const { available } = await checkBiometricAvailability();
-            if (available && !biometricEnabled) {
-                Alert.alert(
-                    'Enable Biometric Login?',
-                    'Next time you can log in with your fingerprint or Face ID.',
-                    [
-                        { text: 'Skip', style: 'cancel' },
-                        {
-                            text: 'Enable',
-                            onPress: async () => {
-                                await saveCredentials(email.trim(), password.trim());
-                                dispatch(setBiometricEnabled(true));
-                            },
-                        },
-                    ],
-                );
-            }
-        } catch {
-            // biometrics check failed silently — don't block the login flow
-        }
-    };
-
-    const handleBiometricLogin = async () => {
-        if (!biometricReady) return;
-        try {
-            const { success } = await promptBiometric('Log in to Vostro');
-            if (!success) return;
-
-            const creds = await getCredentials();
-            if (!creds) {
-                showSnackbar('No saved credentials. Please log in manually.');
-                dispatch(setBiometricEnabled(false));
-                return;
-            }
-
-            await doLogin(creds.email, creds.password);
-        } catch {
-            showSnackbar('Biometric authentication failed. Please try again.');
-        }
+        await doLogin(email, password);
     };
 
     const handleForgotPassword = () => {
@@ -263,28 +195,6 @@ const Login = () => {
                             <Text style={styles.loginBtnText}>Login</Text>
                         )}
                     </TouchableOpacity>
-
-                    {/* Biometric Login */}
-                    <TouchableOpacity
-                        style={[
-                            styles.biometricWrapper,
-                            !biometricReady && styles.biometricDisabled,
-                        ]}
-                        onPress={handleBiometricLogin}
-                        disabled={!biometricReady || loading}
-                        activeOpacity={biometricReady ? 0.7 : 1}
-                    >
-                        <Image
-                            source={require('../../../assets/icons/biomatric.png')}
-                            style={[
-                                styles.fingerprintIcon,
-                                !biometricReady && { opacity: 0.35 },
-                            ]}
-                        />
-                        <Text style={[styles.biometricText, !biometricReady && { color: '#bbb' }]}>
-                            {biometricReady ? 'Biometric Login' : 'Biometric Login (not set up)'}
-                        </Text>
-                    </TouchableOpacity>
                 </ScrollView>
             </View>
 
@@ -339,10 +249,6 @@ const styles = StyleSheet.create({
     },
     loginBtnDisabled: { opacity: 0.7 },
     loginBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-    biometricWrapper: { marginTop: 40, alignItems: 'center' },
-    biometricDisabled: { opacity: 0.6 },
-    fingerprintIcon: { width: 50, height: 50, marginBottom: 6 },
-    biometricText: { fontWeight: '700' },
     supportText: { textAlign: 'center', paddingVertical: 15, color: '#666', fontSize: 12 },
 });
 

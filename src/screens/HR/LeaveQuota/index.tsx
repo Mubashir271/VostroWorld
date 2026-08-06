@@ -54,7 +54,7 @@ const STATUS_BG = (s: any) => STATUS_LABEL(s) === 'Active' ? '#E8F5E9' : '#FFEBE
 const LeaveQuota = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = profile?.branch_name ?? 'Branch';
 
   const [records, setRecords] = useState<QuotaRecord[]>([]);

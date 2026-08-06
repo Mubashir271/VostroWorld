@@ -30,7 +30,7 @@ const QUICK = [
 const SalesExpenseDailyScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [data, setData]           = useState<any>(null);
   const [loading, setLoading]     = useState(false);

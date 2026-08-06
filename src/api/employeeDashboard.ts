@@ -3,7 +3,7 @@ import api from './service';
 // ── 6.2 Attendance ────────────────────────────────────────────────────────────
 
 export const getAttendanceList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   member_id: number;
   category?: number; // 2 = staff
   start_date?: string;
@@ -19,7 +19,7 @@ export const getAttendanceList = async (params: {
   return res.data;
 };
 
-export const getAttendanceSummary = async (branch_id: number) => {
+export const getAttendanceSummary = async (branch_id: number | string) => {
   const res = await api.get('/v1/attendance/summery', { params: { branch_id } });
   return res.data; // { on_time, late, absent, leave }
 };
@@ -27,7 +27,7 @@ export const getAttendanceSummary = async (branch_id: number) => {
 // ── 6.3 Duty Hours ────────────────────────────────────────────────────────────
 
 export const getDutyHours = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   staff_id: number;
   status?: number;
   limit?: number;
@@ -38,7 +38,7 @@ export const getDutyHours = async (params: {
 };
 
 export const getDutyHourRequests = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number;
   approval_status?: 'Pending' | 'Approved' | 'Rejected';
   day?: string;
@@ -51,7 +51,7 @@ export const getDutyHourRequests = async (params: {
 };
 
 export const createDutyHourRequest = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   staff_timing_id: number;
   day: string;
@@ -85,7 +85,7 @@ export const updateDutyHourRequest = async (
 // ── 6.4 Salary ────────────────────────────────────────────────────────────────
 
 export const getSalarySlips = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   start_date?: string;
   end_date?: string;
@@ -97,7 +97,7 @@ export const getSalarySlips = async (params: {
 
 // All staff salary list (admin)
 export const getSalaryList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   user_id?: number;
@@ -110,7 +110,7 @@ export const getSalaryList = async (params: {
 
 // HR commissions report
 export const getHRCommissions = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   user_id?: number;
@@ -122,7 +122,7 @@ export const getHRCommissions = async (params: {
 
 // Single employee salary slip (pass user_id to filter)
 export const getMySalarySlip = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
 }) => {
   const res = await api.get('/v1/salary', { params });
@@ -135,7 +135,7 @@ export const getMySalarySlip = async (params: {
 // Response rows use `type: 'addition'|'deduction'` (lowercase) and `return_month`
 // (not `salary_month`) for the display fields — see SalaryComponent screen mapping.
 export const getSalaryComponents = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number;
   start_date?: string;
   end_date?: string;
@@ -149,7 +149,7 @@ export const getSalaryComponents = async (params: {
 // Confirmed live: POST /v1/hr/salary-components/store exists. Payload field
 // names/casing below are unconfirmed (not probed live to avoid writing test data).
 export const addSalaryComponent = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   component_name: string;
   type: string; // 'Addition' | 'Deduction'
@@ -184,7 +184,7 @@ export const deleteSalaryComponent = async (id: number) => {
 // ── 6.5b Leave Quota (HR admin — all staff) ───────────────────────────────────
 
 export const getAllLeaveQuota = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number;
   leave_type?: string;
   status?: number;
@@ -196,7 +196,7 @@ export const getAllLeaveQuota = async (params: {
 };
 
 export const addLeaveQuota = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   leave_type: string;
   number_of_leaves: number;
@@ -221,7 +221,7 @@ export const deleteLeaveQuota = async (id: number) => {
 // ── 6.8 Staff Loans (admin list) ─────────────────────────────────────────────
 
 export const getStaffLoansList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
 }) => {
@@ -232,7 +232,7 @@ export const getStaffLoansList = async (params: {
 // Confirmed live: POST /v1/staff-loans/add exists (route name is `add`, not
 // `store`). Payload fields are unconfirmed (not probed to avoid writing test data).
 export const addStaffLoan = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   staff_id: number;
   amount: number;
   term: number;
@@ -249,7 +249,7 @@ export const addStaffLoan = async (payload: {
 // ── 6.9 Staff Finance — Fines & Advances ─────────────────────────────────────
 
 export const getStaffFinanceList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   category?: string; // 'Fine' | 'Advance' | 'Reward' | etc.
   limit?: number;
   page?: number;
@@ -261,7 +261,7 @@ export const getStaffFinanceList = async (params: {
 // ── 6.10 Cafe Orders ─────────────────────────────────────────────────────────
 
 export const getCafeOrders = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
 }) => {
@@ -272,7 +272,7 @@ export const getCafeOrders = async (params: {
 // ── 6.11 Members / Clients ───────────────────────────────────────────────────
 
 export const getClientsList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   status?: string;
   search?: string;
   gender?: string;
@@ -288,7 +288,7 @@ export const getClientsList = async (params: {
 // ── 6.5 Leaves ────────────────────────────────────────────────────────────────
 
 export const getLeaveQuota = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   leave_type?: string;
   status?: number;
@@ -300,7 +300,7 @@ export const getLeaveQuota = async (params: {
 };
 
 export const getLeaveApplications = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   leave_type?: string;
   leave_status?: string;
@@ -353,7 +353,7 @@ export const checkLeaveAvailability = async (payload: {
 
 /** Final submit — call only after all 3 checks pass */
 export const submitLeaveApplication = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   leave_status: string;
   leave_type: string;
@@ -375,7 +375,7 @@ export const submitLeaveApplication = async (payload: {
 // consistency; treat as unconfirmed until the real route is found.
 
 export const getProfileEntries = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   entry_type?: 'Qualification' | 'Experience';
   status?: number;
@@ -386,7 +386,7 @@ export const getProfileEntries = async (params: {
 };
 
 export const createProfileEntry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   entry_type: string;
   title: string;
@@ -415,7 +415,7 @@ export const updateProfileEntry = async (id: number, payload: Partial<{
 // ── 6.7 Documents ─────────────────────────────────────────────────────────────
 
 export const getStaffDocuments = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   approval_status?: 'Pending' | 'Approved' | 'Rejected';
   status?: number;
@@ -427,7 +427,7 @@ export const getStaffDocuments = async (params: {
 };
 
 export const addStaffDocument = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   document_type: string;
   document_category: string;
@@ -451,7 +451,7 @@ export const addStaffDocument = async (payload: {
 // ── 6.1 Promotions / Announcements ───────────────────────────────────────────
 
 export const getPromotions = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   status?: number;
   limit?: number;
@@ -480,7 +480,7 @@ export const getPromotions = async (params: {
 // failed INSERT's own column name (`previous_department`), not confirmed.
 // Wired but gated off (`ADD_ENABLED = false`) in StaffPromotion.
 export const addPromotion = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   promotion_type: 'Department' | 'Position' | 'Salary' | 'All';
   date: string;
@@ -497,7 +497,7 @@ export const addPromotion = async (payload: {
 };
 
 export const getAnnouncements = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   active_only?: 1 | 0;
   priority?: 'High' | 'Medium' | 'Low';
   search?: string;
@@ -511,7 +511,7 @@ export const getAnnouncements = async (params: {
 // ── Employee Dashboard Stats (parallel fetch for trainer home screen) ─────────
 
 export const getEmployeeDashboardStats = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
 }) => {
   const today = new Date().toISOString().split('T')[0];
@@ -573,7 +573,7 @@ export const getEmployeeDashboardStats = async (params: {
 // ── HR Dashboard ──────────────────────────────────────────────────────────────
 
 export const getHRDashboard = async (params: {
-  branch_id?: number;
+  branch_id?: number | string;
   date?: string;
 }) => {
   try {
@@ -593,7 +593,7 @@ export const getHRDashboard = async (params: {
 // against, so they're normalized onto each record here to keep callers
 // (ViewStaff, SalaryComponent, LeaveQuota) unchanged.
 export const getStaffList = async (params: {
-  branch_id?: number;
+  branch_id?: number | string;
   department?: string;
   department_id?: number;
   designation?: string;
@@ -644,7 +644,7 @@ export const getStaffDetail = async (staffId: number, branch_id: number) => {
 // ── Finance ───────────────────────────────────────────────────────────────────
 
 export const getFinanceDashboard = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   filter?: 'today' | 'week' | 'month' | 'quarter';
 }) => {
   const res = await api.get('/v1/finance/dashboard', { params });
@@ -652,7 +652,7 @@ export const getFinanceDashboard = async (params: {
 };
 
 export const getExpensesList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   limit?: number;
@@ -678,7 +678,7 @@ export const getExpensePaymentMethods = async () => {
 };
 
 export const addExpenseRows = async (rows: Array<{
-  branch_id: number;
+  branch_id: number | string;
   occurrence_date: string;
   amount: number;
   category_id?: number;
@@ -694,7 +694,7 @@ export const addExpenseRows = async (rows: Array<{
 };
 
 export const getCashInHand = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   from_date: string;
   to_date: string;
 }) => {
@@ -737,7 +737,7 @@ export const getPaidExpenseReport = async (params: { date: string }) => {
 };
 
 export const addCashInHandEntry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   date: string;
   bank?: number;
   charity?: number;
@@ -750,7 +750,7 @@ export const addCashInHandEntry = async (payload: {
 };
 
 export const updateCashInHandEntry = async (id: number, payload: {
-  branch_id?: number;
+  branch_id?: number | string;
   date?: string;
   bank?: number;
   charity?: number;
@@ -765,7 +765,7 @@ export const updateCashInHandEntry = async (id: number, payload: {
 // ── Liabilities ──────────────────────────────────────────────────────────────
 
 export const addLiability = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   category: string;
   sub_category?: string;
   creditor_name?: string;
@@ -779,7 +779,7 @@ export const addLiability = async (payload: {
 };
 
 export const getLiabilityLedger = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   limit?: number;
@@ -789,13 +789,13 @@ export const getLiabilityLedger = async (params: {
   return res.data;
 };
 
-export const getLiabilityBalance = async (branch_id: number) => {
+export const getLiabilityBalance = async (branch_id: number | string) => {
   const res = await api.get('/v1/finance/liability-ledger/current-balance', { params: { branch_id } });
   return res.data;
 };
 
 export const payLiability = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   amount: number;
   type: string;
   resource: string;
@@ -827,7 +827,7 @@ export const updateLiabilityEntry = async (id: number, payload: {
 // ── Keene Ledger ─────────────────────────────────────────────────────────────
 
 export const getKeeneLedger = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   limit?: number;
@@ -838,7 +838,7 @@ export const getKeeneLedger = async (params: {
 };
 
 export const addKeeneEntry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   amount: number;
   type: string;
   date: string;
@@ -856,7 +856,7 @@ export const deleteKeeneEntry = async (id: number) => {
 // ── G-13 Cash Ledger ──────────────────────────────────────────────────────────
 
 export const getG13Ledger = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   transaction_type?: string;
@@ -868,7 +868,7 @@ export const getG13Ledger = async (params: {
 };
 
 export const addG13Entry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   amount: number;
   type: string;
   transaction_type: string;
@@ -888,7 +888,7 @@ export const deleteG13Entry = async (id: number) => {
 // ── Petty Cash Ledger ─────────────────────────────────────────────────────────
 
 export const getPettyCashLedger = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   transaction_type?: string;
@@ -900,7 +900,7 @@ export const getPettyCashLedger = async (params: {
 };
 
 export const addPettyCashEntry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   amount: number;
   type: string;
   transaction_type: string;
@@ -919,7 +919,7 @@ export const deletePettyCashEntry = async (id: number) => {
 // ── Charity Ledger ────────────────────────────────────────────────────────────
 
 export const getCharityLedger = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   limit?: number;
@@ -929,13 +929,13 @@ export const getCharityLedger = async (params: {
   return res.data;
 };
 
-export const getCharityBalance = async (branch_id: number) => {
+export const getCharityBalance = async (branch_id: number | string) => {
   const res = await api.get('/v1/finance/charity/current-balance', { params: { branch_id } });
   return res.data;
 };
 
 export const addCharityEntry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   date: string;
   type: 'Credit' | 'Debit' | 'Transfer';
   amount: number;
@@ -956,7 +956,7 @@ export const deleteCharityEntry = async (id: number) => {
 // ── Office Cash Ledger ────────────────────────────────────────────────────────
 
 export const getOfficeCashLedger = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   limit?: number;
@@ -968,13 +968,13 @@ export const getOfficeCashLedger = async (params: {
 
 // `/current-balance` is confirmed broken server-side (always returns 0);
 // `/office-cash-balance` returns the real running total.
-export const getOfficeCashBalance = async (branch_id: number) => {
+export const getOfficeCashBalance = async (branch_id: number | string) => {
   const res = await api.get('/v1/finance/office-cash-flow/office-cash-balance', { params: { branch_id } });
   return res.data;
 };
 
 export const addOfficeCashEntry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   amount: number;
   type: 'Credit' | 'Debit';
   resource?: string;
@@ -1003,7 +1003,7 @@ export const deleteOfficeCashEntry = async (id: number) => {
 // as Office Cash Flow.
 
 export const getBankLedger = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   limit?: number;
@@ -1014,7 +1014,7 @@ export const getBankLedger = async (params: {
 };
 
 // Broken — always returns balance "0". Kept for completeness; do not rely on it.
-export const getBankLedgerBalance = async (branch_id: number) => {
+export const getBankLedgerBalance = async (branch_id: number | string) => {
   const res = await api.get('/v1/finance/bank-ledger/current-balance', { params: { branch_id } });
   return res.data;
 };
@@ -1024,7 +1024,7 @@ export const getBankLedgerBalance = async (branch_id: number) => {
 // `type`. `resource`/`bank_account_id` remain unconfirmed beyond that — wired
 // but gated off in AddBankCash/ViewBankLedger until confirmed live.
 export const addBankCashEntry = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   amount: number;
   type: string;
   resource: string;
@@ -1046,7 +1046,7 @@ export const deleteBankCashEntry = async (id: number) => {
 // (was missing both the `/v1/` prefix and the `/get` suffix). List shape:
 // {id, branch_id, branch_name, bank_name, account_no, account_title, date, status}.
 
-export const getBankDetails = async (branch_id: number) => {
+export const getBankDetails = async (branch_id: number | string) => {
   const res = await api.get('/v1/finance/banking-details/get', { params: { branch_id } });
   return res.data;
 };
@@ -1061,7 +1061,7 @@ export const getBankDetails = async (branch_id: number) => {
 // send it anyway to match the web form. Still gated off pending a live test
 // of the actual insert (only the empty-body 422 has been verified so far).
 export const addBankDetail = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   name: string;
   account_no: string;
   account_title?: string;
@@ -1073,7 +1073,7 @@ export const addBankDetail = async (payload: {
 // ── Sales / Clients ───────────────────────────────────────────────────────────
 
 export const getFreezingList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   status?: string;
   search?: string;
   limit?: number;
@@ -1084,7 +1084,7 @@ export const getFreezingList = async (params: {
 };
 
 export const getApprovalsList = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   status?: string;
   type?: string;
   limit?: number;
@@ -1104,19 +1104,22 @@ export const updateApproval = async (id: number, payload: {
 
 // ── Fitness / GX ─────────────────────────────────────────────────────────────
 
-// `/v1/gx/classes/get` 404s (confirmed live 2026-06-24) — the real GX class
-// listing is `/v1/fitness/gx-class/index`. Its records are simpler than what
-// GXClasses/GXPackages were built against: `{ id, package_id, name, day,
-// status, package: { id, slot_name, description, branch_id, branch_name } }`
-// — no trainer_name/booking_space/duration/total_sessions/time_slot fields.
+// `/v1/gx/classes/get` 404s and `/v1/fitness/gx-class/index` returns a
+// stripped-down shape with no trainer_name/booking_space/duration/
+// total_sessions/time_slot. The web admin's GX Slots List actually calls
+// `/v1/packages/gx` (HAR-confirmed 2026-08-06), which returns the full
+// shape: { id, name, session_count, duration, booking_capacity, branch_id,
+// branch_name, trainer_id, trainer_name, order_details, time_slot: [{
+// start_time, end_time, booking_days: [{day, status}] }] }.
 export const getGXClasses = async (params: {
-  branch_id: number;
-  trainer_id?: number;
-  slot?: string;
+  branch_id: number | string;
+  trainer_id?: number | string;
+  package_id?: number | string;
+  category?: number | string;
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/fitness/gx-class/index', { params });
+  const res = await api.get('/v1/packages/gx', { params });
   return res.data;
 };
 
@@ -1161,7 +1164,7 @@ export const setGXClassStatus = async (id: number, active: boolean) => {
 // No confirmed replacement found for `/v1/gx/bookings/get` (404 live,
 // 2026-06-24) — unused by any screen currently.
 export const getGXBookings = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   class_id?: number;
   status?: string;
   limit?: number;
@@ -1172,7 +1175,7 @@ export const getGXBookings = async (params: {
 };
 
 export const getPTRosterAdmin = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number;
   package_status?: string;
   limit?: number;
@@ -1193,7 +1196,7 @@ export const getPTRosterAdmin = async (params: {
 // session_count, package_name, status}}]}. `schedule` is an empty array when
 // free, or an object keyed by whichever day names (Monday..Sunday) are booked.
 export const getTrainerSchedule = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number;
   start_date: string;
   end_date: string;
@@ -1210,7 +1213,7 @@ export const getTrainerSchedule = async (params: {
 // server-side (web defaults to 25/page) rather than returning every trainer
 // in one call. `user_id` filters to a single trainer when set.
 export const getGXAppointments = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number;
   start_date?: string;
   end_date?: string;
@@ -1226,7 +1229,7 @@ export const getGXAppointments = async (params: {
 // endpoint. Trainer dropdown uses `is_gx_trainer=` (empty — all PTs, not just
 // GX-flagged), unlike GX Appointments which sends `is_gx_trainer=1`.
 export const getSPTAppointments = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number;
   start_date?: string;
   end_date?: string;
@@ -1237,7 +1240,7 @@ export const getSPTAppointments = async (params: {
   return res.data;
 };
 
-export const getSPTAppointmentTrainers = async (params: { branch_id: number }) => {
+export const getSPTAppointmentTrainers = async (params: { branch_id: number | string }) => {
   const res = await api.get('/v1/auth/get-name', {
     params: { ...params, designation_id: 1, is_gx_trainer: '' },
   });
@@ -1248,7 +1251,7 @@ export const getSPTAppointmentTrainers = async (params: { branch_id: number }) =
 // same capture. Shape: {status, data:[{id, first_name, last_name, branch_id,
 // designation}], message}. `designation_id=1` + `is_gx_trainer=1` are sent
 // as fixed query params by the web app (not user-configurable).
-export const getGXAppointmentTrainers = async (params: { branch_id: number }) => {
+export const getGXAppointmentTrainers = async (params: { branch_id: number | string }) => {
   const res = await api.get('/v1/auth/get-name', {
     params: { ...params, designation_id: 1, is_gx_trainer: 1 },
   });
@@ -1267,7 +1270,7 @@ export const getGXAppointmentTrainers = async (params: { branch_id: number }) =>
 // from the table's column headers, not confirmed. Re-verify field names
 // against a real row once Befit data exists.
 export const getBefitClients = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   page?: number;
   limit?: number;
   trainer_id?: number;
@@ -1291,7 +1294,7 @@ export const getBefitClients = async (params: {
 // response was captured, so row field names are inferred from the column
 // headers, not confirmed.
 export const getBefitBookings = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number;
   page?: number;
   limit?: number;
@@ -1306,7 +1309,7 @@ export const getBefitBookings = async (params: {
 // capture. Unlike GX Appointments' dropdown, `is_gx_trainer` is sent empty
 // (not `1`) — returns every Personal Trainer (`designation_id=1`), not just
 // GX-flagged ones.
-export const getBefitBookingTrainers = async (params: { branch_id: number }) => {
+export const getBefitBookingTrainers = async (params: { branch_id: number | string }) => {
   const res = await api.get('/v1/auth/get-name', {
     params: { ...params, designation_id: 1, is_gx_trainer: '' },
   });
@@ -1323,7 +1326,7 @@ export const getBefitBookingTrainers = async (params: { branch_id: number }) => 
 // POST endpoint is NOT CONFIRMED — inferred as /v1/fitness/session-attendance/store
 // from the Laravel REST convention; gate the Add button until confirmed live.
 
-export const getBefitAttendanceTrainers = async (branchId: number) => {
+export const getBefitAttendanceTrainers = async (branchId: number | string) => {
   const res = await api.get(`/v1/auth/fetch-name-list/${branchId}`, {
     params: { category: 'mix' },
   });
@@ -1338,7 +1341,7 @@ export const getBefitTrainerPackages = async (trainerId: number) => {
 };
 
 export const getBefitAttendance = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   status: 0 | 1;
   page?: number;
   limit?: number;
@@ -1354,7 +1357,7 @@ export const getBefitAttendance = async (params: {
 // NOT CONFIRMED — endpoint inferred from REST convention; do not call until
 // confirmed live from the web admin's Network tab on a successful Add submit.
 export const addBefitAttendance = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   package_id: number;
   time: string;
@@ -1372,7 +1375,7 @@ export const addBefitAttendance = async (payload: {
 // end_time, date } with start_time/end_time as "HH:mm AM/PM" strings.
 
 export const getTimeSlots = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
 }) => {
@@ -1381,7 +1384,7 @@ export const getTimeSlots = async (params: {
 };
 
 export const addTimeSlot = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   start_time: string;
   end_time: string;
   date?: string;
@@ -1400,7 +1403,7 @@ export const updateTimeSlot = async (id: number, payload: Partial<{
 };
 
 export const checkTimeSlotExists = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   start_time: string;
   end_time: string;
   date?: string;
@@ -1411,7 +1414,7 @@ export const checkTimeSlotExists = async (payload: {
 
 // Already used (called directly via `api.get`) in PTAttendance — wrapped here
 // for reuse. Confirmed live, requires the `/v1/` prefix.
-export const getGXTrainers = async (params: { branch_id: number }) => {
+export const getGXTrainers = async (params: { branch_id: number | string }) => {
   const res = await api.get('/v1/fitness/commission-portal/hr/trainers', { params });
   return res.data;
 };
@@ -1424,7 +1427,7 @@ export const getGXTrainers = async (params: { branch_id: number }) => {
 // trainer_name, trainer_id, package_name, package_type, package_start_date,
 // package_end_date, branch_name}.
 export const getHRSessions = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number;
   client_id?: number;
   status?: 'Active' | 'Inactive';
@@ -1444,7 +1447,7 @@ export const getHRSessions = async (params: {
 // (raw `api` calls) in PTAttendance for the same endpoint; wrapped here for
 // reuse by the HR Session & Commission Portal screen.
 export const createHRSession = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id: number;
   client_id: number;
   order_id: number;
@@ -1484,7 +1487,7 @@ export const deleteHRSession = async (id: number) => {
 // total_client_cancel_sessions, total_trainer_cancel_sessions,
 // formula_guide, details:[...]}}.
 export const getHRPortalCommissions = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number;
   start_date: string;
   end_date: string;
@@ -1500,7 +1503,7 @@ export const getHRPortalCommissions = async (params: {
 // `sessions_remaining` to split Active vs Old.
 export const getHRPortalClients = async (params: {
   trainer_id: number;
-  branch_id?: number;
+  branch_id?: number | string;
   include_expired?: 0 | 1;
 }) => {
   const res = await api.get('/v1/fitness/commission-portal/hr/clients', { params });
@@ -1513,7 +1516,7 @@ export const getHRPortalClients = async (params: {
 // gracefully until confirmed against the real backend.
 export const recordHRCommissionPayment = async (payload: {
   trainer_id: number;
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
   amount: number;
@@ -1530,7 +1533,7 @@ export const recordHRCommissionPayment = async (payload: {
 // exceed any one-shot `limit`. Fetches page 1 at a large page size, reads
 // `last_page` off the response, then fetches the rest in parallel.
 export const getHRSessionsAll = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number;
   status?: 'Active' | 'Inactive';
   start_date?: string;
@@ -1563,7 +1566,7 @@ export const getHRSessionsAll = async (params: {
 // endpoint as SPTAttendance but without a category filter (category param is
 // empty). Trainers use is_gx_trainer=1; slots use category=15 (getSPTSlots).
 export const getGXAttendancePackages = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number | string;
   package_id?: number | string;
   page?: number;
@@ -1574,7 +1577,7 @@ export const getGXAttendancePackages = async (params: {
 };
 
 export const getSPTAttendancePackages = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number | string;
   package_id?: number | string;
   page?: number;
@@ -1587,7 +1590,7 @@ export const getSPTAttendancePackages = async (params: {
 };
 
 export const getSPTAttendancePackageNames = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number | string;
 }) => {
   const res = await api.get('/v1/packages/names-list', {
@@ -1608,7 +1611,7 @@ export const getSPTAttendancePackageNames = async (params: {
 // from the REST convention used elsewhere in this codebase.
 
 export const getSPTPackages = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   page?: number;
   limit?: number;
 }) => {
@@ -1637,27 +1640,27 @@ export const deleteSPTPackage = async (id: number) => {
 //   so row field names are inferred from column headers — re-verify once real
 //   rows exist.
 
-export const getSPTBookingTrainers = async (params: { branch_id: number }) => {
+export const getSPTBookingTrainers = async (params: { branch_id: number | string }) => {
   const res = await api.get('/v1/auth/get-name', {
     params: { ...params, designation_id: 1, is_gx_trainer: 1 },
   });
   return res.data;
 };
 
-export const getSPTSlots = async (params: { branch_id: number; user_id?: number }) => {
+export const getSPTSlots = async (params: { branch_id: number | string; user_id?: number }) => {
   const res = await api.get('/v1/packages/names-list', {
     params: { ...params, category: 15, status: 1 },
   });
   return res.data;
 };
 
-export const getClientNames = async (params: { branch_id?: number }) => {
+export const getClientNames = async (params: { branch_id?: number | string }) => {
   const res = await api.get('/v1/clients/client-name', { params });
   return res.data;
 };
 
 export const getSPTBookings = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   page?: number;
   limit?: number;
   user_id?: number | string;
@@ -1681,7 +1684,7 @@ export const getSPTBookings = async (params: {
 // until the real payload is confirmed (e.g. captured from the web admin's
 // Network tab); the AddGXSlots screen gates the submit button accordingly.
 export const addGXSlot = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   package_name: string;
   category: '15';
   user_id?: number;
@@ -1744,7 +1747,7 @@ export const setRelatedThingStatus = async (id: number, active: boolean) => {
 // Form POST endpoint and "Available Bookings" / "Available Time Slots" dropdowns
 // were NOT captured (user never submitted the form).
 export const getSwitchedTimeSlots = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number | string;
   page?: number;
   limit?: number;
@@ -1759,7 +1762,7 @@ export const deleteSwitchedTimeSlot = async (id: number) => {
 };
 
 export const addSwitchedTimeSlot = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   trainer_id?: number;
   schedule_id?: number;
   new_time_slot_id?: number;
@@ -1780,7 +1783,7 @@ export const addSwitchedTimeSlot = async (payload: {
 // handled gracefully in the screen (shown as empty sections).
 
 export const getHRStaffAttendance = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
   user_id?: number | string;
@@ -1796,7 +1799,7 @@ export const getHRStaffAttendance = async (params: {
 };
 
 export const getHRCommissionsReport = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
   user_id?: number | string;
@@ -1808,7 +1811,7 @@ export const getHRCommissionsReport = async (params: {
 };
 
 export const getHRLeaveApplications = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number | string;
   status?: number;
   from_date?: string;
@@ -1821,7 +1824,7 @@ export const getHRLeaveApplications = async (params: {
 };
 
 export const getHRStaffFines = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   user_id?: number | string;
   category: 'Fine' | 'Advance';
   start_date?: string;
@@ -1851,12 +1854,12 @@ export const getHRStaffFines = async (params: {
 // dropdown's exact value format (month name vs number) was never captured —
 // sending full month names as a best guess.
 
-export const getStaffNamesForBranch = async (params: { branch_id: number }) => {
+export const getStaffNamesForBranch = async (params: { branch_id: number | string }) => {
   const res = await api.get('/v1/auth/get-name', { params });
   return res.data;
 };
 
-export const getBankingDetailsListing = async (params: { branch_id: number }) => {
+export const getBankingDetailsListing = async (params: { branch_id: number | string }) => {
   const res = await api.get('/v1/finance/banking-details/listing', { params });
   return res.data;
 };
@@ -1865,7 +1868,7 @@ export const getBankingDetailsListing = async (params: { branch_id: number }) =>
 // convention; no submit was ever captured. Gate the Add button until a real
 // submit is captured in a HAR, same pattern as `registerStaff`.
 export const addStaffAdvance = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   user_id: number;
   amount: number;
   return_month: string;
@@ -1881,7 +1884,7 @@ export const addStaffAdvance = async (payload: {
 };
 
 export const getHRStaffLoans = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   staff_id?: number | string;
   start_date?: string;
   end_date?: string;
@@ -1894,7 +1897,7 @@ export const getHRStaffLoans = async (params: {
 };
 
 export const getHRStaffPromotions = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   status?: number;
   limit?: number;
   page?: number;
@@ -1911,7 +1914,7 @@ export const getHRStaffPromotions = async (params: {
 // cheque_number, amount, description, occurrence_date, status }
 // Known transaction_types from HAR: 'Bank Account', 'Sales Counter', 'Office Counter'.
 export const getDailyOfficeClosing = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) => {
@@ -1922,7 +1925,7 @@ export const getDailyOfficeClosing = async (params: {
 // ── Assets ────────────────────────────────────────────────────────────────────
 // NOT CONFIRMED — endpoints inferred from codebase pattern; no HAR captured.
 export const getAssets = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date?: string;
   end_date?: string;
   page?: number;
@@ -1933,7 +1936,7 @@ export const getAssets = async (params: {
 };
 
 export const addAsset = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   category_id?: number;
   sub_category_id?: number;
   name: string;
@@ -1977,7 +1980,7 @@ export const addAsset = async (payload: {
 // The AddStaff screen keeps ADD_ENABLED = false until a real submit is
 // captured.
 export const registerStaff = async (payload: {
-  branch_id: number;
+  branch_id: number | string;
   first_name: string;
   last_name: string;
   gender: 'Male' | 'Female' | 'Others';

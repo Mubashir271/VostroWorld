@@ -33,7 +33,7 @@ const QUICK = [
 const DepositsHistory = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [rows, setRows]           = useState<any[]>([]);
   const [loading, setLoading]     = useState(false);

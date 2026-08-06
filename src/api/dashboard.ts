@@ -1,6 +1,6 @@
 import api from './service';
 
-export const getMISDashboard = async (branchId: number) => {
+export const getMISDashboard = async (branchId: number | string) => {
     const response = await api.get(
         `/v1/MISReport/get?bId=${branchId}`
     );
@@ -16,7 +16,7 @@ export const getClientsCount = async (branchId?: number) => {
 };
 
 // Returns { immediate: [{ date, pending, Credit_Card, Online, Cash }], later: [] }
-export const getTodaySummary = async (branchId: number) => {
+export const getTodaySummary = async (branchId: number | string) => {
     const today = new Date().toISOString().split('T')[0];
     const res = await api.get('/v1/summary', {
         params: { branch_id: branchId, start_date: today, end_date: today },
@@ -33,7 +33,7 @@ export const getPackageCategories = async () => {
 // 6=Registration, 7=Bootcamp, 8=Freezing, 9=General, 10=Cafe, 11=CFT/Academy,
 // 12=Massage Chair, 13=Cafe Deposits, 14=Physiotherapy, 15=GX
 export const getPackages = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   category: number;
   status?: number;
   limit?: number;
@@ -51,7 +51,7 @@ export const getPackages = async (params: {
 };
 
 // Returns { status, data: [...flat list of all packages with category info...], message }
-export const getAllPackagesWithCategories = async (branchId: number) => {
+export const getAllPackagesWithCategories = async (branchId: number | string) => {
   try {
     const res = await api.get('/v1/packages/all-with-categories', { params: { branch_id: branchId } });
     return res.data;
@@ -67,7 +67,7 @@ export const getAllPackagesWithCategories = async (branchId: number) => {
 // We call /v1/transaction-report instead and aggregate items by package to match
 // the expected shape: { status, total_price, total_discount, total_net_price, data[] }
 export const getPackagesSalesReport = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
   category?: number;

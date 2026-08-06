@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator,
+  ActivityIndicator, Modal, Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
@@ -10,14 +10,23 @@ import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
 import { getMISDashboard } from '../../../api/dashboard';
+import { getBranchesNameList } from '../../../api/employeeDashboard';
 
+interface BranchOption { id: string; label: string; branch_id: number; }
+
+// Values from /v1/MISReport/get are often pre-formatted strings with comma
+// thousands separators (e.g. "2,244,063.00") — parseFloat stops at the
+// first comma, so these must be stripped before parsing or every value over
+// 999 silently truncates to its first 1-3 digits.
 const fmtRs = (v: any) => {
-  const n = parseFloat(v ?? 0);
+  if (v == null || v === '') return '—';
+  const n = parseFloat(String(v).replace(/,/g, ''));
   if (isNaN(n)) return '—';
   return `Rs ${n.toLocaleString()}`;
 };
 const fmtNum = (v: any) => {
-  const n = parseFloat(v ?? 0);
+  if (v == null || v === '') return '—';
+  const n = parseFloat(String(v).replace(/,/g, ''));
   return isNaN(n) ? '—' : n.toLocaleString();
 };
 
@@ -60,17 +69,41 @@ const KVRow = ({ label, value, redValue }: { label: string; value: any; redValue
 const MISReportScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
-  const branchName = profile?.branchName ?? `Branch ${branchId}`;
+  // Super Admin has no fixed branch (branchId is 0 — they oversee every
+  // branch). The web admin's MIS Report requires them to pick one specific
+  // branch before it'll load anything (HAR-confirmed: no all-branches
+  // aggregate exists for this report), so mirror that here instead of
+  // silently calling the endpoint with an empty/0 branch id.
+  const hasFixedBranch = !!profile?.branchId;
+
+  const [branchOptions, setBranchOptions] = useState<BranchOption[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<BranchOption | null>(null);
+  const [branchModalVisible, setBranchModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (hasFixedBranch) return;
+    getBranchesNameList()
+      .then(res => {
+        const branches = res?.data ?? [];
+        setBranchOptions(branches.map((b: any) => ({ id: String(b.id), label: b.name, branch_id: b.id })));
+      })
+      .catch(() => {});
+  }, [hasFixedBranch]);
+
+  const effectiveBranchId = hasFixedBranch ? profile?.branchId : selectedBranch?.branch_id;
+  const branchName = hasFixedBranch
+    ? (profile?.branchName ?? `Branch ${profile?.branchId}`)
+    : (selectedBranch?.label ?? 'Select a branch');
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
 
   const load = async () => {
+    if (effectiveBranchId == null) return;
     setLoading(true);
     try {
-      const res = await getMISDashboard(branchId);
+      const res = await getMISDashboard(effectiveBranchId);
       setData(res);
       setFetched(true);
     } finally {
@@ -80,11 +113,22 @@ const MISReportScreen = () => {
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Parse whatever shape the API returns
-  const sales = data?.sales ?? data?.Sales ?? data;
-  const finance = data?.finance ?? data?.Finance ?? data;
-  const pt = data?.personal_training ?? data?.pt ?? data?.PT ?? data;
-  const hr = data?.hr ?? data?.HR ?? data;
+  // /v1/MISReport/get returns a flat object (confirmed live 2026-08-05), not
+  // the nested { sales, finance, personal_training, hr } shape this screen
+  // used to guess at — that mismatch was silently rendering "—"/0 everywhere
+  // despite the API returning real data. Daily Sales Breakup rows use a
+  // per-category prefix on otherwise-identical field suffixes.
+  const BREAKUP_CATEGORIES = [
+    { label: 'Gym New', prefix: 'gn' },
+    { label: 'Gym Existing', prefix: 'gr' },
+    { label: 'Personal Training New', prefix: 'ptn' },
+    { label: 'Personal Training ReNew', prefix: 'ptr' },
+    { label: 'Gx Studio', prefix: 'gx' },
+    { label: 'Nutrition', prefix: 'n' },
+    { label: 'Physio', prefix: 'phy' },
+    { label: 'Academy', prefix: 'cft' },
+    { label: 'Cafe', prefix: 'c' },
+  ];
 
   return (
     <>
@@ -105,8 +149,28 @@ const MISReportScreen = () => {
           <Text style={s.reportDate}>Date: {today}</Text>
         </View>
 
+        {/* Branch selector — only for users with no fixed branch (Super Admin) */}
+        {!hasFixedBranch && (
+          <View style={s.branchField}>
+            <Text style={s.branchLabel}>Select Branch</Text>
+            <TouchableOpacity
+              style={s.branchSelect}
+              onPress={() => setBranchModalVisible(true)}
+            >
+              <Text style={selectedBranch ? s.branchSelectText : s.branchSelectPlaceholder}>
+                {selectedBranch ? selectedBranch.label : 'Select Branch'}
+              </Text>
+              <Icon name="chevron-down" size={18} color="#666" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Load button */}
-        <TouchableOpacity style={s.loadBtn} onPress={load} disabled={loading}>
+        <TouchableOpacity
+          style={[s.loadBtn, (!hasFixedBranch && !selectedBranch) && s.loadBtnDisabled]}
+          onPress={load}
+          disabled={loading || (!hasFixedBranch && !selectedBranch)}
+        >
           {loading
             ? <ActivityIndicator size="small" color="#FFF" />
             : <Text style={s.loadBtnText}>Load Report</Text>}
@@ -116,7 +180,11 @@ const MISReportScreen = () => {
           <View style={s.emptyState}>
             <Text style={s.emptyIcon}>📊</Text>
             <Text style={s.emptyTitle}>MIS Report</Text>
-            <Text style={s.emptySubtitle}>Tap "Load Report" to fetch today's MIS data.</Text>
+            <Text style={s.emptySubtitle}>
+              {!hasFixedBranch && !selectedBranch
+                ? 'Select a branch above, then tap "Load Report".'
+                : 'Tap "Load Report" to fetch today\'s MIS data.'}
+            </Text>
           </View>
         )}
 
@@ -129,74 +197,118 @@ const MISReportScreen = () => {
                 <TableHeader />
                 <TableRow
                   label={`Sales Till Date\n(from month start)`}
-                  qty={sales?.month_total_qty ?? sales?.month_qty ?? sales?.total_qty}
-                  price={sales?.month_total_price ?? sales?.month_price ?? sales?.total_price}
-                  discount={sales?.month_total_discount ?? sales?.month_discount ?? sales?.total_discount}
-                  gst={sales?.month_total_gst ?? sales?.month_gst ?? sales?.total_gst}
-                  net={sales?.month_total_net ?? sales?.month_net ?? sales?.net_price ?? sales?.total_net_price}
+                  qty={data.salem_qty}
+                  price={data.salem_price}
+                  discount={data.salem_discount}
+                  gst={data.salem_gst}
+                  net={data.salem_net}
                 />
                 <TableRow
                   label="Today's Total Sale"
-                  qty={sales?.today_qty ?? sales?.today_total_qty}
-                  price={sales?.today_price ?? sales?.today_total_price}
-                  discount={sales?.today_discount ?? sales?.today_total_discount}
-                  gst={sales?.today_gst ?? sales?.today_total_gst}
-                  net={sales?.today_net ?? sales?.today_total_net ?? sales?.today_net_price}
+                  qty={data.saleqty_today}
+                  price={data.saleprice_today}
+                  discount={data.salediscount_today}
+                  gst={data.salegst_today}
+                  net={data.salenet_today}
                   highlight
                 />
               </View>
             </ScrollView>
 
             {/* ── DAILY SALES BREAKUP ── */}
-            {(sales?.daily_breakup ?? sales?.breakup ?? data?.daily_sales_breakup) && (
-              <>
-                <SectionHeader title="DAILY SALES BREAKUP" />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View>
-                    <TableHeader />
-                    {(sales?.daily_breakup ?? sales?.breakup ?? data?.daily_sales_breakup ?? []).map((row: any, i: number) => (
-                      <TableRow
-                        key={i}
-                        label={row.particulars ?? row.label ?? row.name ?? `Row ${i + 1}`}
-                        qty={row.qty ?? row.quantity}
-                        price={row.price}
-                        discount={row.discount}
-                        gst={row.gst ?? row.tax}
-                        net={row.net_price ?? row.net}
-                      />
-                    ))}
-                  </View>
-                </ScrollView>
-              </>
-            )}
+            <SectionHeader title="DAILY SALES BREAKUP" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View>
+                <TableHeader />
+                {BREAKUP_CATEGORIES.map(({ label, prefix }) => (
+                  <TableRow
+                    key={prefix}
+                    label={label}
+                    qty={data[`${prefix}saleqty_today`]}
+                    price={data[`${prefix}saleprice_today`]}
+                    discount={data[`${prefix}salediscount_today`]}
+                    gst={data[`${prefix}salegst_today`]}
+                    net={data[`${prefix}salenet_today`]}
+                  />
+                ))}
+              </View>
+            </ScrollView>
 
             {/* ── FINANCE ── */}
             <SectionHeader title="FINANCE" />
             <View style={s.card}>
-              <KVRow label="Total Sale to Date" value={fmtRs(finance?.total_sale_to_date ?? finance?.total_sales ?? finance?.total_sale)} />
-              <KVRow label="Total Expenses to Date" value={fmtRs(finance?.total_expenses_to_date ?? finance?.total_expense)} />
-              <KVRow label="Today's Expenses" value={fmtRs(finance?.todays_expenses ?? finance?.today_expense ?? finance?.today_expenses)} />
-              <KVRow label="Total Expenses Pending Approval" value={fmtRs(finance?.pending_approval ?? finance?.expenses_pending)} redValue />
+              <KVRow label="Total Sale to Date" value={fmtRs(data.salem_net)} />
+              <KVRow label="Total Expenses to Date" value={fmtRs(data.t_expense_date)} />
+              <KVRow label="Today's Expenses" value={fmtRs(data.today_expense)} />
+              <KVRow label="Total Expenses Pending Approval" value={fmtRs(data.expenses_pending_approval)} redValue />
             </View>
 
             {/* ── PERSONAL TRAINING ── */}
             <SectionHeader title="PERSONAL TRAINING" />
             <View style={s.card}>
-              <KVRow label="PT Staff Present" value={pt?.pt_staff_present ?? pt?.staff_present} />
-              <KVRow label="New PT Units Sold" value={fmtNum(pt?.new_pt_units ?? pt?.new_units_sold ?? pt?.pt_units)} />
-              <KVRow label="PT Renewed" value={fmtNum(pt?.pt_renewed ?? pt?.renewed)} />
-              <KVRow label="Physio Sessions Conducted" value={fmtNum(pt?.physio_sessions ?? pt?.physio)} />
-              <KVRow label="Nutritionist Sessions Conducted" value={fmtNum(pt?.nutritionist_sessions ?? pt?.nutrition)} />
+              <KVRow label="PT Staff Present" value={data.ptStaffPresent} />
+              <KVRow label="New PT Units Sold" value={fmtNum(data.ptnsaleqty_today)} />
+              <KVRow label="PT Renewed" value={fmtNum(data.ptrsaleqty_today)} />
+              <KVRow label="Physio Sessions Conducted" value={fmtNum(data.physaleqty_today)} />
+              <KVRow label="Nutritionist Sessions Conducted" value={fmtNum(data.nsaleqty_today)} />
             </View>
 
             {/* ── HR REPORT ── */}
             <SectionHeader title="HR REPORT" />
             <View style={s.card}>
-              <KVRow label="Total Staff" value={fmtNum(hr?.total_staff ?? hr?.staff_count ?? data?.total_staff)} />
+              <KVRow label="Total Staff" value={fmtNum(data.totalStaff)} />
+              <KVRow label="Present" value={fmtNum(data.presentStaff)} />
+              <KVRow label="Absent" value={fmtNum(data.absentStaff)} />
+              <KVRow label="Late" value={fmtNum(data.lateStaff)} />
+            </View>
+
+            {/* ── FOOTFALL ── */}
+            <SectionHeader title="FOOTFALL" />
+            <View style={s.card}>
+              <KVRow label="Morning 7:00 am to 12:00 pm" value={fmtNum(data.morning_SevnToTwlv)} />
+              <KVRow label="Afternoon 12:00 pm to 5:00 pm" value={fmtNum(data.after_twlvTofive)} />
+              <KVRow label="Evening 5:00 pm to 11:00 pm" value={fmtNum(data.even_fiveToeleven)} />
+              <KVRow label="Total Females" value={fmtNum(data.totalFemales)} />
+              <KVRow label="Total Males" value={fmtNum(data.totalMales)} />
+            </View>
+
+            {/* ── CAFE REPORT ── */}
+            <SectionHeader title="CAFE REPORT" />
+            <View style={s.card}>
+              <KVRow label="Total Sale" value={fmtRs(data.csalenet_today)} />
+              <KVRow label="Total Meals Sold" value={fmtNum(data.total_meals)} />
+              <KVRow label="Total Drinks" value={fmtNum(data.total_drinks)} />
+              <KVRow label="Total Sides" value={fmtNum(data.total_sides)} />
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* Branch selection modal */}
+      <Modal visible={branchModalVisible} transparent animationType="slide">
+        <Pressable style={s.modalOverlay} onPress={() => setBranchModalVisible(false)}>
+          <View style={s.modalSheet}>
+            <Text style={s.modalTitle}>Select Branch</Text>
+            {branchOptions.map(opt => (
+              <TouchableOpacity
+                key={opt.id}
+                style={[s.modalOption, selectedBranch?.id === opt.id && s.modalOptionSelected]}
+                onPress={() => { setSelectedBranch(opt); setBranchModalVisible(false); }}
+              >
+                <Icon
+                  name={selectedBranch?.id === opt.id ? 'check-circle' : 'circle-outline'}
+                  size={20}
+                  color={selectedBranch?.id === opt.id ? '#E63946' : '#ccc'}
+                  style={{ marginRight: 10 }}
+                />
+                <Text style={[s.modalOptionText, selectedBranch?.id === opt.id && { color: '#E63946', fontWeight: '700' }]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </>
   );
 };
@@ -207,7 +319,19 @@ const s = StyleSheet.create({
   reportTitle:     { color: '#FFF', fontWeight: '800', fontSize: 14, textAlign: 'center', lineHeight: 20 },
   reportDate:      { color: '#FFCDD2', fontSize: 12, textAlign: 'center', marginTop: 4 },
   loadBtn:         { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 12, marginHorizontal: 12, alignItems: 'center', marginBottom: 8 },
+  loadBtnDisabled: { backgroundColor: '#9CA3AF' },
   loadBtnText:     { color: '#FFF', fontWeight: '700', fontSize: 15 },
+  branchField:     { marginHorizontal: 12, marginBottom: 10 },
+  branchLabel:     { fontSize: 12, fontWeight: '600', color: '#555', marginBottom: 6 },
+  branchSelect:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E63946', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: '#FFF' },
+  branchSelectText: { fontSize: 14, color: '#1A1A1A' },
+  branchSelectPlaceholder: { fontSize: 14, color: '#999' },
+  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet:      { backgroundColor: '#FFF', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, paddingBottom: 28 },
+  modalTitle:      { fontSize: 16, fontWeight: '800', color: '#1A1A1A', marginBottom: 12 },
+  modalOption:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  modalOptionSelected: { backgroundColor: '#FFF5F5', borderRadius: 8 },
+  modalOptionText: { fontSize: 14, color: '#333' },
   emptyState:      { alignItems: 'center', paddingVertical: 60 },
   emptyIcon:       { fontSize: 48, marginBottom: 12 },
   emptyTitle:      { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 6 },

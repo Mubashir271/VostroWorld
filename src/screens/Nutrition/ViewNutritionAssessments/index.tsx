@@ -41,7 +41,7 @@ const TEXT_FIELDS: { label: string; key: string }[] = [
 const ViewNutritionAssessments = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [search, setSearch]       = useState('');
   const [records, setRecords]     = useState<any[]>([]);

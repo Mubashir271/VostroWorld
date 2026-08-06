@@ -131,7 +131,7 @@ export const NUTRITIONIST_ALLOWED_SCREENS = [
   'AddGXSlots', 'AddGXClass', 'GXTrainers', 'GXSlotsList', 'GXBookings',
   'GXAppointments', 'GXAttendance', 'GXAttendanceReport',
   // Nutrition
-  'AddMealsPlan', 'ViewMealsPlan', 'ClientsDetails', 'NutritionDashboard',
+  'AddMealsPlan', 'ViewMealsPlan', 'MealPlanDetail', 'ClientsDetails', 'NutritionDashboard',
   'NutritionAppointments', 'AddNutritionAppointment', 'ViewDietPlanIssued',
   'AddDietPlanIssued', 'HealthCamps', 'ReferralSheet',
   'AddAssessmentQuestionnaire', 'ViewAssessmentQuestionnaire',
@@ -184,7 +184,7 @@ export const FITNESS_MANAGER_ALLOWED_SCREENS = [
   // Appended from Human Resource
   'StaffCommissions', 'SessionPortalHR',
   // Nutrition
-  'AddMealsPlan', 'ViewMealsPlan', 'AddNutritionAssessments', 'ViewNutritionAssessments',
+  'AddMealsPlan', 'ViewMealsPlan', 'MealPlanDetail', 'AddNutritionAssessments', 'ViewNutritionAssessments',
   'ClientsDetails', 'NutritionDashboard', 'NutritionAppointments', 'AddNutritionAppointment',
   'ViewDietPlanIssued', 'AddDietPlanIssued', 'HealthCamps', 'ReferralSheet',
   'AddAssessmentQuestionnaire', 'ViewAssessmentQuestionnaire',

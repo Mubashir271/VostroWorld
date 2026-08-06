@@ -21,7 +21,7 @@ const SEARCH_OPTIONS = [
 const AddClientsDeposit = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   // all clients loaded once on mount
   const [allClients, setAllClients]   = useState<any[]>([]);

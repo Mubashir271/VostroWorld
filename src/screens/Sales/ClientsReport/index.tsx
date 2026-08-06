@@ -78,7 +78,7 @@ const Dropdown = ({
 const ClientsReportScreen = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [startDate, setStartDate] = useState(fmt(todayDate()));
   const [endDate, setEndDate] = useState(fmt(todayDate()));

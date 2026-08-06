@@ -47,7 +47,7 @@ const mapPackage = (p: any): BootcampPackageItem => ({
 const BootcampPackages = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [packages, setPackages] = useState<BootcampPackageItem[]>([]);
   const [loading, setLoading] = useState(false);

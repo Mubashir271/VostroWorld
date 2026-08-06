@@ -2,16 +2,16 @@ import api from './service';
 
 // ── Cafe Categories ───────────────────────────────────────────────────────────
 
-export const getCafeCategories = (params: { branch_id: number; limit?: number; page?: number }) =>
+export const getCafeCategories = (params: { branch_id: number | string; limit?: number; page?: number }) =>
   api.get('/v1/cafe/categories/get', { params });
 
-export const createCafeCategory = (payload: { branch_id: number; name: string; description?: string }) =>
+export const createCafeCategory = (payload: { branch_id: number | string; name: string; description?: string }) =>
   api.post('/v1/cafe/categories/store', payload);
 
 // ── Cafe Products ─────────────────────────────────────────────────────────────
 
 export const getCafeProducts = (params: {
-  branch_id: number;
+  branch_id: number | string;
   category_id?: number;
   search?: string;
   limit?: number;
@@ -19,7 +19,7 @@ export const getCafeProducts = (params: {
 }) => api.get('/v1/cafe/products/get', { params });
 
 export const createCafeProduct = (payload: {
-  branch_id: number;
+  branch_id: number | string;
   category_id: number;
   name: string;
   price: number;
@@ -29,7 +29,7 @@ export const createCafeProduct = (payload: {
 // ── Cafe Deposits (packages/plans) ───────────────────────────────────────────
 
 export const getCafeDeposits = (params: {
-  branch_id: number;
+  branch_id: number | string;
   status?: 'active' | 'inactive';
   search?: string;
   limit?: number;
@@ -37,19 +37,19 @@ export const getCafeDeposits = (params: {
 }) => api.get('/v1/cafe-deposits/get', { params });
 
 export const addCafeDeposit = (payload: {
-  branch_id: number;
+  branch_id: number | string;
   name: string;
   price: number;
 }) => api.post('/v1/cafe-deposits/store', payload);
 
 export const updateCafeDeposit = (id: number, payload: {
-  branch_id: number;
+  branch_id: number | string;
   name?: string;
   price?: number;
 }) => api.put(`/v1/cafe-deposits/update/${id}`, payload);
 
 export const toggleCafeDepositStatus = (id: number, payload: {
-  branch_id: number;
+  branch_id: number | string;
   status: 'active' | 'inactive';
 }) => api.put(`/v1/cafe-deposits/status/${id}`, payload);
 
@@ -57,7 +57,7 @@ export const toggleCafeDepositStatus = (id: number, payload: {
 
 // loads all clients — filtering is done locally in the screen
 export const searchClientsForDeposit = async (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
 }) => {
   const res = await api.get('/v1/clients/get', { params });
@@ -65,7 +65,7 @@ export const searchClientsForDeposit = async (params: {
 };
 
 export const addClientCafeDeposit = (payload: {
-  branch_id: number;
+  branch_id: number | string;
   client_id: number;
   name: string;
   price: number;
@@ -74,7 +74,7 @@ export const addClientCafeDeposit = (payload: {
 // ── Clients Available Balance ─────────────────────────────────────────────────
 
 export const getCafeClientsBalance = (params: {
-  branch_id: number;
+  branch_id: number | string;
   search?: string;
   limit?: number;
   page?: number;
@@ -83,7 +83,7 @@ export const getCafeClientsBalance = (params: {
 // ── Deposits History ──────────────────────────────────────────────────────────
 
 export const getCafeDepositsHistory = (params: {
-  branch_id: number;
+  branch_id: number | string;
   client_id?: number;
   start_date?: string;
   end_date?: string;
@@ -94,20 +94,20 @@ export const getCafeDepositsHistory = (params: {
 // ── Management Pendings ───────────────────────────────────────────────────────
 
 export const getCafeManagementPendings = (params: {
-  branch_id: number;
+  branch_id: number | string;
   limit?: number;
   page?: number;
 }) => api.get('/v1/cafe/management-pendings/get', { params });
 
 // ── Cafe Dashboard ────────────────────────────────────────────────────────────
 
-export const getCafeDashboard = (params: { branch_id: number }) =>
+export const getCafeDashboard = (params: { branch_id: number | string }) =>
   api.get('/v1/cafe/dashboard', { params });
 
 // ── Cafe Sales Report (detail / summary) ─────────────────────────────────────
 
 export const getCafeSalesReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
   report_type?: 'summary' | 'detail';

@@ -91,7 +91,11 @@ const PackageScreen: React.FC = () => {
     (state: RootState) => state.packages,
   );
 
-  const branchId = profile?.branchId ?? 1;
+  // '' (not 0) for Super Admin — /v1/transaction-report treats a literal
+  // branch_id=0 as a nonexistent branch (404 "No record found") but branch_id=
+  // (empty) as "all branches" (confirmed live 2026-08-06, same as the
+  // Reports screens' fix).
+  const branchId = profile?.branchId || '';
 
   // ── Month navigation ──
   const now = new Date();
@@ -136,6 +140,9 @@ const PackageScreen: React.FC = () => {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       try {
+        // getPackagesSalesReport already aggregates the raw day-grouped
+        // /v1/transaction-report response into per-package totals (see
+        // api/dashboard.ts) — no further reshaping needed here.
         const res = await getPackagesSalesReport({
           branch_id: branchId,
           start_date: startDate,

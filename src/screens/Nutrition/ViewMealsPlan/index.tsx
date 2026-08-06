@@ -35,7 +35,7 @@ const today = fmt(new Date());
 const ViewMealsPlan = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = profile?.branchName ?? `Branch ${branchId}`;
 
   const [clientName, setClientName] = useState('');
@@ -182,10 +182,20 @@ const ViewMealsPlan = () => {
                       <Text style={[tbl.cell, { width: 120 }]}>{display(item.start_date)}</Text>
                       <Text style={[tbl.cell, { width: 120 }]}>{display(item.end_date)}</Text>
                       <View style={[tbl.cell, { width: 80, flexDirection: 'row', gap: 8 }]}>
-                        <TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => navigation.navigate('MealPlanDetail', {
+                            uuid: item.uuid,
+                            clientName: item.client_detail?.client_name,
+                          })}
+                        >
                           <Icon name="eye-outline" size={18} color="#E63946" />
                         </TouchableOpacity>
-                        <TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => navigation.navigate('MealPlanDetail', {
+                            uuid: item.uuid,
+                            clientName: item.client_detail?.client_name,
+                          })}
+                        >
                           <Icon name="pencil-outline" size={18} color="#555" />
                         </TouchableOpacity>
                       </View>

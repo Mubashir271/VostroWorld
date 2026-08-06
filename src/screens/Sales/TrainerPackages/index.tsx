@@ -64,7 +64,7 @@ const mapPackage = (p: any): TrainerPackageItem => ({
 const TrainerPackages = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [packages, setPackages] = useState<TrainerPackageItem[]>([]);
   const [loading, setLoading] = useState(false);

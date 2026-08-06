@@ -58,7 +58,7 @@ const StaffDutyHours = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [records, setRecords] = useState<DutyHour[]>([]);
   const [groups, setGroups] = useState<StaffGroup[]>([]);

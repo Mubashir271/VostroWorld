@@ -38,7 +38,7 @@ const fmtDDMMYY = (dateStr?: string) => {
 const PhysiotherapyPrescriptions = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [list, setList] = useState<Prescription[]>([]);
   const [totalPages, setTotalPages] = useState(1);

@@ -114,7 +114,7 @@ const PTAttendance = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [roster, setRoster] = useState<RosterClient[]>([]);

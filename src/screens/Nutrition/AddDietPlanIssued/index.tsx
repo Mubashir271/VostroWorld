@@ -32,7 +32,7 @@ const today = fmt(new Date());
 const AddDietPlanIssued = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [client, setClient] = useState<any>(null);
   const [clientSearch, setClientSearch] = useState('');

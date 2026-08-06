@@ -104,7 +104,7 @@ const AddAssessmentQuestionnaire = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const passedClient = route.params?.client;
   const editingForm = route.params?.form;

@@ -62,7 +62,7 @@ const fmtDDMMYY = (dateStr: string) => {
 const PhysiotherapyDashboard = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const firstName = profile?.firstName || '';
 
   const [data, setData] = useState<any>(null);

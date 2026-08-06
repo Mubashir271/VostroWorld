@@ -53,7 +53,7 @@ const fmtDate = (s: string) => {
 const SessionPortalHR = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 15;
+  const branchId = profile?.branchId || '';
 
   const [stats, setStats] = useState<ClientStats>({ total: 0, f11: 0, g13: 0, active: 0, inactive: 0, dormant: 0, todaySales: 0 });
   const [activeTab, setActiveTab] = useState<Tab>('GYM Packages');

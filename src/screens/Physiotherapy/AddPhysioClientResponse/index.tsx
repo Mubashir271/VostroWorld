@@ -26,7 +26,7 @@ const displayTimestamp = (d: Date) => {
 const AddPhysioClientResponse = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [physios, setPhysios] = useState<any[]>([]);
   const [physio, setPhysio] = useState<any>(null);

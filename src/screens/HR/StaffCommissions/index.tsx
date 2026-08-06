@@ -74,7 +74,7 @@ const TABLE_W = COLS.reduce((sum, c) => sum + c.width, 0);
 const StaffCommissions = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);

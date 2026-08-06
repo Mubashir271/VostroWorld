@@ -87,7 +87,7 @@ const DEMO_CLIENTS = [
 const ClientsDetails = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState(FILTERS[0]);

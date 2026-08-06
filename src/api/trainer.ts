@@ -26,7 +26,7 @@ export interface ClientsResponse {
 }
 
 export interface MarkAttendancePayload {
-  branch_id: number;
+  branch_id: number | string;
   client_id: number;
   order_id: number;
   package_id: number;
@@ -65,7 +65,7 @@ export interface RosterItem {
  * 5.1 — My Clients (main PT dashboard)
  */
 export const getTrainerClients = async (params?: {
-  branch_id?: number;
+  branch_id?: number | string;
   include_expired?: 0 | 1;
   check_date?: string; // YYYY-MM-DD
 }): Promise<ClientsResponse> => {
@@ -105,7 +105,7 @@ export const getTakenSlots = async (date?: string): Promise<{
  * 5.4 — My Commission
  */
 export const getTrainerCommission = async (params?: {
-  branch_id?: number;
+  branch_id?: number | string;
   start_date?: string;
   end_date?: string;
 }): Promise<CommissionResponse> => {
@@ -134,7 +134,7 @@ export const getTrainerHistory = async (params?: {
  * 5.6 — Roster
  */
 export const getTrainerRoster = async (params?: {
-  branch_id?: number;
+  branch_id?: number | string;
   trainer_id?: number;
   package_status?: number;
   limit?: number;

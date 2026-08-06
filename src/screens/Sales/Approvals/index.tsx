@@ -32,7 +32,7 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
 const ApprovalsScreen = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [records, setRecords] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);

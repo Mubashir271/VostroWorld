@@ -25,7 +25,7 @@ interface Staff { id: number; name: string; uid?: string; is_gx_trainer?: number
 const GXTrainers = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = profile?.branchName ?? 'Branch';
 
   const [allStaff, setAllStaff] = useState<Staff[]>([]);

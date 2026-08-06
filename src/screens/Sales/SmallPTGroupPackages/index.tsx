@@ -65,7 +65,7 @@ const mapPackage = (p: any): SmallPTGroupItem => ({
 const SmallPTGroupPackages = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [packages, setPackages] = useState<SmallPTGroupItem[]>([]);
   const [loading, setLoading] = useState(false);

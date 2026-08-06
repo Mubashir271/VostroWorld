@@ -31,7 +31,7 @@ const TimeSlots = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const branchName = profile?.branchName ?? `Branch ${branchId}`;
 
   const [startTime, setStartTime] = useState<Date | null>(null);

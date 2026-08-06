@@ -48,7 +48,7 @@ const Rs = (n: number) => `Rs ${Math.round(Math.abs(n)).toLocaleString()}`;
 const CafeSalesExpenseReport = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [startDate, setStartDate] = useState(() => daysAgo(7));
   const [endDate, setEndDate] = useState(today);

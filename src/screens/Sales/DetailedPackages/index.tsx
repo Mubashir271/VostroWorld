@@ -71,7 +71,7 @@ type ModalField = 'branch' | 'status' | 'category' | 'duration' | 'trainer' | nu
 const DetailedPackages = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [loading, setLoading] = useState(false);

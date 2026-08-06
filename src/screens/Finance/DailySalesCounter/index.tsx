@@ -46,7 +46,7 @@ const pct = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toF
 const DailySalesCounter = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [startDate, setStartDate] = useState(() => startOfMonth());
   const [endDate, setEndDate] = useState(today);

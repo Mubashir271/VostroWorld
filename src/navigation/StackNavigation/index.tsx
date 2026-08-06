@@ -218,6 +218,7 @@ import AddPhysioClientResponseScreen from '../../screens/Physiotherapy/AddPhysio
 import NutritionPackagesScreen from '../../screens/Nutrition/NutritionPackages';
 import AddMealsPlanScreen from '../../screens/Nutrition/AddMealsPlan';
 import ViewMealsPlanScreen from '../../screens/Nutrition/ViewMealsPlan';
+import MealPlanDetailScreen from '../../screens/Nutrition/MealPlanDetail';
 import ViewNutritionAssessmentsScreen from '../../screens/Nutrition/ViewNutritionAssessments';
 import NutritionAppointmentsScreen from '../../screens/Nutrition/NutritionAppointments';
 import NutritionDashboardScreen from '../../screens/Nutrition/NutritionDashboard';
@@ -484,6 +485,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="NutritionPackages" component={protect(NutritionPackagesScreen)} />
                 <Stack.Screen name="AddMealsPlan" component={protect(AddMealsPlanScreen)} />
                 <Stack.Screen name="ViewMealsPlan" component={protect(ViewMealsPlanScreen)} />
+                <Stack.Screen name="MealPlanDetail" component={protect(MealPlanDetailScreen)} />
                 <Stack.Screen name="AddNutritionAssessments" component={protect(AddNutritionAssessmentsScreen)} />
                 <Stack.Screen name="ViewNutritionAssessments" component={protect(ViewNutritionAssessmentsScreen)} />
                 <Stack.Screen name="NutritionAppointments" component={protect(NutritionAppointmentsScreen)} />

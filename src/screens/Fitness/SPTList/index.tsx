@@ -42,7 +42,7 @@ const PAGE_SIZE = 25;
 const SPTList = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [rows, setRows] = useState<SPTPackage[]>([]);
   const [loading, setLoading] = useState(false);

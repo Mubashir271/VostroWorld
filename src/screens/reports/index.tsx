@@ -31,14 +31,11 @@ const REPORTS = [
     screen: 'CafeReportScreen',
     color: '#EA580C',
   },
-  {
-    id: '3',
-    title: 'Transaction Summary',
-    subtitle: 'Daily summary analytics',
-    icon: 'stats-chart-outline',
-    screen: 'TransactionSummaryScreen',
-    color: '#16A34A',
-  },
+  // 'Transaction Summary' hidden for now — it was built against the wrong
+  // endpoint (/v1/transaction-report-summery, which is actually the web's
+  // Cafe/Deposit-specific summary tool, category=10/13) instead of the real
+  // Daily Report endpoint (/v1/finance/transactions/daily-report). Needs a
+  // rebuild around that endpoint's actual shape before it goes back in.
   {
     id: '4',
     title: 'Sales Report',

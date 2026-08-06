@@ -102,7 +102,7 @@ const SCREEN_TITLE = 'SPT Attendance Report';
 const SPTAttendanceReport = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return fmt(d); });
   const [endDate, setEndDate] = useState(today);

@@ -77,16 +77,32 @@ const AddGXClass = () => {
   const loadClasses = useCallback(async () => {
     setLoadingList(true);
     try {
+      // getGXClasses now calls /v1/packages/gx (HAR-confirmed 2026-08-06),
+      // which returns { id, name, branch_name, time_slot: [{ start_time,
+      // end_time, booking_days: [{ day, status }] }] } — there is no
+      // `package`/`day`/`status` field on this shape, so the old mapping
+      // below always produced blanks. NOTE: addGXClass/updateGXClass/
+      // setGXClassStatus still write to the older /v1/fitness/gx-class/*
+      // endpoints, which were never confirmed against this real resource —
+      // treat Add/Update/Delete on this screen as unverified until a HAR
+      // capture of the real GX class creation flow is available.
       const res = await getGXClasses({ branch_id: Number(branchId), limit: 200 });
-      const raw: any[] = res?.data?.data ?? [];
-      setClasses(raw.map(r => ({
-        id: r.id,
-        branchName: r.package?.branch_name ?? branchLabel,
-        slotName: r.package?.slot_name ?? r.name ?? '—',
-        className: r.name ?? '—',
-        day: r.day ?? '—',
-        active: r.status === '1' || r.status === 1,
-      })));
+      const raw: any[] = res?.data ?? [];
+      setClasses(raw.map(r => {
+        const days = (r.time_slot ?? [])
+          .flatMap((ts: any) => (ts.booking_days ?? [])
+            .filter((d: any) => d.status === 1 || d.status === '1')
+            .map((d: any) => d.day))
+          ;
+        return {
+          id: r.id,
+          branchName: r.branch_name ?? branchLabel,
+          slotName: r.time_slot?.[0] ? `${r.time_slot[0].start_time} To ${r.time_slot[0].end_time}` : '—',
+          className: r.name ?? '—',
+          day: days.length ? days.join(', ') : '—',
+          active: true,
+        };
+      }));
     } catch {
       setClasses([]);
     } finally {

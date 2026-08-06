@@ -43,7 +43,7 @@ const mapPackage = (p: any): GeneralPackageItem => ({
 const GeneralPackages = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
 
   const [packages, setPackages] = useState<GeneralPackageItem[]>([]);
   const [loading, setLoading] = useState(false);

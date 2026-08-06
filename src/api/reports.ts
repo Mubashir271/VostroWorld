@@ -6,7 +6,7 @@ export const getMISDashboard = (branchId: number) =>
 
 // Transaction Report
 export const getTransactionReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -14,7 +14,7 @@ export const getTransactionReport = (params: {
 
 // Cafe Report
 export const getCafeReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -26,23 +26,42 @@ export const getTransactionSlip = (order_id: number) =>
 
 // Summary Report
 export const getTransactionSummary = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
   api.get('/v1/transaction-report-summery', { params });
 
-// Sales Report
+// Sales Report — GET /v1/generate-sales-report. Confirmed live 2026-08-06:
+// this endpoint 500s unconditionally with a genuine backend bug
+// ("BadMethodCallException: Call to undefined method Package::orderDetail()"),
+// reproducible for any branch/date range. Kept only because it's still
+// referenced by type; not called by the rebuilt Sales Report screen below.
 export const getSalesReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
   api.get('/v1/generate-sales-report', { params });
 
+// Sales Report (Detail) — GET /v1/detail. This is the endpoint the web
+// admin's "Sales" report page actually calls (HAR-confirmed 2026-08-06), not
+// generate-sales-report above. Returns transactions pre-grouped by day
+// (`onspot`/`deposits` are arrays of per-day transaction arrays), each
+// transaction carrying its own `paymentType` for the Cash/Credit
+// Card/Online sub-grouping the web UI shows.
+export const getSalesDetail = (params: {
+  branch_id: number | string;
+  start_date: string;
+  end_date: string;
+  gender?: string;
+  payment_method_id?: number | string;
+}) =>
+  api.get('/v1/detail', { params });
+
 // Detailed Sales Report
 export const getDetailedSalesReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -50,7 +69,7 @@ export const getDetailedSalesReport = (params: {
 
 // Sales By Services
 export const getSalesByServices = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -60,7 +79,7 @@ export const getSalesByServices = (params: {
 
 // Sales & Expense Daily
 export const getSalesExpenseDaily = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -72,7 +91,7 @@ export const getSalesExpenseDaily = (params: {
 // {Postpaid}, {"Salary Deduction"}] } — keys are the Category Code Reference
 // (1=Gym, 2=PT, etc., see API_REFERENCE.md §5).
 export const getSalesByCategoryAndPayment = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -81,7 +100,7 @@ export const getSalesByCategoryAndPayment = (params: {
 // Sales Balance (Daily Sales Counter's total) — confirmed live 2026-06-25
 // (needs `/v1/`). Just a single total, not the category breakdown.
 export const getSalesBalance = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -89,7 +108,7 @@ export const getSalesBalance = (params: {
 
 // Sales By Bootcamp (session-detail-report)
 export const getSalesByBootcamp = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -97,7 +116,7 @@ export const getSalesByBootcamp = (params: {
 
 // Staff Attendance Report
 export const getStaffAttendanceReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -107,7 +126,7 @@ export const getStaffAttendanceReport = (params: {
 
 // Clients Attendance
 export const getClientsAttendanceReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -117,7 +136,7 @@ export const getClientsAttendanceReport = (params: {
 
 // Footfall Report (attendance summary)
 export const getFootfallReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
@@ -127,7 +146,7 @@ export const getFootfallReport = (params: {
 
 // Clients Report
 export const getClientsReport = (params: {
-  branch_id: number;
+  branch_id: number | string;
   start_date: string;
   end_date: string;
   status?: string;

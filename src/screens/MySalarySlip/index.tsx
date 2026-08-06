@@ -52,7 +52,7 @@ const Row = ({ label, value, highlight }: { label: string; value: string; highli
 const MySalarySlip = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId ?? 1;
+  const branchId = profile?.branchId || '';
   const userId = profile?.id ?? 0;
 
   const [slip, setSlip] = useState<SlipData | null>(null);
