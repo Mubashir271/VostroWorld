@@ -2696,6 +2696,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNDeviceInfo (15.0.2):
+    - React-Core
   - RNFastImage (8.13.0):
     - boost
     - DoubleConversion
@@ -3181,6 +3183,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
+  - RNDeviceInfo (from `../node_modules/react-native-device-info`)
   - "RNFastImage (from `../node_modules/@d11/react-native-fast-image`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
@@ -3368,6 +3371,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNDateTimePicker:
     :path: "../node_modules/@react-native-community/datetimepicker"
+  RNDeviceInfo:
+    :path: "../node_modules/react-native-device-info"
   RNFastImage:
     :path: "../node_modules/@d11/react-native-fast-image"
   RNGestureHandler:
@@ -3471,6 +3476,7 @@ SPEC CHECKSUMS:
   ReactCommon: ac934cb340aee91282ecd6f273a26d24d4c55cae
   RNCAsyncStorage: 29f0230e1a25f36c20b05f65e2eb8958d6526e82
   RNDateTimePicker: 97a86d7c8b51f2d51f694a9dddfe5996dfd9a407
+  RNDeviceInfo: 4c852998208b60dc192ae3529e5867817719ad1e
   RNFastImage: b076a6378b1ce90debc27a927a437db3652bef14
   RNGestureHandler: 884f03ad24511911552480eb2058266db0b177ce
   RNReanimated: 4e6187f2ba1e30e6ddc7c8fc9f19b2dd2b6b2532

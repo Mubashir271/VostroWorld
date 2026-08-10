@@ -7,11 +7,13 @@ import AppHeader from '../../components/AppHeader';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 
 const TrainerCommission = () => {
   const dispatch = useDispatch<any>();
   const { commission, loading } = useSelector((state: RootState) => state.trainer);
   const navigation = useNavigation();
+  const formatCurrency = useCurrencyFormatter();
 
   useEffect(() => {
     dispatch(fetchTrainerCommission({}));
@@ -39,7 +41,7 @@ const TrainerCommission = () => {
           </Text>
 
           <Text style={styles.grandTotal}>
-            PKR {commission?.commission?.grand_total?.toLocaleString() || '0'}
+            {formatCurrency(commission?.commission?.grand_total || 0)}
           </Text>
           <Text style={styles.label}>Total Commission</Text>
 

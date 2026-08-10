@@ -140,7 +140,7 @@ const Assets = () => {
     if (!ADD_ENABLED) {
       Alert.alert(
         'Not Yet Confirmed',
-        'The Assets API endpoint has not been confirmed from a HAR capture. Submit is disabled until the endpoint is verified.',
+        'The Assets API endpoint has not been confirmed. Submit is disabled until the endpoint is verified.',
       );
       return;
     }

@@ -10,6 +10,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
+import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import {
   getSalaryComponents,
   addSalaryComponent,
@@ -102,6 +103,7 @@ const SalaryComponent = () => {
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
   const branchName = profile?.branch_name ?? 'Branch';
+  const formatCurrency = useCurrencyFormatter();
 
   const [records, setRecords] = useState<SalaryComp[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -384,7 +386,7 @@ const SalaryComponent = () => {
                             </Text>
                           </View>
                         </View>
-                        <Text style={[styles.td, { width: COLS[5].width }]}>Rs. {Number(rec.amount || 0).toLocaleString()}</Text>
+                        <Text style={[styles.td, { width: COLS[5].width }]}>{formatCurrency(rec.amount)}</Text>
                         <Text style={[styles.td, { width: COLS[6].width }]}>{fmtMonth(rec.salary_month)}</Text>
                         <Text style={[styles.td, { width: COLS[7].width }]}>{fmtDate(rec.date)}</Text>
                         <Text style={[styles.td, { width: COLS[8].width }]}>{rec.description || '-'}</Text>

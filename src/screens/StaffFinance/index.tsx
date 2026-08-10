@@ -11,6 +11,7 @@ import AppHeader from '../../components/AppHeader';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
 import { getStaffFinanceList } from '../../api/employeeDashboard';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 
 interface FinanceRecord {
   id: number;
@@ -29,8 +30,6 @@ interface FinanceRecord {
   created_at: string;
 }
 
-const fmt = (n: number) => `PKR ${Number(n || 0).toLocaleString()}`;
-
 const CATEGORIES = ['All', 'Fine', 'Advance', 'Reward'];
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
@@ -44,6 +43,7 @@ const StaffFinance = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
+  const fmt = useCurrencyFormatter();
 
   const [records, setRecords] = useState<FinanceRecord[]>([]);
   const [filtered, setFiltered] = useState<FinanceRecord[]>([]);

@@ -1,12 +1,12 @@
 import {
   StyleSheet, Text, View, ScrollView,
-  TouchableOpacity, Switch, Alert,
+  TouchableOpacity, Alert,
 } from 'react-native'
 import FastImage from '@d11/react-native-fast-image'
 import React, { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '../../redux/store'
-import { updateAppImage, setAutoBackup } from '../../redux/slices/userSlice'
+import { updateAppImage, setAppCurrency } from '../../redux/slices/userSlice'
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
@@ -15,6 +15,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native'
 import TimeFormatModal from './TimeFormatModal'
 import DateFormatModal from './DateFormatModal'
 import CurrencyModal from './CurrencyModal'
+import { ROLE_LABELS } from '../../config/permissions'
 
 type RootStackParamList = {
   DeleteBranch: undefined
@@ -22,10 +23,7 @@ type RootStackParamList = {
   AddBranch: undefined
   BranchManagerAssignment: undefined
   DeleteRole: undefined
-  SMTP: undefined
-  EmailTemplates: undefined
-  DatabaseBackup: undefined
-  SecuritySettings: undefined
+  PermissionMatrix: undefined
 }
 
 const Settings = () => {
@@ -40,18 +38,17 @@ const Settings = () => {
   // Format states (local — not critical to persist)
   const [timeFormat, setTimeFormat] = useState('12-Hour')
   const [dateFormat, setDateFormat] = useState('DD/MM/YY')
-  const [currency,   setCurrency]   = useState('PKR')
 
   // ── Redux ──────────────────────────────────────────────────────────────
   const profile    = useSelector((state: RootState) => state.user.profile)
   const appImage   = useSelector((state: RootState) => state.user.appImage)
-  const autoBackup = useSelector((state: RootState) => state.user.autoBackup)
+  const currency   = useSelector((state: RootState) => state.user.currency)
 
   const firstName = profile?.firstName ?? ''
   const lastName  = profile?.lastName  ?? ''
   const email     = profile?.email     ?? 'support@vostro.com'
   const branch    = profile?.branchName ?? 'Main Branch'
-  const role      = profile?.role ?? profile?.type ?? 'Staff'
+  const role      = ROLE_LABELS[profile?.role ?? ''] ?? profile?.type ?? 'Staff'
   const initials  = `${firstName[0] ?? 'U'}${lastName[0] ?? 'S'}`.toUpperCase()
   // ───────────────────────────────────────────────────────────────────────
 
@@ -90,7 +87,7 @@ const Settings = () => {
     { label: 'Time format',    value: timeFormat, icon: 'chevron-right' },
     { label: 'Date Format',    value: dateFormat, icon: 'chevron-right' },
     { label: 'Currency',       value: currency,   icon: 'chevron-right' },
-    { label: 'Tax Percentage', value: null,        icon: 'chevron-right' },
+    // { label: 'Tax Percentage', value: null,        icon: null as string | null },
   ]
 
   const branchesItems = [
@@ -103,35 +100,15 @@ const Settings = () => {
 
   const rolesItems = [
     { label: 'Your Role',                  value: role, icon: null as string | null },
-    { label: 'Add new role',               action: 'Add' },
+    { label: 'Add new role',               icon: null as string | null },
     { label: 'Delete role',                icon: 'chevron-right' as string | null },
     { label: 'Permission matrix per role', icon: 'chevron-right' as string | null },
   ]
 
-  const emailItems = [
-    { label: 'Email templates',                     icon: 'chevron-right' },
-    { label: 'SMTP settings',                       icon: 'chevron-right' },
-    { label: 'Notification triggers configuration', icon: 'chevron-right' },
-  ]
-
-  const databaseItems = [
-    { label: 'Last backup',      value: '11 April 2025 - 2:00 AM', icon: null as string | null, toggle: false },
-    { label: 'Auto-backup',      value: null,                       icon: null as string | null, toggle: true  },
-    { label: 'Backup frequency', value: null,                       icon: 'chevron-right',        toggle: false },
-    { label: 'Download backup',  value: null,                       icon: 'chevron-right',        toggle: false },
-  ]
-
   const appUpdateItems = [
     { label: 'Current version',    value: '1.0.0',  icon: null as string | null },
-    { label: 'Check for updates',  value: null,      icon: 'chevron-right' },
-    { label: 'Update history log', value: null,      icon: 'chevron-right' },
-  ]
-
-  const securityItems = [
-    { label: 'Session timeout setting',    icon: 'chevron-right' },
-    { label: 'IP whitelist',               icon: 'chevron-right' },
-    { label: 'Two-factor authentication',  icon: 'chevron-right' },
-    { label: 'Password policy',            icon: 'chevron-right' },
+    { label: 'Check for updates',  value: null,      icon: null as string | null },
+    { label: 'Update history log', value: null,      icon: null as string | null },
   ]
 
   return (
@@ -243,6 +220,7 @@ const Settings = () => {
                 style={[styles.settingRow, index === rolesItems.length - 1 && styles.lastRow]}
                 onPress={() => {
                   if (item.label === 'Delete role') navigation.navigate('DeleteRole')
+                  if (item.label === 'Permission matrix per role') navigation.navigate('PermissionMatrix')
                 }}
               >
                 <View style={{ flex: 1 }}>
@@ -251,60 +229,7 @@ const Settings = () => {
                     ? <Text style={styles.settingValue}>{item.value}</Text>
                     : null}
                 </View>
-                {'action' in item && item.action ? (
-                  <View style={styles.actionButton}>
-                    <Text style={styles.actionText}>{item.action}</Text>
-                  </View>
-                ) : item.icon ? (
-                  <Icon name={item.icon} size={20} color="#999" />
-                ) : null}
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* ── Email & Notifications ─────────────────────────────────────── */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Email & Notifications</Text>
-            {emailItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.settingRow, index === emailItems.length - 1 && styles.lastRow]}
-                onPress={() => {
-                  if (item.label === 'SMTP settings')   navigation.navigate('SMTP')
-                  if (item.label === 'Email templates') navigation.navigate('EmailTemplates')
-                }}
-              >
-                <Text style={styles.settingLabel}>{item.label}</Text>
                 {item.icon ? <Icon name={item.icon} size={20} color="#999" /> : null}
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* ── Database Backup ───────────────────────────────────────────── */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Database Backup</Text>
-            {databaseItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.settingRow, index === databaseItems.length - 1 && styles.lastRow]}
-                onPress={() => {
-                  if (item.label === 'Download backup') navigation.navigate('DatabaseBackup')
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                  {item.value ? <Text style={styles.settingValue}>{item.value}</Text> : null}
-                </View>
-                {item.toggle ? (
-                  <Switch
-                    value={autoBackup}
-                    onValueChange={(val) => { dispatch(setAutoBackup(val)); }}
-                    trackColor={{ false: '#ccc', true: '#E10600' }}
-                    thumbColor={autoBackup ? '#E10600' : '#f4f3f4'}
-                  />
-                ) : item.icon ? (
-                  <Icon name={item.icon} size={20} color="#999" />
-                ) : null}
               </TouchableOpacity>
             ))}
           </View>
@@ -321,23 +246,6 @@ const Settings = () => {
                   <Text style={styles.settingLabel}>{item.label}</Text>
                   {item.value ? <Text style={styles.settingValue}>{item.value}</Text> : null}
                 </View>
-                {item.icon ? <Icon name={item.icon} size={20} color="#999" /> : null}
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* ── Security ─────────────────────────────────────────────────── */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Security</Text>
-            {securityItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.settingRow, index === securityItems.length - 1 && styles.lastRow]}
-                onPress={() => {
-                  if (item.label === 'Session timeout setting') navigation.navigate('SecuritySettings')
-                }}
-              >
-                <Text style={styles.settingLabel}>{item.label}</Text>
                 {item.icon ? <Icon name={item.icon} size={20} color="#999" /> : null}
               </TouchableOpacity>
             ))}
@@ -361,7 +269,7 @@ const Settings = () => {
       <CurrencyModal
         visible={currencyVisible}
         onClose={() => setCurrencyVisible(false)}
-        onSelect={setCurrency}
+        onSelect={(code) => dispatch(setAppCurrency(code))}
         currentCurrency={currency}
       />
     </>

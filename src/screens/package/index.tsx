@@ -18,6 +18,7 @@ import { RootState } from '../../redux/store';
 import { getPackageCategories, getPackagesSalesReport } from '../../api/dashboard';
 import { setCategories, setPackages } from '../../redux/slices/package';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -30,9 +31,6 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 const lastDayOfMonth = (year: number, month: number) =>
   new Date(year, month, 0).getDate();
-
-const formatPKR = (amount: number) =>
-  `PKR ${Math.round(amount).toLocaleString('en-PK')}`;
 
 // category code → light background + text colour
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -96,6 +94,7 @@ const PackageScreen: React.FC = () => {
   // (empty) as "all branches" (confirmed live 2026-08-06, same as the
   // Reports screens' fix).
   const branchId = profile?.branchId || '';
+  const formatPKR = useCurrencyFormatter();
 
   // ── Month navigation ──
   const now = new Date();

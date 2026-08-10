@@ -56,6 +56,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {LogBox} from 'react-native';
 import AppNavigator from './src/navigation/StackNavigation';
 import GlobalSnackbar from './src/redux/GlobalSnackbar';
+import CurrencyRatesLoader from './src/redux/CurrencyRatesLoader';
 import {navigationRef} from './src/utils/navigationRef';
 LogBox.ignoreAllLogs();
 export default function App() {
@@ -65,6 +66,7 @@ export default function App() {
         <GestureHandlerRootView>
           <NavigationContainer ref={navigationRef}>
             <GlobalSnackbar />
+            <CurrencyRatesLoader />
             {/* <StatusBar barStyle="dark-content" backgroundColor="#fff" /> */}
             <AppNavigator />
           </NavigationContainer>

@@ -11,6 +11,7 @@ import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
 import { getCafeOrders } from '../../../api/employeeDashboard';
+import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 
 interface OrderData {
   id: number;
@@ -28,8 +29,6 @@ interface OrderData {
   note: string;
 }
 
-const fmt = (n: number) => `PKR ${Number(n || 0).toLocaleString()}`;
-
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   '1': { bg: '#E6F4EA', text: '#2E7D32' },
   '0': { bg: '#FFEBEE', text: '#C62828' },
@@ -39,6 +38,7 @@ const Orders = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
+  const fmt = useCurrencyFormatter();
 
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);

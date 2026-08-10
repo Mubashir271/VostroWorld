@@ -14,13 +14,11 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Slider from '@react-native-community/slider';
 import AppHeader from '../../components/AppHeader';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 
 const NewPackage = () => {
   const navigation = useNavigation();
-
-  const formatPrice = (price: string) => {
-    return price.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
+  const formatCurrency = useCurrencyFormatter();
 
   const [form, setForm] = useState({
     packageName: '3 - Month Gym Gold',
@@ -157,7 +155,7 @@ const NewPackage = () => {
                 <Text style={styles.label}>Original Price</Text>
                 <TextInput 
                   style={styles.input} 
-                  value={`PKR ${formatPrice(form.originalPrice)}`}
+                  value={formatCurrency(Number(form.originalPrice))}
                   editable={false}
                 />
               </View>
@@ -187,7 +185,7 @@ const NewPackage = () => {
                 <Text style={styles.label}>Discounted Price</Text>
                 <TextInput 
                   style={styles.input} 
-                  value={`PKR ${formatPrice(form.discountedPrice)}`}
+                  value={formatCurrency(Number(form.discountedPrice))}
                   editable={false}
                 />
               </View>
@@ -195,14 +193,14 @@ const NewPackage = () => {
                 <Text style={styles.label}>Tax Amount</Text>
                 <TextInput 
                   style={styles.input} 
-                  value={`PKR ${formatPrice(form.tax)}`}
+                  value={formatCurrency(Number(form.tax))}
                   editable={false}
                 />
               </View>
             </View>
 
             <Text style={styles.finalPrice}>
-              Final Price: PKR {formatPrice(form.discountedPrice)}
+              Final Price: {formatCurrency(Number(form.discountedPrice))}
             </Text>
           </View>
 
@@ -364,7 +362,7 @@ const NewPackage = () => {
                 </TouchableOpacity>
                 <Text style={styles.settingNote}>7 days before expiry to notify</Text>
               </View>
-              <Text style={styles.renewalAmount}>PKR {form.renewalAmount}</Text>
+              <Text style={styles.renewalAmount}>{formatCurrency(Number(form.renewalAmount))}</Text>
             </View>
           </View>
 

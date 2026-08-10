@@ -242,7 +242,7 @@ const SPTList = () => {
                 style={styles.actionItem}
                 onPress={() => {
                   setActionModal(false);
-                  Alert.alert('Assign Slot', 'Assign Slot endpoint not yet confirmed from live HAR capture.');
+                  Alert.alert('Assign Slot', 'Assign Slot endpoint not yet confirmed.');
                 }}
               >
                 <Icon name="clock-outline" size={18} color="#1565C0" />
@@ -255,7 +255,7 @@ const SPTList = () => {
                   style={styles.actionItem}
                   onPress={() => {
                     setActionModal(false);
-                    Alert.alert('Assign Days', 'Assign Days endpoint not yet confirmed from live HAR capture.');
+                    Alert.alert('Assign Days', 'Assign Days endpoint not yet confirmed.');
                   }}
                 >
                   <Icon name="calendar-check" size={18} color="#1565C0" />
@@ -265,7 +265,7 @@ const SPTList = () => {
                   style={styles.actionItem}
                   onPress={() => {
                     setActionModal(false);
-                    Alert.alert('Free Time', 'Free Time endpoint not yet confirmed from live HAR capture.');
+                    Alert.alert('Free Time', 'Free Time endpoint not yet confirmed.');
                   }}
                 >
                   <Icon name="clock-remove-outline" size={18} color="#F57C00" />

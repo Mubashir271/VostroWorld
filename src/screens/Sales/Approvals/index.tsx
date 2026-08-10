@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootState } from '../../../redux/store';
 import { getApprovalsList, updateApproval } from '../../../api/employeeDashboard';
+import AppHeader from '../../../components/AppHeader';
 
 interface Approval {
   id: number;
@@ -114,14 +115,13 @@ const ApprovalsScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Approvals</Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <AppHeader
+        title="Approvals"
+        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        onLeftPress={() => navigation.goBack()}
+        backgroundColor="#FFE5E5"
+      />
 
       <View style={styles.tabRow}>
         {['Pending', 'Approved', 'Rejected'].map(tab => (
@@ -158,9 +158,6 @@ const ApprovalsScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
   tabRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10 },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8, marginHorizontal: 3, backgroundColor: '#eee' },
   activeTab: { backgroundColor: '#E63946' },

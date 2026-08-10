@@ -25,6 +25,7 @@ import {
   FITNESS_MANAGER_ALLOWED_MENUS,
   FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN,
   FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN,
+  ROLE_LABELS,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
@@ -601,7 +602,7 @@ const DrawerContent = (props: any) => {
 
   const firstName = profile?.firstName || 'User';
   const lastName = profile?.lastName || '';
-  const role = profile?.role || profile?.type || 'Staff';
+  const role = ROLE_LABELS[profile?.role ?? ''] || profile?.type || 'Staff';
   const branch = profile?.branchName || `Branch ${profile?.branchId}`;
   const avatarSource = appImage
     ? { uri: appImage }
@@ -789,7 +790,7 @@ const DrawerContent = (props: any) => {
     <DrawerContentScrollView {...props} style={styles.container}>
       <ProfileHeader
         name={profileName}
-        role={firstName || 'Staff'}
+        role={role}
         branch={branch || 'Main Branch'}
         avatar={avatarSource}
         editIcon={Edit_fill}

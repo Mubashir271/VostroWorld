@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
 import FastImage from '@d11/react-native-fast-image'
+import DeviceInfo from 'react-native-device-info'
 import React, { useCallback, useState } from 'react'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -8,7 +9,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
 import { logoutUser } from '../../redux/slices/userSlice';
-import { isNutritionist } from '../../config/permissions';
+import { isNutritionist, ROLE_LABELS } from '../../config/permissions';
 
 
 const AccountScreen = () => {
@@ -52,7 +53,7 @@ const AccountScreen = () => {
 
     role:
       profile?.type ||
-      profile?.role ||
+      ROLE_LABELS[profile?.role ?? ''] ||
       'Staff',
 
     verified: true,
@@ -112,8 +113,8 @@ const AccountScreen = () => {
   ];
 
   const aboutAppItems = [
-    { label: 'App version', value: '1.0.0' },
-    { label: 'Build number', value: '68416 2569' },
+    { label: 'App version', value: DeviceInfo.getVersion() },
+    { label: 'Build number', value: DeviceInfo.getBuildNumber() },
     { label: 'Check for updates', icon: 'chevron-right' },
     { label: 'Legal', icon: 'chevron-right' },
   ];
@@ -204,7 +205,7 @@ const AccountScreen = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>About App</Text>
             {aboutAppItems.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.listItem}>
+              <TouchableOpacity key={index} style={styles.listItem} onPress={item.onPress}>
                 <View>
                   <Text style={styles.listLabel}>{item.label}</Text>
                   {item.value && <Text style={styles.listValue}>{item.value}</Text>}

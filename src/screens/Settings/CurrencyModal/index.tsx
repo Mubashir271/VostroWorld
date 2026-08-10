@@ -1,13 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Modal } from 'react-native'
 import React, { useState } from 'react'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-
-interface CurrencyOption {
-  id: string;
-  code: string;
-  name: string;
-  symbol: string;
-}
+import { CURRENCY_OPTIONS } from '../../../utils/currency';
 
 interface CurrencyModalProps {
   visible: boolean;
@@ -19,18 +13,7 @@ interface CurrencyModalProps {
 const CurrencyModal = ({ visible, onClose, onSelect, currentCurrency = 'PKR' }: CurrencyModalProps) => {
   const [selectedCurrency, setSelectedCurrency] = useState(currentCurrency);
 
-  const currencyOptions: CurrencyOption[] = [
-    { id: '1', code: 'PKR', name: 'Pakistani Rupee', symbol: '₨' },
-    { id: '2', code: 'USD', name: 'US Dollar', symbol: '$' },
-    { id: '3', code: 'EUR', name: 'Euro', symbol: '€' },
-    { id: '4', code: 'GBP', name: 'British Pound', symbol: '£' },
-    { id: '5', code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
-    { id: '6', code: 'SAR', name: 'Saudi Riyal', symbol: '﷼' },
-    { id: '7', code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-    { id: '8', code: 'CAD', name: 'Canadian Dollar', symbol: '$' },
-    { id: '9', code: 'AUD', name: 'Australian Dollar', symbol: '$' },
-    { id: '10', code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-  ];
+  const currencyOptions = CURRENCY_OPTIONS;
 
   const handleSelect = (code: string) => {
     setSelectedCurrency(code);
@@ -63,7 +46,7 @@ const CurrencyModal = ({ visible, onClose, onSelect, currentCurrency = 'PKR' }: 
 
           {currencyOptions.map((option) => (
             <TouchableOpacity
-              key={option.id}
+              key={option.code}
               style={[
                 styles.currencyCard,
                 selectedCurrency === option.code && styles.currencyCardActive,

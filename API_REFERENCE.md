@@ -64,13 +64,16 @@ somewhere in `src/api/*.ts`. `—` means not wired yet.
 ### Role codes
 
 The login response's `user.role` is a numeric string, not a name. Confirmed
-live 2026-06-29 (`/v1/auth/app-login`) for the three roles this app
-distinguishes between in `src/config/permissions.ts`:
+live for all six roles this app distinguishes between in
+`src/config/permissions.ts` (`ROLES` / `ROLE_LABELS`):
 
 | `role` value | Meaning | Recognized as of |
 |---|---|---|
+| `"1"` | Super Admin (full access) | always |
 | `"3"` | Admin (full access) | always |
 | `"9"` | Personal Trainer | always |
+| `"10"` | Nutritionist | confirmed live 2026-07-23 via `/v1/auth/get` (designation "Nutritionist") |
+| `"11"` | Fitness Manager | confirmed live 2026-07-23 via `/v1/auth/app-login` |
 | `"12"` | HR Department | 2026-06-29 — previously unrecognized, meaning every `protect()`-wrapped screen showed `<AccessDenied/>` for HR logins. Fixed via `ROLES.HR`, `HR_ALLOWED_SCREENS`, `HR_ALLOWED_MENUS` |
 
 Any other `role` value (or a blank one, e.g. a brand-new staff record) falls
@@ -709,6 +712,6 @@ back to free text for those two categories.
 7. File uploads (meal plan intake form, documents, profile image) use
    `multipart/form-data` — do not set `Content-Type: application/json`.
 8. Export endpoints return Excel/binary — handle as file download, not JSON.
-9. Role `9` = PT/Trainer, Role `10` = Nutritionist, Role `11` = Nutritionist (assessment forms).
+9. Role `9` = PT/Trainer, Role `10` = Nutritionist, Role `11` = Fitness Manager (also appears on nutrition assessment forms).
 10. Leave submission pre-checks, in order: `/hr/leave-application/is-exist` →
     `/attendance/check-leave-eligibility` → `/hr/leave-application/check-leave-availability`.

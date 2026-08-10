@@ -49,11 +49,19 @@ interface UserProfile {
     branchName: string | null;
 }
 
+interface CurrencyRates {
+    base: string;
+    rates: Record<string, number>;
+    fetchedAt: string;
+}
+
 interface UserState {
     token: string | null;
     appImage: string | null;
     autoBackup: boolean;
     biometricEnabled: boolean;
+    currency: string;
+    currencyRates: CurrencyRates | null;
     profile: UserProfile | null;
     registrationData: {
         firstName: string;
@@ -80,6 +88,8 @@ const initialState: UserState = {
     appImage: null,
     autoBackup: true,
     biometricEnabled: false,
+    currency: 'PKR',
+    currencyRates: null,
     profile: null,
     registrationData: {
         firstName: '',
@@ -186,6 +196,12 @@ const userSlice = createSlice({
         setAutoBackup: (state, action: PayloadAction<boolean>) => {         // ← added
             state.autoBackup = action.payload;
         },
+        setAppCurrency: (state, action: PayloadAction<string>) => {
+            state.currency = action.payload;
+        },
+        setCurrencyRates: (state, action: PayloadAction<CurrencyRates>) => {
+            state.currencyRates = action.payload;
+        },
         persistUser: (state, action) => {
             state.token = action.payload.token;
             state.profile = action.payload.profile || null;
@@ -202,6 +218,8 @@ export const {
     updateAppImage,
     clearAppImage,
     setAutoBackup,
+    setAppCurrency,
+    setCurrencyRates,
     persistUser,
 } = userSlice.actions;
 

@@ -55,6 +55,7 @@ import OrderDetail from '../../screens/CafeOperations/Orders/OrderDetail';
 
 // ── Access Denied screen ──────────────────────────────────────────────────────
 import AccessDenied from '../../screens/AccessDenied';
+import LegalScreen from '../../screens/Legal';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 import { isAdmin, isHR, isNutritionist, isFitnessManager, HR_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS } from '../../config/permissions';
@@ -328,6 +329,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="TrainerRoster" component={TrainerRoster} />
                 <Stack.Screen name="SessionAttendanceReport" component={SessionAttendanceReport} />
                 <Stack.Screen name="MySalarySlip" component={MySalarySlip} />
+                <Stack.Screen name="Legal" component={LegalScreen} />
 
 
                 {/* ── Admin-only screens → show AccessDenied for non-admins ── */}

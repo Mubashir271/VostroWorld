@@ -11,6 +11,7 @@ import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
 import { getMySalarySlip } from '../../api/employeeDashboard';
 import { ROLE_LABELS } from '../../config/permissions';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 
 interface SlipData {
   id: number;
@@ -40,8 +41,6 @@ interface SlipData {
   };
 }
 
-const fmt = (n: number) => `PKR ${Number(n || 0).toLocaleString()}`;
-
 const Row = ({ label, value, highlight }: { label: string; value: string; highlight?: string }) => (
   <View style={styles.slipRow}>
     <Text style={styles.slipLabel}>{label}</Text>
@@ -54,6 +53,7 @@ const MySalarySlip = () => {
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
   const userId = profile?.id ?? 0;
+  const fmt = useCurrencyFormatter();
 
   const [slip, setSlip] = useState<SlipData | null>(null);
   const [loading, setLoading] = useState(true);

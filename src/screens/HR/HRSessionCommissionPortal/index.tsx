@@ -11,6 +11,7 @@ import AppHeader from '../../../components/AppHeader';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
+import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import {
   getGXTrainers, getPTRosterAdmin, getHRSessions, createHRSession, updateHRSession,
   deleteHRSession, getHRPortalCommissions, getHRPortalClients, recordHRCommissionPayment,
@@ -56,8 +57,6 @@ const CLIENT_STATUS_OPTIONS = ['All', 'Delivered', 'No Show', 'Cancel'];
 
 const apiDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dispDate = (d: Date) => `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
-const Rs = (n: any) => `PKR ${Number(n || 0).toLocaleString()}`;
-
 const monthAgo = () => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d; };
 
 // ── Reusable dropdown ─────────────────────────────────────────────────────────
@@ -597,6 +596,7 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
   const [calculated, setCalculated] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [payTarget, setPayTarget] = useState<CommissionRow | null>(null);
+  const Rs = useCurrencyFormatter();
 
   const bid = branch ? Number(branch) : defaultBranch;
 

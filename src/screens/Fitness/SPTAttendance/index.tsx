@@ -137,7 +137,7 @@ const SPTAttendance = () => {
   const handleMarkAttendance = (pkg: SPTPackage, client: OrderDetail) => {
     Alert.alert(
       'Mark Attendance',
-      `Mark attendance for ${client.client_name ?? client.customer_name ?? 'client'}?\n\nNote: POST endpoint not yet confirmed from live HAR capture.`,
+      `Mark attendance for ${client.client_name ?? client.customer_name ?? 'client'}?\n\nNote: POST endpoint not yet confirmed.`,
       [{ text: 'OK' }],
     );
   };

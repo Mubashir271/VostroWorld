@@ -14,10 +14,12 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import AppHeader from '../../components/AppHeader';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 
 const NewMemberRegistrationScreen = () => {
   const navigation = useNavigation<any>();
   const [currentStep, setCurrentStep] = useState(1);
+  const formatCurrency = useCurrencyFormatter();
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
 
@@ -263,7 +265,7 @@ const NewMemberRegistrationScreen = () => {
                     <Text style={styles.packageFlag}>🇵🇰</Text>
                     <View>
                       <Text style={styles.packageTitle}>{selectedPackage.name}</Text>
-                      <Text style={styles.packagePrice}>{selectedPackage.price}</Text>
+                      <Text style={styles.packagePrice}>{formatCurrency(originalPrice)}</Text>
                       <Text style={styles.packageDesc}>{selectedPackage.desc}</Text>
                     </View>
                   </View>
@@ -300,7 +302,7 @@ const NewMemberRegistrationScreen = () => {
               <View style={styles.priceBox}>
                 <View style={styles.priceRow}>
                   <Text style={styles.priceLabel}>Original Price</Text>
-                  <Text style={styles.priceValue}>PKR {originalPrice.toLocaleString()}</Text>
+                  <Text style={styles.priceValue}>{formatCurrency(originalPrice)}</Text>
                 </View>
                 <View style={styles.priceRow}>
                   <Text style={styles.priceLabel}>Discount</Text>
@@ -308,7 +310,7 @@ const NewMemberRegistrationScreen = () => {
                 </View>
                 <View style={styles.finalPriceRow}>
                   <Text style={styles.finalLabel}>Final Price</Text>
-                  <Text style={styles.finalPrice}>PKR {finalPrice.toLocaleString()}</Text>
+                  <Text style={styles.finalPrice}>{formatCurrency(finalPrice)}</Text>
                 </View>
               </View>
 
@@ -329,7 +331,7 @@ const NewMemberRegistrationScreen = () => {
                 <View style={styles.voucherSuccess}>
                   <Icon name="check-circle" size={16} color="#2ECC71" />
                   <Text style={styles.voucherSuccessText}>
-                    Discount Applied: PKR {VOUCHER_DISCOUNT.toLocaleString()} discount has been applied.
+                    Discount Applied: {formatCurrency(VOUCHER_DISCOUNT)} discount has been applied.
                   </Text>
                 </View>
               )}
@@ -363,7 +365,7 @@ const NewMemberRegistrationScreen = () => {
               />
               {deposit > 0 && (
                 <Text style={styles.remainingText}>
-                  Remaining Balance: PKR {remainingBalance.toLocaleString()}
+                  Remaining Balance: {formatCurrency(remainingBalance)}
                 </Text>
               )}
             </View>

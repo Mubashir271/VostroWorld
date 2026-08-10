@@ -25,6 +25,7 @@ import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
 import { isAdmin, ROLE_LABELS } from '../../config/permissions';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -82,6 +83,7 @@ export default function DashboardScreen() {
     const { profile, appImage } = useSelector(
         (state: RootState) => state.user
     );
+    const formatCurrency = useCurrencyFormatter();
     const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
     const firstName = profile?.firstName || 'User';
@@ -233,7 +235,7 @@ export default function DashboardScreen() {
                                 <View style={[styles.statCard, styles.todaySalesCard]}>
                                     <View style={styles.statCardLeft}>
                                         <Text style={styles.statLabel}>Today Sales</Text>
-                                        <Text style={styles.statValue}>PKR {todaySales.toLocaleString()}</Text>
+                                        <Text style={styles.statValue}>{formatCurrency(todaySales)}</Text>
                                     </View>
                                     <View style={styles.statIconCircle}>
                                         <Icon name="trending-up" size={22} color="#fff" />
