@@ -5,6 +5,7 @@ import userReducer from './slices/userSlice'; // your existing user reducer
 import packageReducer from './slices/package';
 import notificationReducer from './slices/notificationSlice'
 import trainerReducer from './slices/trainerSlice'
+import membersReducer from './slices/membersSlice'
 import { persistStore, persistReducer } from 'redux-persist';
 
 // Persist user data
@@ -18,6 +19,7 @@ export const store = configureStore({
     packages: packageReducer,
     notifications: notificationReducer,
     trainer: trainerReducer,
+    members: membersReducer,
   },
 });
 

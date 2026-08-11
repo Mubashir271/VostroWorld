@@ -19,13 +19,14 @@ import { useNavigation } from '@react-navigation/native';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import ProfileHeader from '../../components/ProfileHeader';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../redux/store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../redux/store';
 import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
 import { isAdmin, ROLE_LABELS } from '../../config/permissions';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
+import { fetchMembers } from '../../redux/slices/membersSlice';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -80,9 +81,11 @@ const QuickAction = ({ icon, label, onPress }: QuickActionProps) => (
 export default function DashboardScreen() {
     const navigation = useNavigation() as any;
 
+    const dispatch = useDispatch<AppDispatch>();
     const { profile, appImage } = useSelector(
         (state: RootState) => state.user
     );
+    const membersCache = useSelector((state: RootState) => state.members);
     const formatCurrency = useCurrencyFormatter();
     const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
@@ -99,6 +102,15 @@ export default function DashboardScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const userIsAdmin = isAdmin(profile?.role || profile?.type);
+
+    // Preload the Members list in the background so the Members tab opens
+    // instantly instead of showing its own loading spinner on first tap.
+    useEffect(() => {
+        if (!userIsAdmin || !branchId) return;
+        if (membersCache.loaded && membersCache.branchId === branchId) return;
+        if (membersCache.loading) return;
+        dispatch(fetchMembers({ branchId }));
+    }, [userIsAdmin, branchId, membersCache.loaded, membersCache.branchId, membersCache.loading, dispatch]);
 
     // ── Admin stats ───────────────────────────────────────────────────────────
     const [clientsAll, setClientsAll] = useState({ all: 0, active: 0, inactive: 0, dormant: 0 });

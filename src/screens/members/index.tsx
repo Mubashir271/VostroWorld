@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  FlatList,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
@@ -12,39 +11,17 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { styles } from './styles';
 import AppHeader from '../../components/AppHeader';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
-import { RootState } from '../../redux/store';
-import { getClientsList } from '../../api/employeeDashboard';
-
-interface Membership {
-  client_id?: number;
-  package_id?: number;
-  category?: string;
-  get_package_name?: { id: number; name: string };
-}
-
-interface Member {
-  id: number;
-  uid: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  gender: string;
-  image: string;
-  city: string;
-  status: string; // '1' = Active, '0' = Inactive
-  birthday: string;
-  available_balance: number;
-  branches_name: string;
-  membership_type: Membership[];
-}
+import { RootState, AppDispatch } from '../../redux/store';
+import { fetchMembers, Member } from '../../redux/slices/membersSlice';
 
 const membershipName = (m: Member) =>
   m.membership_type?.[0]?.get_package_name?.name ?? 'No Membership';
@@ -61,23 +38,107 @@ const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
   Inactive: { bg: '#F5F5F5', text: '#666' },
 };
 
+const MemberCard = React.memo(
+  ({
+    item,
+    onCall,
+    onWhatsApp,
+  }: {
+    item: Member;
+    onCall: (phone: string) => void;
+    onWhatsApp: (phone: string) => void;
+  }) => {
+    const ms = memberStatus(item);
+    const badge = STATUS_BADGE[ms] ?? STATUS_BADGE.Expired;
+    const fullName = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim();
+    const initial = (item.first_name?.[0] ?? '?').toUpperCase();
+
+    return (
+      <View style={cardStyles.card}>
+        {/* Top row: avatar + name/info + badge */}
+        <View style={cardStyles.topRow}>
+          <View style={cardStyles.avatar}>
+            <Text style={cardStyles.avatarText}>{initial}</Text>
+          </View>
+
+          <View style={cardStyles.infoCol}>
+            <Text style={cardStyles.name} numberOfLines={1}>{fullName}</Text>
+            <Text style={cardStyles.membership} numberOfLines={1}>
+              {membershipName(item)}
+            </Text>
+            <Text style={cardStyles.meta} numberOfLines={1}>
+              {[item.uid, item.branches_name, item.gender].filter(Boolean).join('  ·  ')}
+            </Text>
+          </View>
+
+          <View style={[cardStyles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[cardStyles.badgeText, { color: badge.text }]}>{ms}</Text>
+          </View>
+        </View>
+
+        {/* Divider */}
+        <View style={cardStyles.divider} />
+
+        {/* Bottom row: phone info + action buttons */}
+        <View style={cardStyles.bottomRow}>
+          {item.phone ? (
+            <Text style={cardStyles.phone} numberOfLines={1}>
+              <Icon name="phone-outline" size={12} color="#888" /> {item.phone}
+            </Text>
+          ) : (
+            <Text style={cardStyles.phone}>No phone on file</Text>
+          )}
+
+          <View style={cardStyles.actions}>
+            <TouchableOpacity
+              style={cardStyles.iconBtn}
+              onPress={() => item.phone && onCall(item.phone)}
+              disabled={!item.phone}
+            >
+              <Icon name="phone" size={15} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[cardStyles.iconBtn, { backgroundColor: '#25D366' }]}
+              onPress={() => item.phone && onWhatsApp(item.phone)}
+              disabled={!item.phone}
+            >
+              <Icon name="whatsapp" size={15} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[cardStyles.iconBtn, { backgroundColor: '#555' }]}>
+              <Icon name="eye-outline" size={15} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  },
+);
+
 const MembersScreen = () => {
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch<AppDispatch>();
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
 
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const {
+    list: members,
+    page,
+    hasMore,
+    loaded,
+    loading,
+    loadingMore,
+    refreshing,
+    branchId: cachedBranchId,
+  } = useSelector((state: RootState) => state.members);
+
   const [search, setSearch] = useState('');
 
   // Filter states
   const [status, setStatus] = useState('All');
   const [membership, setMembership] = useState('All');
   const [dateRange, setDateRange] = useState('All Time');
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   // Bottom Sheet Refs
   const statusRef = useRef<any>(null);
@@ -93,33 +154,15 @@ const MembersScreen = () => {
     setTimeout(() => targetRef.current?.expand(), 50);
   }, []);
 
-  const load = useCallback(async (isRefresh = false, nextPage = 1) => {
-    if (isRefresh) { setRefreshing(true); setPage(1); }
-    else if (nextPage === 1) setLoading(true);
-    else setLoadingMore(true);
+  const load = useCallback((isRefresh = false, nextPage = 1) => {
+    dispatch(fetchMembers({ branchId, page: nextPage, isRefresh }));
+  }, [dispatch, branchId]);
 
-    try {
-      const res = await getClientsList({ branch_id: branchId, limit: 30, page: nextPage });
-      const rawList: Member[] = res?.data?.data ?? [];
-      const totalPages = res?.totalPages ?? 1;
-
-      if (isRefresh || nextPage === 1) {
-        setMembers(rawList);
-      } else {
-        setMembers(prev => [...prev, ...rawList]);
-      }
-      setPage(nextPage);
-      setHasMore(nextPage < totalPages);
-    } catch {
-      // non-blocking
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
-    }
-  }, [branchId]);
-
-  useEffect(() => { load(); }, [load]);
+  // A preload dispatched from Home may have already populated the cache for
+  // this branch — only fetch here if nothing's cached yet or the branch changed.
+  useEffect(() => {
+    if (!loaded || cachedBranchId !== branchId) load();
+  }, [branchId, loaded, cachedBranchId, load]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) load(false, page + 1);
@@ -183,73 +226,12 @@ const MembersScreen = () => {
     });
   };
 
-  const renderItem = ({ item }: { item: Member }) => {
-    const ms = memberStatus(item);
-    const badge = STATUS_BADGE[ms] ?? STATUS_BADGE.Expired;
-    const fullName = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim();
-    const initial = (item.first_name?.[0] ?? '?').toUpperCase();
-
-    return (
-      <View style={cardStyles.card}>
-        {/* Top row: avatar + name/info + badge */}
-        <View style={cardStyles.topRow}>
-          <View style={cardStyles.avatar}>
-            <Text style={cardStyles.avatarText}>{initial}</Text>
-          </View>
-
-          <View style={cardStyles.infoCol}>
-            <Text style={cardStyles.name} numberOfLines={1}>{fullName}</Text>
-            <Text style={cardStyles.membership} numberOfLines={1}>
-              {membershipName(item)}
-            </Text>
-            <Text style={cardStyles.meta} numberOfLines={1}>
-              {[item.uid, item.branches_name, item.gender].filter(Boolean).join('  ·  ')}
-            </Text>
-          </View>
-
-          <View style={[cardStyles.badge, { backgroundColor: badge.bg }]}>
-            <Text style={[cardStyles.badgeText, { color: badge.text }]}>{ms}</Text>
-          </View>
-        </View>
-
-        {/* Divider */}
-        <View style={cardStyles.divider} />
-
-        {/* Bottom row: phone info + action buttons */}
-        <View style={cardStyles.bottomRow}>
-          {item.phone ? (
-            <Text style={cardStyles.phone} numberOfLines={1}>
-              <Icon name="phone-outline" size={12} color="#888" /> {item.phone}
-            </Text>
-          ) : (
-            <Text style={cardStyles.phone}>No phone on file</Text>
-          )}
-
-          <View style={cardStyles.actions}>
-            <TouchableOpacity
-              style={cardStyles.iconBtn}
-              onPress={() => item.phone && callPhone(item.phone)}
-              disabled={!item.phone}
-            >
-              <Icon name="phone" size={15} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[cardStyles.iconBtn, { backgroundColor: '#25D366' }]}
-              onPress={() => item.phone && openWhatsApp(item.phone)}
-              disabled={!item.phone}
-            >
-              <Icon name="whatsapp" size={15} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[cardStyles.iconBtn, { backgroundColor: '#555' }]}>
-              <Icon name="eye-outline" size={15} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  };
+  const renderItem = useCallback(
+    ({ item }: { item: Member }) => (
+      <MemberCard item={item} onCall={callPhone} onWhatsApp={openWhatsApp} />
+    ),
+    [],
+  );
 
   const FilterChip = ({
     label,
@@ -320,15 +302,15 @@ const MembersScreen = () => {
         </TouchableOpacity>
 
         {/* Members List */}
-        {loading ? (
+        {(loading || !loaded) && members.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator size="large" color="#E63946" />
           </View>
         ) : (
-          <FlatList
+          <FlashList
             style={styles.list}
             data={filteredMembers}
-            keyExtractor={(item) => String(item.id)}
+            keyExtractor={(item: Member) => String(item.id)}
             renderItem={renderItem}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}

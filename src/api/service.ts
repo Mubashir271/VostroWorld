@@ -22,39 +22,45 @@ api.interceptors.request.use(
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📤 API REQUEST');
-    console.log('Method :', config.method?.toUpperCase());
-    console.log('URL    :', (config.baseURL ?? '') + (config.url ?? ''));
-    console.log('Params :', JSON.stringify(config.params, null, 2));
-    console.log('Body   :', JSON.stringify(config.data, null, 2));
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    if (__DEV__) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📤 API REQUEST');
+      console.log('Method :', config.method?.toUpperCase());
+      console.log('URL    :', (config.baseURL ?? '') + (config.url ?? ''));
+      console.log('Params :', config.params);
+      console.log('Body   :', config.data);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
     return config;
   },
   (error) => {
-    console.log('📤❌ REQUEST ERROR:', error);
+    if (__DEV__) console.log('📤❌ REQUEST ERROR:', error);
     return Promise.reject(error);
   }
 );
 
 api.interceptors.response.use(
   (response) => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📥 API RESPONSE');
-    console.log('URL    :', response.config.url);
-    console.log('Status :', response.status);
-    console.log('Data   :', JSON.stringify(response.data, null, 2));
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    if (__DEV__) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📥 API RESPONSE');
+      console.log('URL    :', response.config.url);
+      console.log('Status :', response.status);
+      console.log('Data   :', response.data);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
     return response;
   },
   (error) => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📥❌ API ERROR');
-    console.log('URL    :', error.config?.url);
-    console.log('Status :', error.response?.status);
-    console.log('Message:', error.message);
-    console.log('Data   :', JSON.stringify(error.response?.data, null, 2));
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    if (__DEV__) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📥❌ API ERROR');
+      console.log('URL    :', error.config?.url);
+      console.log('Status :', error.response?.status);
+      console.log('Message:', error.message);
+      console.log('Data   :', error.response?.data);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
 
     if (error.response?.status === 401) {
       store.dispatch(logoutUser());
