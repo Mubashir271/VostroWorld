@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -24,7 +24,57 @@ const QUICK = [
   { label: 'Last 30',    start: () => daysAgo(30),  end: today },
   { label: 'Last 90',    start: () => daysAgo(90),  end: today },
 ];
-const STATUS_OPTS = ['All', 'Active', 'Inactive', 'Expired'];
+const PAGE_SIZE = 25; // matches the web admin's clients report table
+
+// API contract (matches the web admin's status select): '' = all, '1' = active, '0' = inactive
+const STATUS_OPTS = [
+  { label: 'All',      value: '' },
+  { label: 'Active',   value: '1' },
+  { label: 'Inactive', value: '0' },
+];
+
+// membership_type comes back as an array of package objects, not a string
+const membershipName = (item: any) => {
+  const mt = item.membership_type;
+  // a client can hold several packages — the web admin lists them all
+  if (Array.isArray(mt)) return mt.map(m => m?.get_package_name?.name).filter(Boolean).join(', ') || '—';
+  if (mt && typeof mt === 'object') return mt.get_package_name?.name ?? mt.name ?? '—';
+  return mt ?? item.package_name ?? item.type ?? '—';
+};
+
+const ClientsRow = React.memo(({ item, index }: { item: any; index: number }) => {
+  // API returns status as the string "1"/"0"
+  const isActive = String(item.status) === '1' || String(item.status).toLowerCase() === 'active';
+  const clientName =
+    item.client_name ??
+    item.full_name ??
+    item.name ??
+    ([item.first_name, item.last_name].filter(Boolean).join(' ') || '—');
+  return (
+    <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
+      <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
+      <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
+        {clientName}
+      </Text>
+      <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
+        {item.phone ?? item.phone_number ?? item.mobile ?? '—'}
+      </Text>
+      <Text style={[tbl.cell, { width: 80 }]}>
+        {item.reg_date ?? item.registration_date ?? item.date ?? item.created_at?.slice(0, 10) ?? '—'}
+      </Text>
+      <View style={[tbl.cell, { width: 70 }]}>
+        <View style={[tbl.badge, { backgroundColor: isActive ? '#dcfce7' : '#fee2e2' }]}>
+          <Text style={[tbl.badgeText, { color: isActive ? '#166534' : '#991b1b' }]}>
+            {isActive ? 'Active' : 'Inactive'}
+          </Text>
+        </View>
+      </View>
+      <Text style={[tbl.cell, { width: 90 }]} numberOfLines={1}>
+        {membershipName(item)}
+      </Text>
+    </View>
+  );
+});
 
 const ClientsReportScreen = () => {
   const navigation = useNavigation();
@@ -37,18 +87,36 @@ const ClientsReportScreen = () => {
   const [startDate, setStartDate] = useState(startOfMonth);
   const [endDate, setEndDate]     = useState(today);
   const [pickerFor, setPickerFor] = useState<'start' | 'end' | null>(null);
-  const [status, setStatus]       = useState('All');
+  const [status, setStatus]       = useState('');
+  const [page, setPage]           = useState(1);
+  const [pageInfo, setPageInfo]   = useState({ from: 0, to: 0, hasNext: false, hasPrev: false });
 
-  const load = async () => {
+  const load = async (pageNum = 1) => {
     setLoading(true);
     try {
-      const params: any = { branch_id: branchId, start_date: startDate, end_date: endDate };
-      if (status !== 'All') params.status = status.toLowerCase();
+      const params: any = {
+        branch_id: branchId, start_date: startDate, end_date: endDate,
+        limit: PAGE_SIZE, page: pageNum,
+      };
+      if (status) params.status = status;
       const res = await getClientsReport(params);
-      const raw = res.data?.data ?? res.data?.clients ?? (Array.isArray(res.data) ? res.data : []);
-      setRows(raw);
-      setFetched(true);
+      const env = res.data?.data; // Laravel pagination envelope
+      const raw = env ?? res.data?.clients ?? res.data;
+      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+      setRows(list);
+      // totalRecord/totalPages come back as 1 regardless — page off the envelope's urls instead
+      setPageInfo({
+        from: env?.from ?? (list.length ? (pageNum - 1) * PAGE_SIZE + 1 : 0),
+        to:   env?.to   ?? (pageNum - 1) * PAGE_SIZE + list.length,
+        hasNext: Boolean(env?.next_page_url),
+        hasPrev: Boolean(env?.prev_page_url) || pageNum > 1,
+      });
+      setPage(pageNum);
+    } catch {
+      setRows([]);
+      setPageInfo({ from: 0, to: 0, hasNext: false, hasPrev: false });
     } finally {
+      setFetched(true);
       setLoading(false);
     }
   };
@@ -60,33 +128,12 @@ const ClientsReportScreen = () => {
     setPickerFor(null);
   };
 
-  const renderRow = ({ item, index }: { item: any; index: number }) => {
-    const isActive = item.status === 'active' || item.status === 1;
-    return (
-      <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
-        <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
-        <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
-          {item.client_name ?? item.full_name ?? item.name ?? '—'}
-        </Text>
-        <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
-          {item.phone ?? item.phone_number ?? item.mobile ?? '—'}
-        </Text>
-        <Text style={[tbl.cell, { width: 80 }]}>
-          {item.reg_date ?? item.registration_date ?? item.created_at?.slice(0, 10) ?? '—'}
-        </Text>
-        <View style={[tbl.cell, { width: 70 }]}>
-          <View style={[tbl.badge, { backgroundColor: isActive ? '#dcfce7' : '#fee2e2' }]}>
-            <Text style={[tbl.badgeText, { color: isActive ? '#166534' : '#991b1b' }]}>
-              {isActive ? 'Active' : 'Inactive'}
-            </Text>
-          </View>
-        </View>
-        <Text style={[tbl.cell, { width: 90 }]} numberOfLines={1}>
-          {item.membership_type ?? item.package_name ?? item.type ?? '—'}
-        </Text>
-      </View>
-    );
-  };
+  const renderRow = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <ClientsRow item={item} index={index} />
+    ),
+    [],
+  );
 
   return (
     <>
@@ -120,12 +167,12 @@ const ClientsReportScreen = () => {
               </TouchableOpacity>
             ))}
             {STATUS_OPTS.map(sf => (
-              <TouchableOpacity key={sf} style={[s.chip, status === sf && s.chipActive]} onPress={() => setStatus(sf)}>
-                <Text style={[s.chipText, status === sf && s.chipTextActive]}>{sf}</Text>
+              <TouchableOpacity key={sf.value} style={[s.chip, status === sf.value && s.chipActive]} onPress={() => setStatus(sf.value)}>
+                <Text style={[s.chipText, status === sf.value && s.chipTextActive]}>{sf.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <TouchableOpacity style={s.goBtn} onPress={load} disabled={loading}>
+          <TouchableOpacity style={s.goBtn} onPress={() => load(1)} disabled={loading}>
             {loading ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={s.goText}>Go</Text>}
           </TouchableOpacity>
         </View>
@@ -149,7 +196,9 @@ const ClientsReportScreen = () => {
         {!loading && fetched && rows.length > 0 && (
           <>
             <View style={s.countBar}>
-              <Text style={s.countText}>{rows.length} client{rows.length !== 1 ? 's' : ''}</Text>
+              <Text style={s.countText}>
+                Showing {pageInfo.from}–{pageInfo.to}
+              </Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator style={{ flex: 1 }}>
               <View style={{ flex: 1 }}>
@@ -160,12 +209,34 @@ const ClientsReportScreen = () => {
                 </View>
                 <FlatList
                   data={rows}
-                  keyExtractor={(_, i) => i.toString()}
+                  keyExtractor={(_: any, i: number) => i.toString()}
                   renderItem={renderRow}
                   showsVerticalScrollIndicator={false}
                 />
               </View>
             </ScrollView>
+
+            {(pageInfo.hasPrev || pageInfo.hasNext) && (
+              <View style={s.pager}>
+                <TouchableOpacity
+                  style={[s.pageBtn, !pageInfo.hasPrev && s.pageBtnOff]}
+                  onPress={() => load(page - 1)}
+                  disabled={!pageInfo.hasPrev || loading}>
+                  <Icon name="chevron-left" size={18} color={pageInfo.hasPrev ? '#1A1A1A' : '#C4C4C4'} />
+                  <Text style={[s.pageBtnText, !pageInfo.hasPrev && s.pageBtnTextOff]}>Prev</Text>
+                </TouchableOpacity>
+
+                <Text style={s.pageLabel}>Page {page}</Text>
+
+                <TouchableOpacity
+                  style={[s.pageBtn, !pageInfo.hasNext && s.pageBtnOff]}
+                  onPress={() => load(page + 1)}
+                  disabled={!pageInfo.hasNext || loading}>
+                  <Text style={[s.pageBtnText, !pageInfo.hasNext && s.pageBtnTextOff]}>Next</Text>
+                  <Icon name="chevron-right" size={18} color={pageInfo.hasNext ? '#1A1A1A' : '#C4C4C4'} />
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
       </View>
@@ -190,9 +261,9 @@ const s = StyleSheet.create({
   dateBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#FAFAFA' },
   dateText:      { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
   sep:           { fontSize: 14, color: '#999' },
-  chipRow:       { height: 30, marginBottom: 8 },
-  chipContent:   { alignItems: 'center', gap: 6 },
-  chip:          { height: 26, backgroundColor: '#F5F5F5', borderRadius: 13, paddingHorizontal: 12, justifyContent: 'center' },
+  chipRow:       { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
+  chipContent:   { paddingVertical: 2, alignItems: 'center', gap: 6 },
+  chip:          { paddingVertical: 5, backgroundColor: '#F5F5F5', borderRadius: 13, paddingHorizontal: 12, justifyContent: 'center' },
   chipActive:    { backgroundColor: '#E63946' },
   chipText:      { fontSize: 12, color: '#555', fontWeight: '500' },
   chipTextActive:{ color: '#FFF' },
@@ -200,6 +271,12 @@ const s = StyleSheet.create({
   goText:        { color: '#FFF', fontWeight: '700', fontSize: 15 },
   countBar:      { backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   countText:     { fontSize: 12, color: '#666', fontWeight: '600' },
+  pager:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  pageBtn:       { flexDirection: 'row', alignItems: 'center', gap: 2, borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12, backgroundColor: '#FAFAFA' },
+  pageBtnOff:    { backgroundColor: '#F5F5F5', borderColor: '#F0F0F0' },
+  pageBtnText:   { fontSize: 13, color: '#1A1A1A', fontWeight: '600' },
+  pageBtnTextOff:{ color: '#C4C4C4' },
+  pageLabel:     { fontSize: 13, color: '#666', fontWeight: '600' },
   empty:         { alignItems: 'center', paddingTop: 40, paddingBottom: 20 },
   emptyIcon:     { fontSize: 40, marginBottom: 10 },
   emptyTitle:    { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 4 },

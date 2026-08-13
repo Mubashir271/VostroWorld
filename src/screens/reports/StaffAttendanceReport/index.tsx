@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -26,6 +26,38 @@ const QUICK = [
   { label: 'This Month', start: startOfMonth,   end: today },
   { label: 'Last 30',   start: () => daysAgo(30), end: today },
 ];
+
+const StaffAttendanceRow = React.memo(({ item, index }: { item: any; index: number }) => {
+  const isPresent = item.status === 'present' || item.status === 1 || item.attendance_status === 'present';
+  const isLate    = item.status === 'late' || item.attendance_status === 'late';
+  return (
+    <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
+      <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
+      <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
+        {item.staff_name ?? item.employee_name ?? item.name ?? item.full_name ?? '—'}
+      </Text>
+      <Text style={[tbl.cell, { width: 80 }]}>
+        {item.date ?? item.attendance_date ?? item.check_in_date ?? '—'}
+      </Text>
+      <Text style={[tbl.cell, { width: 80 }]}>
+        {item.check_in ?? item.time_in ?? item.start_time ?? '—'}
+      </Text>
+      <Text style={[tbl.cell, { width: 80 }]}>
+        {item.check_out ?? item.time_out ?? item.end_time ?? '—'}
+      </Text>
+      <View style={[tbl.cell, { width: 70 }]}>
+        <View style={[tbl.badge, { backgroundColor: isPresent ? '#dcfce7' : isLate ? '#fef9c3' : '#fee2e2' }]}>
+          <Text style={[tbl.badgeText, { color: isPresent ? '#166534' : isLate ? '#854d0e' : '#991b1b' }]}>
+            {isPresent ? 'Present' : isLate ? 'Late' : 'Absent'}
+          </Text>
+        </View>
+      </View>
+      <Text style={[tbl.cell, { width: 90 }]} numberOfLines={1}>
+        {item.department ?? item.dept ?? '—'}
+      </Text>
+    </View>
+  );
+});
 
 const StaffAttendanceReportScreen = () => {
   const navigation = useNavigation();
@@ -58,41 +90,18 @@ const StaffAttendanceReportScreen = () => {
     setPickerFor(null);
   };
 
-  const present = rows.filter(r => r.status === 'present' || r.status === 1 || r.attendance_status === 'present').length;
-  const absent  = rows.filter(r => r.status === 'absent'  || r.status === 0 || r.attendance_status === 'absent').length;
-  const late    = rows.filter(r => r.status === 'late' || r.attendance_status === 'late').length;
+  const { present, absent, late } = useMemo(() => ({
+    present: rows.filter(r => r.status === 'present' || r.status === 1 || r.attendance_status === 'present').length,
+    absent: rows.filter(r => r.status === 'absent' || r.status === 0 || r.attendance_status === 'absent').length,
+    late: rows.filter(r => r.status === 'late' || r.attendance_status === 'late').length,
+  }), [rows]);
 
-  const renderRow = ({ item, index }: { item: any; index: number }) => {
-    const isPresent = item.status === 'present' || item.status === 1 || item.attendance_status === 'present';
-    const isLate    = item.status === 'late' || item.attendance_status === 'late';
-    return (
-      <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
-        <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
-        <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
-          {item.staff_name ?? item.employee_name ?? item.name ?? item.full_name ?? '—'}
-        </Text>
-        <Text style={[tbl.cell, { width: 80 }]}>
-          {item.date ?? item.attendance_date ?? item.check_in_date ?? '—'}
-        </Text>
-        <Text style={[tbl.cell, { width: 80 }]}>
-          {item.check_in ?? item.time_in ?? item.start_time ?? '—'}
-        </Text>
-        <Text style={[tbl.cell, { width: 80 }]}>
-          {item.check_out ?? item.time_out ?? item.end_time ?? '—'}
-        </Text>
-        <View style={[tbl.cell, { width: 70 }]}>
-          <View style={[tbl.badge, { backgroundColor: isPresent ? '#dcfce7' : isLate ? '#fef9c3' : '#fee2e2' }]}>
-            <Text style={[tbl.badgeText, { color: isPresent ? '#166534' : isLate ? '#854d0e' : '#991b1b' }]}>
-              {isPresent ? 'Present' : isLate ? 'Late' : 'Absent'}
-            </Text>
-          </View>
-        </View>
-        <Text style={[tbl.cell, { width: 90 }]} numberOfLines={1}>
-          {item.department ?? item.dept ?? '—'}
-        </Text>
-      </View>
-    );
-  };
+  const renderRow = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <StaffAttendanceRow item={item} index={index} />
+    ),
+    [],
+  );
 
   return (
     <>
@@ -178,7 +187,7 @@ const StaffAttendanceReportScreen = () => {
                 </View>
                 <FlatList
                   data={rows}
-                  keyExtractor={(_, i) => i.toString()}
+                  keyExtractor={(_: any, i: number) => i.toString()}
                   renderItem={renderRow}
                   showsVerticalScrollIndicator={false}
                 />
@@ -207,9 +216,9 @@ const s = StyleSheet.create({
   dateBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#FAFAFA' },
   dateText:     { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
   sep:          { fontSize: 14, color: '#999' },
-  chipRow:      { height: 32, marginBottom: 8 },
-  chipContent:  { alignItems: 'center', gap: 8 },
-  chip:         { height: 28, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center' },
+  chipRow:      { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
+  chipContent:  { paddingVertical: 2, alignItems: 'center', gap: 8 },
+  chip:         { paddingVertical: 6, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center' },
   chipText:     { fontSize: 12, color: '#444', fontWeight: '500' },
   goBtn:        { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
   goText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },

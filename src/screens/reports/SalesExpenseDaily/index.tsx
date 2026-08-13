@@ -9,30 +9,83 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
-import { getSalesExpenseDaily } from '../../../api/reports';
+import { isAdmin } from '../../../config/permissions';
+import { getDailySalesSummary, getTransactionSummary } from '../../../api/reports';
+import { getExpensesList, getBranchesNameList } from '../../../api/employeeDashboard';
 
 const fmt = (d: Date) => {
   const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`;
 };
 const display = (iso: string) => { const [y, m, d] = iso.split('-'); return `${m}/${d}/${y}`; };
+const dayLabel = (iso: string) => { const [y, m, d] = iso.split('-'); return `${d}-${m}-${y}`; };
 const today = () => fmt(new Date());
 const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return fmt(d); };
 const startOfMonth = () => { const d = new Date(); d.setDate(1); return fmt(d); };
-const fmtRs = (v: any) => `Rs ${parseFloat(v ?? 0).toLocaleString()}`;
+const fmtRs = (v: any) => `Rs ${(parseFloat(v ?? 0) || 0).toLocaleString()}`;
 
 const QUICK = [
-  { label: 'Today',     start: today,           end: today },
-  { label: 'Yesterday', start: () => daysAgo(1), end: () => daysAgo(1) },
-  { label: 'This Month', start: startOfMonth,   end: today },
-  { label: 'Last 30',   start: () => daysAgo(30), end: today },
+  { label: 'Today',      start: today,             end: today },
+  { label: 'Yesterday',  start: () => daysAgo(1),  end: () => daysAgo(1) },
+  { label: 'This Month', start: startOfMonth,      end: today },
+  { label: 'Last 30',    start: () => daysAgo(30), end: today },
 ];
+
+const CAFE_CATEGORY = 10;  // order category the web queries for cafe sales
+const GST_RATE      = 0.05;
+
+const W_SR = 44, W_DATE = 96, W_CELL = 122;
+
+type Branch = { id: number | string; name: string };
+type BranchData = { branch: Branch; sales: Rec; cafe: Rec; expense: Rec };
+type Rec = Record<string, number>;
+
+// A request that 404s means "no records in range" (the web renders Rs 0 for it),
+// so failures collapse to an empty result rather than breaking the whole report.
+const safe = async <T,>(run: () => Promise<T>): Promise<T | null> => {
+  try { return await run(); } catch { return null; }
+};
+
+// Sum every numeric column of the `immediate` rows (Cash/Online/Credit_Card and
+// `pending`). `later` is deliberately ignored — the web admin excludes it.
+const salesByDate = (body: any): Rec => {
+  const out: Rec = {};
+  for (const row of body?.immediate ?? []) {
+    const d = row?.date;
+    if (!d) continue;
+    let n = 0;
+    for (const [k, v] of Object.entries(row)) if (k !== 'date' && typeof v === 'number') n += v;
+    out[d] = (out[d] ?? 0) + n;
+  }
+  return out;
+};
+
+const cafeByDate = (body: any): Rec => {
+  const out: Rec = {};
+  for (const r of body?.data ?? []) {
+    const d = r?.order_date;
+    if (!d) continue;
+    out[d] = (out[d] ?? 0) + (parseFloat(r.total_net_price) || 0);
+  }
+  return out;
+};
+
+const expenseByDate = (body: any): Rec => {
+  const env = body?.data;
+  const rows = Array.isArray(env) ? env : Array.isArray(env?.data) ? env.data : [];
+  const out: Rec = {};
+  for (const r of rows) {
+    const d = String(r?.occurrence_date ?? '').slice(0, 10);
+    if (!d) continue;
+    out[d] = (out[d] ?? 0) + (parseFloat(r.amount) || 0);
+  }
+  return out;
+};
 
 const SalesExpenseDailyScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
 
-  const [data, setData]           = useState<any>(null);
+  const [data, setData]           = useState<BranchData[]>([]);
   const [loading, setLoading]     = useState(false);
   const [fetched, setFetched]     = useState(false);
   const [startDate, setStartDate] = useState(startOfMonth);
@@ -42,10 +95,37 @@ const SalesExpenseDailyScreen = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await getSalesExpenseDaily({ branch_id: branchId, start_date: startDate, end_date: endDate });
-      setData(res.data?.data ?? res.data ?? null);
-      setFetched(true);
+      // Super admins/admins see every branch side by side, as the web does;
+      // everyone else sees only their own.
+      let branches: Branch[];
+      if (isAdmin(profile?.role)) {
+        const res = await safe(() => getBranchesNameList());
+        branches = (res?.data ?? []).map((b: any) => ({ id: b.id, name: b.name }));
+        if (!branches.length) branches = [{ id: profile?.branchId ?? '', name: profile?.branchName ?? 'Branch' }];
+      } else {
+        branches = [{ id: profile?.branchId ?? '', name: profile?.branchName ?? 'My Branch' }];
+      }
+
+      const results = await Promise.all(branches.map(async branch => {
+        const base = { branch_id: branch.id, start_date: startDate, end_date: endDate };
+        const [summary, cafe, expenses] = await Promise.all([
+          safe(() => getDailySalesSummary(base).then(r => r.data)),
+          safe(() => getTransactionSummary({ ...base, category: CAFE_CATEGORY }).then(r => r.data)),
+          safe(() => getExpensesList({ ...base, limit: 1000, page: 1 })),
+        ]);
+        return {
+          branch,
+          sales:   salesByDate(summary),
+          cafe:    cafeByDate(cafe),
+          expense: expenseByDate(expenses),
+        };
+      }));
+
+      setData(results);
+    } catch {
+      setData([]);
     } finally {
+      setFetched(true);
       setLoading(false);
     }
   };
@@ -57,15 +137,33 @@ const SalesExpenseDailyScreen = () => {
     setPickerFor(null);
   };
 
-  // Normalise: API might return flat object or array of categories
-  const categories: any[] = Array.isArray(data)
-    ? data
-    : data && typeof data === 'object'
-      ? Object.entries(data).map(([k, v]: any) => ({ name: k, ...(typeof v === 'object' ? v : { value: v }) }))
-      : [];
+  const saleOn    = (b: BranchData, d: string) => (b.sales[d] ?? 0) + (b.cafe[d] ?? 0);
+  const expenseOn = (b: BranchData, d: string) => b.expense[d] ?? 0;
 
-  const totalSales   = categories.reduce((s, r) => s + (parseFloat(r.sales ?? r.total_sales ?? r.sale ?? 0) || 0), 0);
-  const totalExpense = categories.reduce((s, r) => s + (parseFloat(r.expense ?? r.total_expense ?? r.expenses ?? 0) || 0), 0);
+  // Union of every date any branch reported. The web instead iterates only the
+  // dates present in its sales feed, which silently drops cafe-only days.
+  const dates = Array.from(
+    new Set(data.flatMap(b => [...Object.keys(b.sales), ...Object.keys(b.cafe), ...Object.keys(b.expense)])),
+  ).sort();
+
+  const totals = data.map(b => ({
+    sales:   dates.reduce((s, d) => s + saleOn(b, d), 0),
+    expense: dates.reduce((s, d) => s + expenseOn(b, d), 0),
+  }));
+
+  const tableWidth = W_SR + W_DATE + data.length * W_CELL * 2;
+
+  const footerRow = (label: string, cell: (i: number) => string, expenseCell: (i: number) => string, strong?: boolean) => (
+    <View style={[t.row, t.footRow]}>
+      <Text style={[t.cell, t.footLabel, { width: W_SR + W_DATE }]}>{label}</Text>
+      {data.map((b, i) => (
+        <React.Fragment key={String(b.branch.id)}>
+          <Text style={[t.cell, t.footVal, strong && t.footStrong, { width: W_CELL }]}>{cell(i)}</Text>
+          <Text style={[t.cell, t.footVal, strong && t.footStrong, { width: W_CELL }]}>{expenseCell(i)}</Text>
+        </React.Fragment>
+      ))}
+    </View>
+  );
 
   return (
     <>
@@ -113,62 +211,81 @@ const SalesExpenseDailyScreen = () => {
           </View>
         )}
 
-        {!loading && fetched && categories.length === 0 && (
+        {!loading && fetched && dates.length === 0 && (
           <View style={s.emptyState}>
             <Text style={s.emptyIcon}>📉</Text>
             <Text style={s.emptyTitle}>No Data</Text>
-            <Text style={s.emptySubtitle}>No data found for the selected period.</Text>
+            <Text style={s.emptySubtitle}>No sales or expenses found for the selected period.</Text>
           </View>
         )}
 
-        {!loading && fetched && categories.length > 0 && (
+        {!loading && fetched && dates.length > 0 && (
           <>
-            {/* Summary */}
-            <View style={s.summaryRow}>
-              <View style={[s.summaryCard, { borderColor: '#16A34A' }]}>
-                <Text style={[s.summaryVal, { color: '#16A34A' }]}>{fmtRs(totalSales)}</Text>
-                <Text style={s.summaryLabel}>Total Sales</Text>
-              </View>
-              <View style={[s.summaryCard, { borderColor: '#E63946' }]}>
-                <Text style={[s.summaryVal, { color: '#E63946' }]}>{fmtRs(totalExpense)}</Text>
-                <Text style={s.summaryLabel}>Total Expenses</Text>
-              </View>
-              <View style={[s.summaryCard, { borderColor: '#2563EB' }]}>
-                <Text style={[s.summaryVal, { color: '#2563EB' }]}>{fmtRs(totalSales - totalExpense)}</Text>
-                <Text style={s.summaryLabel}>Net</Text>
-              </View>
-            </View>
+            <Text style={s.sectionLabel}>FILTERED RESULT</Text>
 
-            {/* Category breakdown */}
-            {categories.map((item, i) => (
-              <View key={i} style={s.card}>
-                <Text style={s.cardTitle} numberOfLines={1}>
-                  {item.category_name ?? item.name ?? item.category ?? `Category ${i + 1}`}
-                </Text>
-                <View style={s.cardBody}>
-                  <View style={s.metricBox}>
-                    <Text style={[s.metricVal, { color: '#16A34A' }]}>
-                      {fmtRs(item.sales ?? item.total_sales ?? item.sale)}
-                    </Text>
-                    <Text style={s.metricLabel}>Sales</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator style={s.tableWrap}>
+              <View style={{ width: tableWidth }}>
+                <View style={[t.row, t.header]}>
+                  <Text style={[t.cell, t.headerCell, { width: W_SR }]}>Sr#</Text>
+                  <Text style={[t.cell, t.headerCell, { width: W_DATE }]}>Date</Text>
+                  {data.map(b => (
+                    <React.Fragment key={String(b.branch.id)}>
+                      <Text style={[t.cell, t.headerCell, { width: W_CELL }]} numberOfLines={1}>{b.branch.name} Sales</Text>
+                      <Text style={[t.cell, t.headerCell, { width: W_CELL }]} numberOfLines={1}>{b.branch.name} Expense</Text>
+                    </React.Fragment>
+                  ))}
+                </View>
+
+                {dates.map((d, i) => (
+                  <View key={d} style={[t.row, i % 2 === 1 && t.rowAlt]}>
+                    <Text style={[t.cell, t.muted, { width: W_SR }]}>{i + 1}</Text>
+                    <Text style={[t.cell, { width: W_DATE }]}>{dayLabel(d)}</Text>
+                    {data.map(b => (
+                      <React.Fragment key={String(b.branch.id)}>
+                        <Text style={[t.cell, t.sales, { width: W_CELL }]}>{fmtRs(saleOn(b, d))}</Text>
+                        <Text style={[t.cell, t.expense, { width: W_CELL }]}>{fmtRs(expenseOn(b, d))}</Text>
+                      </React.Fragment>
+                    ))}
                   </View>
-                  <View style={s.divider} />
-                  <View style={s.metricBox}>
-                    <Text style={[s.metricVal, { color: '#E63946' }]}>
-                      {fmtRs(item.expense ?? item.total_expense ?? item.expenses)}
-                    </Text>
-                    <Text style={s.metricLabel}>Expense</Text>
+                ))}
+
+                {footerRow('Total',
+                  i => fmtRs(totals[i].sales),
+                  i => fmtRs(totals[i].expense), true)}
+                {footerRow(`Less: GST ${GST_RATE * 100}%`,
+                  i => fmtRs(totals[i].sales * GST_RATE),
+                  () => '-')}
+                {footerRow('Sale After GST',
+                  i => fmtRs(totals[i].sales * (1 - GST_RATE)),
+                  () => '-', true)}
+              </View>
+            </ScrollView>
+
+            {data.map((b, i) => {
+              const diff = totals[i].sales - totals[i].expense;
+              return (
+                <View key={String(b.branch.id)} style={s.card}>
+                  <View style={s.cardHead}>
+                    <Text style={s.cardTitle}>{b.branch.name}</Text>
+                    <Text style={s.cardHeadRight}>Amount</Text>
                   </View>
-                  <View style={s.divider} />
-                  <View style={s.metricBox}>
-                    <Text style={[s.metricVal, { color: '#2563EB' }]}>
-                      {fmtRs((parseFloat(item.sales ?? item.total_sales ?? 0) || 0) - (parseFloat(item.expense ?? item.total_expense ?? 0) || 0))}
+                  <View style={s.cardLine}>
+                    <Text style={s.cardLabel}>Gym Sale</Text>
+                    <Text style={s.cardValue}>{fmtRs(totals[i].sales)}</Text>
+                  </View>
+                  <View style={s.cardLine}>
+                    <Text style={s.cardLabel}>Less: Expense</Text>
+                    <Text style={s.cardValue}>{fmtRs(totals[i].expense)}</Text>
+                  </View>
+                  <View style={[s.cardLine, s.cardLineLast]}>
+                    <Text style={[s.cardLabel, s.cardLabelBold]}>Difference</Text>
+                    <Text style={[s.cardValue, s.cardValueBold, { color: diff < 0 ? '#E63946' : '#16A34A' }]}>
+                      {fmtRs(diff)}
                     </Text>
-                    <Text style={s.metricLabel}>Net</Text>
                   </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </>
         )}
       </ScrollView>
@@ -192,9 +309,9 @@ const s = StyleSheet.create({
   dateBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#FAFAFA' },
   dateText:     { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
   sep:          { fontSize: 14, color: '#999' },
-  chipRow:      { height: 32, marginBottom: 8 },
-  chipContent:  { alignItems: 'center', gap: 8 },
-  chip:         { height: 28, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center' },
+  chipRow:      { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
+  chipContent:  { alignItems: 'center', gap: 8, paddingVertical: 2 },
+  chip:         { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
   chipText:     { fontSize: 12, color: '#444', fontWeight: '500' },
   goBtn:        { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginBottom: 12 },
   goText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },
@@ -202,17 +319,33 @@ const s = StyleSheet.create({
   emptyIcon:    { fontSize: 48, marginBottom: 12 },
   emptyTitle:   { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 6 },
   emptySubtitle:{ fontSize: 13, color: '#6B7280', textAlign: 'center', paddingHorizontal: 32 },
-  summaryRow:   { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  summaryCard:  { flex: 1, backgroundColor: '#FFF', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1.5, elevation: 1 },
-  summaryVal:   { fontSize: 13, fontWeight: '800' },
-  summaryLabel: { fontSize: 10, color: '#999', marginTop: 2 },
-  card:         { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 10, elevation: 1 },
-  cardTitle:    { fontSize: 14, fontWeight: '700', color: '#1A1A1A', marginBottom: 10 },
-  cardBody:     { flexDirection: 'row', alignItems: 'center' },
-  metricBox:    { flex: 1, alignItems: 'center' },
-  metricVal:    { fontSize: 14, fontWeight: '800' },
-  metricLabel:  { fontSize: 11, color: '#999', marginTop: 2 },
-  divider:      { width: 1, height: 30, backgroundColor: '#F0F0F0' },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#6B7280', letterSpacing: 0.6, marginBottom: 8 },
+  tableWrap:    { backgroundColor: '#FFF', borderRadius: 10, marginBottom: 14 },
+  card:         { backgroundColor: '#FFF', borderRadius: 10, marginBottom: 10, overflow: 'hidden' },
+  cardHead:     { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#C0392B', paddingHorizontal: 14, paddingVertical: 10 },
+  cardTitle:    { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  cardHeadRight:{ fontSize: 13, fontWeight: '700', color: '#FFF' },
+  cardLine:     { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
+  cardLineLast: { borderBottomWidth: 0 },
+  cardLabel:    { fontSize: 13, color: '#444' },
+  cardLabelBold:{ fontWeight: '700', color: '#1A1A1A' },
+  cardValue:    { fontSize: 13, color: '#1A1A1A' },
+  cardValueBold:{ fontWeight: '800' },
+});
+
+const t = StyleSheet.create({
+  row:        { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  rowAlt:     { backgroundColor: '#FBF8F8' },
+  header:     { backgroundColor: '#C0392B' },
+  headerCell: { fontSize: 11, fontWeight: '700', color: '#FFF' },
+  cell:       { fontSize: 12, color: '#1A1A1A', paddingHorizontal: 8, paddingVertical: 10 },
+  muted:      { color: '#888' },
+  sales:      { color: '#16A34A', fontWeight: '600' },
+  expense:    { color: '#E63946', fontWeight: '600' },
+  footRow:    { backgroundColor: '#FAFAFA' },
+  footLabel:  { fontSize: 12, fontWeight: '700', color: '#1A1A1A' },
+  footVal:    { fontSize: 12, color: '#444' },
+  footStrong: { fontWeight: '800', color: '#1A1A1A' },
 });
 
 export default SalesExpenseDailyScreen;

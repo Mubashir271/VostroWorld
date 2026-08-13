@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -34,6 +34,69 @@ const QUICK = [
 
 const TABS = ['Detail', 'Mgmt Summary', 'Trainer Wise', 'Package Wise', 'Branch Wise'];
 
+// column widths, shared by the header and the rows so they can't drift apart
+const COLS = [
+  { l: '#',         w: 36 },
+  { l: 'Client',    w: 130 },
+  { l: 'Package',   w: 100 },
+  { l: 'Sale Type', w: 72 },
+  { l: 'Date',      w: 80 },
+  { l: 'Price',     w: 90 },
+  { l: 'Discount',  w: 80 },
+  { l: 'Tax',       w: 75 },
+  { l: 'Net Price', w: 90 },
+  { l: 'Branch',    w: 80 },
+  { l: 'Sold By',   w: 100 },
+];
+
+const DetailRow = React.memo(({ item, index }: { item: any; index: number }) => {
+  const saleType = item.sale_type ?? item.order_sale_type ?? '';
+  const isNew = String(saleType).toLowerCase() === 'new';
+  return (
+    <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
+      <Text style={[tbl.cell, tbl.cellMuted, { width: 36 }]}>{index + 1}</Text>
+      <Text style={[tbl.cell, tbl.cellRed, { width: 130 }]} numberOfLines={1}>
+        {item.client_name ?? item.member_name ?? '—'}
+      </Text>
+      <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
+        {item.package_name ?? item.product_name ?? '—'}
+      </Text>
+      <View style={[tbl.cell, { width: 72 }]}>
+        {saleType ? (
+          <View style={[tbl.badge, { backgroundColor: isNew ? '#dcfce7' : '#dbeafe' }]}>
+            <Text style={[tbl.badgeText, { color: isNew ? '#166534' : '#1e40af' }]} numberOfLines={1}>
+              {saleType}
+            </Text>
+          </View>
+        ) : (
+          <Text style={tbl.cellMuted}>—</Text>
+        )}
+      </View>
+      <Text style={[tbl.cell, { width: 80 }]}>
+        {item.sale_date ?? item.created_at?.slice(0, 10) ?? '—'}
+      </Text>
+      <Text style={[tbl.cell, { width: 90 }]}>
+        {fmtRs(item.order_detail_price ?? item.price)}
+      </Text>
+      <Text style={[tbl.cell, { width: 80 }]}>
+        {fmtRs(item.order_detail_discount ?? item.discount)}
+      </Text>
+      <Text style={[tbl.cell, tbl.cellPurple, { width: 75 }]}>
+        {fmtRs(item.order_detail_tax ?? item.tax)}
+      </Text>
+      <Text style={[tbl.cell, tbl.cellGreen, { width: 90 }]}>
+        {fmtRs(item.order_detail_net_price ?? item.net_price ?? item.order_detail_price)}
+      </Text>
+      <Text style={[tbl.cell, { width: 80 }]}>
+        {item.branch_name ?? item.branch ?? '—'}
+      </Text>
+      <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
+        {item.sold_by ?? item.seller_name ?? item.trainer_name ?? '—'}
+      </Text>
+    </View>
+  );
+});
+
 const DetailedSalesReportScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
@@ -51,10 +114,12 @@ const DetailedSalesReportScreen = () => {
     setLoading(true);
     try {
       const res = await getDetailedSalesReport({ branch_id: branchId, start_date: startDate, end_date: endDate });
-      const raw = res.data?.data ?? (Array.isArray(res.data) ? res.data : []);
-      setRows(raw);
-      setFetched(true);
+      const raw = res.data?.data ?? res.data;
+      setRows(Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : []);
+    } catch {
+      setRows([]);
     } finally {
+      setFetched(true);
       setLoading(false);
     }
   };
@@ -66,64 +131,63 @@ const DetailedSalesReportScreen = () => {
     setPickerFor(null);
   };
 
-  const totalRecords  = rows.length;
-  const totalSales    = rows.reduce((s, r) => s + (parseFloat(r.order_detail_price ?? r.price ?? 0) || 0), 0);
-  const totalDiscount = rows.reduce((s, r) => s + (parseFloat(r.order_detail_discount ?? r.discount ?? 0) || 0), 0);
-  const totalGst      = rows.reduce((s, r) => s + (parseFloat(r.order_detail_gst ?? r.gst ?? r.tax ?? 0) || 0), 0);
-  const totalNet      = rows.reduce((s, r) => s + (parseFloat(r.order_detail_net_price ?? r.net_price ?? r.order_detail_price ?? 0) || 0), 0);
+  const { totalRecords, totalSales, totalDiscount, totalGst, totalNet } = useMemo(() => {
+    const sum = (pick: (r: any) => any) =>
+      rows.reduce((acc, r) => acc + (parseFloat(pick(r) ?? 0) || 0), 0);
 
-  const groupBy = (key: string) =>
-    rows.reduce((acc: any, row: any) => {
-      const k = row[key] ?? 'Unknown';
+    const totalSales    = sum(r => r.order_detail_price ?? r.price);
+    const totalDiscount = sum(r => r.order_detail_discount ?? r.discount);
+    // the API's GST field is order_detail_tax — order_detail_gst does not exist
+    const totalGst      = sum(r => r.order_detail_tax ?? r.order_detail_gst ?? r.gst ?? r.tax);
+
+    return {
+      totalRecords: rows.length,
+      totalSales,
+      totalDiscount,
+      totalGst,
+      // mirrors the web admin's "Total Net Price (Incl. GST)" card: sales + GST, discount NOT
+      // subtracted. Per-row and per-group net price still nets off discount, as the web does.
+      totalNet: totalSales + totalGst,
+    };
+  }, [rows]);
+
+  const groupKey = activeTab === 'Trainer Wise' ? 'trainer_name'
+    : activeTab === 'Package Wise' ? 'package_name'
+    : activeTab === 'Branch Wise' ? 'branch_name'
+    : null;
+
+  const groupedRows = useMemo(() => {
+    if (!groupKey) return null;
+    return Object.values(rows.reduce((acc: any, row: any) => {
+      // trainer_name comes back as ' ' on non-PT sales, so ?? alone leaves a blank label
+      const k = String(row[groupKey] ?? '').trim() || 'Unassigned';
       if (!acc[k]) acc[k] = { label: k, rows: [], total: 0 };
       acc[k].rows.push(row);
       acc[k].total += parseFloat(row.order_detail_net_price ?? row.net_price ?? row.order_detail_price ?? 0) || 0;
       return acc;
-    }, {});
+    }, {}));
+  }, [rows, groupKey]);
 
-  const renderDetailRow = ({ item, index }: { item: any; index: number }) => (
-    <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
-      <Text style={[tbl.cell, tbl.cellMuted, { width: 36 }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, tbl.cellRed, { width: 130 }]} numberOfLines={1}>
-        {item.client_name ?? item.member_name ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
-        {item.package_name ?? item.product_name ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {item.sale_date ?? item.created_at?.slice(0, 10) ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, tbl.cellGreen, { width: 90 }]}>
-        {fmtRs(item.order_detail_net_price ?? item.net_price ?? item.order_detail_price)}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {fmtRs(item.order_detail_discount ?? item.discount)}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {item.branch_name ?? item.branch ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
-        {item.sold_by ?? item.seller_name ?? item.trainer_name ?? '—'}
-      </Text>
-    </View>
+  const renderDetailRow = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <DetailRow item={item} index={index} />
+    ),
+    [],
   );
 
-  const renderGrouped = (groupKey: string) => {
-    const groups = groupBy(groupKey);
-    return (
-      <ScrollView contentContainerStyle={{ padding: 12 }}>
-        {Object.values(groups).map((g: any, i) => (
-          <View key={i} style={s.groupCard}>
-            <View style={s.groupHeader}>
-              <Text style={s.groupLabel}>{g.label}</Text>
-              <Text style={s.groupTotal}>{fmtRs(g.total)}</Text>
-            </View>
-            <Text style={s.groupCount}>{g.rows.length} sale{g.rows.length !== 1 ? 's' : ''}</Text>
+  const renderGrouped = () => (
+    <ScrollView contentContainerStyle={{ padding: 12 }}>
+      {groupedRows!.map((g: any, i) => (
+        <View key={i} style={s.groupCard}>
+          <View style={s.groupHeader}>
+            <Text style={s.groupLabel}>{g.label}</Text>
+            <Text style={s.groupTotal}>{fmtRs(g.total)}</Text>
           </View>
-        ))}
-      </ScrollView>
-    );
-  };
+          <Text style={s.groupCount}>{g.rows.length} sale{g.rows.length !== 1 ? 's' : ''}</Text>
+        </View>
+      ))}
+    </ScrollView>
+  );
 
   return (
     <>
@@ -178,11 +242,11 @@ const DetailedSalesReportScreen = () => {
             {/* Stats strip */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.statsStrip} contentContainerStyle={s.statsContent}>
               {[
-                { label: 'Records',   value: totalRecords,       color: '#2563EB' },
-                { label: 'Sales',     value: fmtRs(totalSales),  color: '#16A34A' },
-                { label: 'GST',       value: fmtRs(totalGst),    color: '#7C3AED' },
-                { label: 'Net Price', value: fmtRs(totalNet),    color: '#D97706' },
-                { label: 'Discount',  value: fmtRs(totalDiscount), color: '#E63946' },
+                { label: 'Records',          value: totalRecords,         color: '#2563EB' },
+                { label: 'Sales (Excl GST)', value: fmtRs(totalSales),    color: '#16A34A' },
+                { label: 'GST (Tax)',        value: fmtRs(totalGst),      color: '#7C3AED' },
+                { label: 'Net (Incl GST)',   value: fmtRs(totalNet),      color: '#D97706' },
+                { label: 'Discount',         value: fmtRs(totalDiscount), color: '#E63946' },
               ].map(st => (
                 <View key={st.label} style={[s.statCard, { borderTopColor: st.color }]}>
                   <Text style={[s.statValue, { color: st.color }]} numberOfLines={1}>{st.value}</Text>
@@ -210,29 +274,27 @@ const DetailedSalesReportScreen = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator style={{ flex: 1 }}>
                 <View style={{ flex: 1 }}>
                   <View style={tbl.header}>
-                    {[{ l: '#', w: 36 }, { l: 'Client', w: 130 }, { l: 'Package', w: 100 }, { l: 'Date', w: 80 }, { l: 'Net Price', w: 90 }, { l: 'Discount', w: 80 }, { l: 'Branch', w: 80 }, { l: 'Sold By', w: 100 }].map(h => (
+                    {COLS.map(h => (
                       <Text key={h.l} style={[tbl.headerCell, { width: h.w }]}>{h.l}</Text>
                     ))}
                   </View>
                   <FlatList
                     data={rows}
-                    keyExtractor={(_, i) => i.toString()}
+                    keyExtractor={(_: any, i: number) => i.toString()}
                     renderItem={renderDetailRow}
                     showsVerticalScrollIndicator={false}
                   />
                 </View>
               </ScrollView>
-            ) : activeTab === 'Trainer Wise'  ? renderGrouped('trainer_name')
-              : activeTab === 'Package Wise'  ? renderGrouped('package_name')
-              : activeTab === 'Branch Wise'   ? renderGrouped('branch_name')
+            ) : groupKey ? renderGrouped()
               : (
                 <ScrollView contentContainerStyle={{ padding: 12 }}>
                   <View style={s.summaryCard}>
                     <Text style={s.summaryLine}>Total Records:  <Text style={s.bold}>{totalRecords}</Text></Text>
-                    <Text style={s.summaryLine}>Total Sales:    <Text style={s.bold}>{fmtRs(totalSales)}</Text></Text>
+                    <Text style={s.summaryLine}>Total Sales (Excl GST): <Text style={s.bold}>{fmtRs(totalSales)}</Text></Text>
                     <Text style={s.summaryLine}>Total Discount: <Text style={s.bold}>{fmtRs(totalDiscount)}</Text></Text>
-                    <Text style={s.summaryLine}>Total GST:      <Text style={s.bold}>{fmtRs(totalGst)}</Text></Text>
-                    <Text style={s.summaryLine}>Net Price:      <Text style={[s.bold, { color: '#10b981' }]}>{fmtRs(totalNet)}</Text></Text>
+                    <Text style={s.summaryLine}>Total GST (Tax): <Text style={s.bold}>{fmtRs(totalGst)}</Text></Text>
+                    <Text style={s.summaryLine}>Net Price (Incl GST): <Text style={[s.bold, { color: '#10b981' }]}>{fmtRs(totalNet)}</Text></Text>
                   </View>
                 </ScrollView>
               )}
@@ -260,9 +322,9 @@ const s = StyleSheet.create({
   dateBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#FAFAFA' },
   dateText:     { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
   sep:          { fontSize: 14, color: '#999' },
-  chipRow:      { height: 30, marginBottom: 8 },
-  chipContent:  { alignItems: 'center', gap: 6 },
-  chip:         { height: 26, backgroundColor: '#F5F5F5', borderRadius: 13, paddingHorizontal: 12, justifyContent: 'center' },
+  chipRow:      { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
+  chipContent:  { paddingVertical: 2, alignItems: 'center', gap: 6 },
+  chip:         { paddingVertical: 5, backgroundColor: '#F5F5F5', borderRadius: 13, paddingHorizontal: 12, justifyContent: 'center' },
   chipText:     { fontSize: 12, color: '#555', fontWeight: '500' },
   goBtn:        { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 11, alignItems: 'center' },
   goText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },
@@ -270,13 +332,14 @@ const s = StyleSheet.create({
   emptyIcon:    { fontSize: 40, marginBottom: 10 },
   emptyTitle:   { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 4 },
   emptySubtitle:{ fontSize: 13, color: '#6B7280', textAlign: 'center', paddingHorizontal: 32 },
-  statsStrip:   { height: 72, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', backgroundColor: '#FFF' },
-  statsContent: { alignItems: 'center', gap: 8, paddingHorizontal: 12 },
-  statCard:     { backgroundColor: '#FAFAFA', borderRadius: 8, padding: 8, width: 110, alignItems: 'center', borderTopWidth: 3 },
+  // no fixed height — the strip hugs its cards, so spacing comes only from paddingVertical
+  statsStrip:   { flexGrow: 0, flexShrink: 0, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', backgroundColor: '#FFF' },
+  statsContent: { alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  statCard:     { backgroundColor: '#FAFAFA', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 8, width: 110, alignItems: 'center', borderTopWidth: 3 },
   statValue:    { fontWeight: '800', fontSize: 13 },
   statLabel:    { fontSize: 10, color: '#999', marginTop: 2 },
-  tabRow:       { height: 38, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  tabContent:   { alignItems: 'center', gap: 4, paddingHorizontal: 12 },
+  tabRow:       { flexGrow: 0, flexShrink: 0, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  tabContent:   { alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6 },
   tab:          { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: '#F0F0F0' },
   tabActive:    { backgroundColor: '#E63946' },
   tabText:      { fontSize: 12, color: '#555', fontWeight: '500' },
@@ -300,6 +363,9 @@ const tbl = StyleSheet.create({
   cellMuted:  { color: '#888' },
   cellRed:    { color: '#C0392B', fontWeight: '600' },
   cellGreen:  { color: '#10b981', fontWeight: '600' },
+  cellPurple: { color: '#7C3AED', fontWeight: '600' },
+  badge:      { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, alignSelf: 'flex-start' },
+  badgeText:  { fontSize: 10, fontWeight: '700' },
 });
 
 export default DetailedSalesReportScreen;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -27,6 +27,30 @@ const QUICK = [
   { label: 'Last 30',   start: () => daysAgo(30), end: today },
   { label: 'Last 90',   start: () => daysAgo(90), end: today },
 ];
+
+const BootcampRow = React.memo(({ item, index }: { item: any; index: number }) => (
+  <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
+    <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
+    <Text style={[tbl.cell, tbl.red, { width: 130 }]} numberOfLines={1}>
+      {item.client_name ?? item.member_name ?? item.name ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: 110 }]} numberOfLines={1}>
+      {item.package_name ?? item.session_name ?? item.product ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: 80 }]}>
+      {item.sale_date ?? item.session_date ?? item.date ?? item.created_at?.slice(0, 10) ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, tbl.green, { width: 90 }]}>
+      {fmtRs(item.net_price ?? item.total_net_price ?? item.price)}
+    </Text>
+    <Text style={[tbl.cell, { width: 80 }]}>
+      {fmtRs(item.discount ?? item.total_discount)}
+    </Text>
+    <Text style={[tbl.cell, { width: 90 }]} numberOfLines={1}>
+      {item.trainer_name ?? item.trainer ?? item.sold_by ?? '—'}
+    </Text>
+  </View>
+));
 
 const SalesByBootcampScreen = () => {
   const navigation = useNavigation();
@@ -59,31 +83,16 @@ const SalesByBootcampScreen = () => {
     setPickerFor(null);
   };
 
-  const totalNet      = rows.reduce((s, r) => s + (parseFloat(r.net_price ?? r.total_net_price ?? r.price ?? 0) || 0), 0);
-  const totalDiscount = rows.reduce((s, r) => s + (parseFloat(r.discount ?? r.total_discount ?? 0) || 0), 0);
+  const { totalNet, totalDiscount } = useMemo(() => ({
+    totalNet: rows.reduce((s, r) => s + (parseFloat(r.net_price ?? r.total_net_price ?? r.price ?? 0) || 0), 0),
+    totalDiscount: rows.reduce((s, r) => s + (parseFloat(r.discount ?? r.total_discount ?? 0) || 0), 0),
+  }), [rows]);
 
-  const renderRow = ({ item, index }: { item: any; index: number }) => (
-    <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
-      <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, tbl.red, { width: 130 }]} numberOfLines={1}>
-        {item.client_name ?? item.member_name ?? item.name ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 110 }]} numberOfLines={1}>
-        {item.package_name ?? item.session_name ?? item.product ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {item.sale_date ?? item.session_date ?? item.date ?? item.created_at?.slice(0, 10) ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, tbl.green, { width: 90 }]}>
-        {fmtRs(item.net_price ?? item.total_net_price ?? item.price)}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {fmtRs(item.discount ?? item.total_discount)}
-      </Text>
-      <Text style={[tbl.cell, { width: 90 }]} numberOfLines={1}>
-        {item.trainer_name ?? item.trainer ?? item.sold_by ?? '—'}
-      </Text>
-    </View>
+  const renderRow = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <BootcampRow item={item} index={index} />
+    ),
+    [],
   );
 
   return (
@@ -166,7 +175,7 @@ const SalesByBootcampScreen = () => {
                 </View>
                 <FlatList
                   data={rows}
-                  keyExtractor={(_, i) => i.toString()}
+                  keyExtractor={(_: any, i: number) => i.toString()}
                   renderItem={renderRow}
                   showsVerticalScrollIndicator={false}
                 />
@@ -199,9 +208,9 @@ const s = StyleSheet.create({
   dateBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#FAFAFA' },
   dateText:     { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
   sep:          { fontSize: 14, color: '#999' },
-  chipRow:      { height: 32, marginBottom: 8 },
-  chipContent:  { alignItems: 'center', gap: 8 },
-  chip:         { height: 28, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center' },
+  chipRow:      { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
+  chipContent:  { paddingVertical: 2, alignItems: 'center', gap: 8 },
+  chip:         { paddingVertical: 6, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center' },
   chipText:     { fontSize: 12, color: '#444', fontWeight: '500' },
   goBtn:        { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
   goText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },

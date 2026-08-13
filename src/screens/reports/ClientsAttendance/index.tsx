@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -26,6 +26,30 @@ const QUICK = [
   { label: 'This Month', start: startOfMonth,   end: today },
   { label: 'Last 30',   start: () => daysAgo(30), end: today },
 ];
+
+const AttendanceRow = React.memo(({ item, index }: { item: any; index: number }) => (
+  <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
+    <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
+    <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
+      {item.client_name ?? item.member_name ?? item.name ?? item.full_name ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: 80 }]}>
+      {item.date ?? item.attendance_date ?? item.check_in_date ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: 80 }]}>
+      {item.check_in ?? item.time_in ?? item.check_in_time ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: 80 }]}>
+      {item.check_out ?? item.time_out ?? item.check_out_time ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: 70 }]}>
+      {item.gender ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
+      {item.membership_type ?? item.package_name ?? item.type ?? '—'}
+    </Text>
+  </View>
+));
 
 const ClientsAttendanceScreen = () => {
   const navigation = useNavigation();
@@ -59,31 +83,20 @@ const ClientsAttendanceScreen = () => {
   };
 
   // Gender breakdown
-  const maleCount   = rows.filter(r => (r.gender ?? '').toLowerCase() === 'male').length;
-  const femaleCount = rows.filter(r => (r.gender ?? '').toLowerCase() === 'female').length;
+  const maleCount = useMemo(
+    () => rows.filter(r => (r.gender ?? '').toLowerCase() === 'male').length,
+    [rows],
+  );
+  const femaleCount = useMemo(
+    () => rows.filter(r => (r.gender ?? '').toLowerCase() === 'female').length,
+    [rows],
+  );
 
-  const renderRow = ({ item, index }: { item: any; index: number }) => (
-    <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
-      <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
-        {item.client_name ?? item.member_name ?? item.name ?? item.full_name ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {item.date ?? item.attendance_date ?? item.check_in_date ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {item.check_in ?? item.time_in ?? item.check_in_time ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 80 }]}>
-        {item.check_out ?? item.time_out ?? item.check_out_time ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 70 }]}>
-        {item.gender ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
-        {item.membership_type ?? item.package_name ?? item.type ?? '—'}
-      </Text>
-    </View>
+  const renderRow = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <AttendanceRow item={item} index={index} />
+    ),
+    [],
   );
 
   return (
@@ -166,7 +179,7 @@ const ClientsAttendanceScreen = () => {
                 </View>
                 <FlatList
                   data={rows}
-                  keyExtractor={(_, i) => i.toString()}
+                  keyExtractor={(_: any, i: number) => i.toString()}
                   renderItem={renderRow}
                   showsVerticalScrollIndicator={false}
                 />
@@ -195,9 +208,9 @@ const s = StyleSheet.create({
   dateBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#FAFAFA' },
   dateText:     { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
   sep:          { fontSize: 14, color: '#999' },
-  chipRow:      { height: 32, marginBottom: 8 },
-  chipContent:  { alignItems: 'center', gap: 8 },
-  chip:         { height: 28, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center' },
+  chipRow:      { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
+  chipContent:  { paddingVertical: 2, alignItems: 'center', gap: 8 },
+  chip:         { paddingVertical: 6, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center' },
   chipText:     { fontSize: 12, color: '#444', fontWeight: '500' },
   goBtn:        { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
   goText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },

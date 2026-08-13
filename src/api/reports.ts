@@ -24,13 +24,27 @@ export const getCafeReport = (params: {
 export const getTransactionSlip = (order_id: number) =>
   api.get(`/v1/transaction-slip?order_id=${order_id}`);
 
-// Summary Report
+// Summary Report. `category` narrows to one order category (10 = Cafe) — the
+// Daily Sales & Expense report uses it to pull cafe sales per date.
 export const getTransactionSummary = (params: {
   branch_id: number | string;
   start_date: string;
   end_date: string;
+  category?: number | string;
 }) =>
   api.get('/v1/transaction-report-summery', { params });
+
+// Daily Sales & Expense Analysis — per-date sales for one branch, split by
+// payment method. Shape: { immediate: [{ date, pending, Cash, Online,
+// Credit_Card }], later: [...] }. Confirmed live 2026-08-13 against a HAR
+// capture of the web admin's report, which sums the `immediate` bucket only
+// (including `pending`) and discards `later`.
+export const getDailySalesSummary = (params: {
+  branch_id: number | string;
+  start_date: string;
+  end_date: string;
+}) =>
+  api.get('/v1/summary', { params });
 
 // Sales Report — GET /v1/generate-sales-report. Confirmed live 2026-08-06:
 // this endpoint 500s unconditionally with a genuine backend bug
@@ -150,5 +164,7 @@ export const getClientsReport = (params: {
   start_date: string;
   end_date: string;
   status?: string;
+  limit?: number;
+  page?: number;
 }) =>
   api.get('/v1/clients/get', { params });

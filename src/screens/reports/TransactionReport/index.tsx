@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -72,6 +72,26 @@ const flatten = (raw: any[]): any[] => {
   return raw;
 };
 
+const TransactionRow = React.memo(({ item, index }: { item: any; index: number }) => (
+  <View style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
+    <Text style={[tbl.cell, tbl.cellMuted, { width: COL_WIDTHS[0] }]}>{index + 1}</Text>
+    <Text style={[tbl.cell, tbl.cellRed,  { width: COL_WIDTHS[1] }]} numberOfLines={1}>
+      {item.client_name ?? item.member_name ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, { width: COL_WIDTHS[2] }]}>{item.order_id ?? item.id ?? '—'}</Text>
+    <Text style={[tbl.cell, { width: COL_WIDTHS[3] }]} numberOfLines={1}>{item.sold_by ?? '—'}</Text>
+    <Text style={[tbl.cell, { width: COL_WIDTHS[4] }]}>
+      {item._date ?? item.sale_date ?? item.date ?? '—'}
+    </Text>
+    <Text style={[tbl.cell, tbl.cellGreen, { width: COL_WIDTHS[5] }]}>
+      {fmtRs(item.net_price ?? item.price)}
+    </Text>
+    <Text style={[tbl.cell, { width: COL_WIDTHS[6] }]}>
+      {fmtRs(item.discount)}
+    </Text>
+  </View>
+));
+
 const TransactionReportScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
@@ -108,9 +128,11 @@ const TransactionReportScreen = () => {
     setPickerFor(null);
   };
 
-  const totalPrice    = rows.reduce((s, r) => s + (parseFloat(r.net_price ?? r.price ?? 0) || 0), 0);
-  const totalDiscount = rows.reduce((s, r) => s + (parseFloat(r.discount ?? 0) || 0), 0);
-  const totalGst      = rows.reduce((s, r) => s + (parseFloat(r.gst ?? r.tax ?? 0) || 0), 0);
+  const { totalPrice, totalDiscount, totalGst } = useMemo(() => ({
+    totalPrice: rows.reduce((s, r) => s + (parseFloat(r.net_price ?? r.price ?? 0) || 0), 0),
+    totalDiscount: rows.reduce((s, r) => s + (parseFloat(r.discount ?? 0) || 0), 0),
+    totalGst: rows.reduce((s, r) => s + (parseFloat(r.gst ?? r.tax ?? 0) || 0), 0),
+  }), [rows]);
 
   const TableHeader = () => (
     <View style={tbl.headerRow}>
@@ -120,24 +142,11 @@ const TransactionReportScreen = () => {
     </View>
   );
 
-  const renderRow = ({ item, index }: { item: any; index: number }) => (
-    <View style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
-      <Text style={[tbl.cell, tbl.cellMuted, { width: COL_WIDTHS[0] }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, tbl.cellRed,  { width: COL_WIDTHS[1] }]} numberOfLines={1}>
-        {item.client_name ?? item.member_name ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, { width: COL_WIDTHS[2] }]}>{item.order_id ?? item.id ?? '—'}</Text>
-      <Text style={[tbl.cell, { width: COL_WIDTHS[3] }]} numberOfLines={1}>{item.sold_by ?? '—'}</Text>
-      <Text style={[tbl.cell, { width: COL_WIDTHS[4] }]}>
-        {item._date ?? item.sale_date ?? item.date ?? '—'}
-      </Text>
-      <Text style={[tbl.cell, tbl.cellGreen, { width: COL_WIDTHS[5] }]}>
-        {fmtRs(item.net_price ?? item.price)}
-      </Text>
-      <Text style={[tbl.cell, { width: COL_WIDTHS[6] }]}>
-        {fmtRs(item.discount)}
-      </Text>
-    </View>
+  const renderRow = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <TransactionRow item={item} index={index} />
+    ),
+    [],
   );
 
   const TotalsRow = () => (
@@ -232,7 +241,7 @@ const TransactionReportScreen = () => {
               <TableHeader />
               <FlatList
                 data={rows}
-                keyExtractor={(_, i) => i.toString()}
+                keyExtractor={(_: any, i: number) => i.toString()}
                 renderItem={renderRow}
                 ListFooterComponent={<TotalsRow />}
                 showsVerticalScrollIndicator={false}
@@ -261,9 +270,9 @@ const ui = StyleSheet.create({
   dateBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#FAFAFA' },
   dateText:    { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
   sep:         { fontSize: 14, color: '#999' },
-  chipRow:     { height: 32, marginBottom: 10 },
-  chipContent: { alignItems: 'center', gap: 8, paddingRight: 4 },
-  chip:        { height: 28, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
+  chipRow:     { flexGrow: 0, flexShrink: 0, marginBottom: 10 },
+  chipContent: { paddingVertical: 2, alignItems: 'center', gap: 8, paddingRight: 4 },
+  chip:        { paddingVertical: 6, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 14, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
   chipText:    { fontSize: 12, color: '#444', fontWeight: '500', lineHeight: 14 },
   goBtn:       { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginBottom: 14 },
   goText:      { color: '#FFF', fontWeight: '700', fontSize: 15 },

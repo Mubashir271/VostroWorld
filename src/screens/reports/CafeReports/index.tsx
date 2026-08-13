@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -56,6 +56,21 @@ const flatten = (raw: any[]): any[] => {
   return raw;
 };
 
+const CafeRow = React.memo(({ item, index }: { item: any; index: number }) => (
+  <View style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
+    <Text style={[tbl.cell, tbl.cellMuted, { width: COL_W[0] }]}>{index + 1}</Text>
+    <Text style={[tbl.cell, tbl.cellRed, { width: COL_W[1] }]} numberOfLines={1}>
+      {item.client_name ?? item.member_name ?? 'Walk in Customer'}
+    </Text>
+    <Text style={[tbl.cell, { width: COL_W[2] }]}>{item.order_id ?? item.id ?? '—'}</Text>
+    <Text style={[tbl.cell, { width: COL_W[3] }]}>{item._date ?? item.sale_date ?? item.date ?? '—'}</Text>
+    <Text style={[tbl.cell, { width: COL_W[4] }]}>{fmtRs(item.price)}</Text>
+    <Text style={[tbl.cell, { width: COL_W[5] }]}>{fmtRs(item.discount)}</Text>
+    <Text style={[tbl.cell, { width: COL_W[6] }]}>{fmtRs(item.gst ?? item.tax)}</Text>
+    <Text style={[tbl.cell, tbl.cellGreen, { width: COL_W[7] }]}>{fmtRs(item.net_price ?? item.price)}</Text>
+  </View>
+));
+
 const CafeReportScreen = () => {
   const navigation = useNavigation();
   const { profile } = useSelector((state: RootState) => state.user);
@@ -100,12 +115,19 @@ const CafeReportScreen = () => {
     setEndDate(q.end());
   };
 
-  const totalPrice    = rows.reduce((s, r) => s + (parseFloat(r.price ?? 0) || 0), 0);
-  const totalDiscount = rows.reduce((s, r) => s + (parseFloat(r.discount ?? 0) || 0), 0);
-  const totalGst      = rows.reduce((s, r) => s + (parseFloat(r.gst ?? r.tax ?? 0) || 0), 0);
-  const totalNet      = rows.reduce((s, r) => s + (parseFloat(r.net_price ?? r.price ?? 0) || 0), 0);
-  const totalReceived = rows.reduce((s, r) => s + (parseFloat(r.total_received ?? r.net_price ?? r.price ?? 0) || 0), 0);
-  const totalPending  = Math.max(0, totalNet - totalReceived);
+  const {
+    totalPrice, totalDiscount, totalGst, totalNet, totalReceived, totalPending,
+  } = useMemo(() => {
+    const price    = rows.reduce((s, r) => s + (parseFloat(r.price ?? 0) || 0), 0);
+    const discount = rows.reduce((s, r) => s + (parseFloat(r.discount ?? 0) || 0), 0);
+    const gst      = rows.reduce((s, r) => s + (parseFloat(r.gst ?? r.tax ?? 0) || 0), 0);
+    const net      = rows.reduce((s, r) => s + (parseFloat(r.net_price ?? r.price ?? 0) || 0), 0);
+    const received = rows.reduce((s, r) => s + (parseFloat(r.total_received ?? r.net_price ?? r.price ?? 0) || 0), 0);
+    return {
+      totalPrice: price, totalDiscount: discount, totalGst: gst, totalNet: net,
+      totalReceived: received, totalPending: Math.max(0, net - received),
+    };
+  }, [rows]);
 
   const TableHeader = () => (
     <View style={tbl.headerRow}>
@@ -115,19 +137,11 @@ const CafeReportScreen = () => {
     </View>
   );
 
-  const renderRow = ({ item, index }: { item: any; index: number }) => (
-    <View style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
-      <Text style={[tbl.cell, tbl.cellMuted, { width: COL_W[0] }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, tbl.cellRed, { width: COL_W[1] }]} numberOfLines={1}>
-        {item.client_name ?? item.member_name ?? 'Walk in Customer'}
-      </Text>
-      <Text style={[tbl.cell, { width: COL_W[2] }]}>{item.order_id ?? item.id ?? '—'}</Text>
-      <Text style={[tbl.cell, { width: COL_W[3] }]}>{item._date ?? item.sale_date ?? item.date ?? '—'}</Text>
-      <Text style={[tbl.cell, { width: COL_W[4] }]}>{fmtRs(item.price)}</Text>
-      <Text style={[tbl.cell, { width: COL_W[5] }]}>{fmtRs(item.discount)}</Text>
-      <Text style={[tbl.cell, { width: COL_W[6] }]}>{fmtRs(item.gst ?? item.tax)}</Text>
-      <Text style={[tbl.cell, tbl.cellGreen, { width: COL_W[7] }]}>{fmtRs(item.net_price ?? item.price)}</Text>
-    </View>
+  const renderRow = useCallback(
+    ({ item, index }: { item: any; index: number }) => (
+      <CafeRow item={item} index={index} />
+    ),
+    [],
   );
 
   return (
