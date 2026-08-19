@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getSPTAttendancePackageNames,
   getSPTAttendancePackages,
@@ -53,9 +53,10 @@ const TABLE_W = COLS.reduce((s, c) => s + c.width, 0);
 
 const SPTAttendance = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [packageNames, setPackageNames] = useState<PackageName[]>([]);
@@ -79,24 +80,24 @@ const SPTAttendance = () => {
 
   const loadTrainers = useCallback(async () => {
     try {
-      const res = await getSPTAppointmentTrainers({ branch_id: branchId });
+      const res = await getSPTAppointmentTrainers({ branch_id: listBranchId });
       const list = res?.data ?? [];
       setTrainers((Array.isArray(list) ? list : []).map((t: any) => ({
         id: t.id,
         name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim(),
       })));
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadPackageNames = useCallback(async (uid?: string) => {
     setPkgNamesLoading(true);
     try {
-      const res = await getSPTAttendancePackageNames({ branch_id: branchId, user_id: uid || '' });
+      const res = await getSPTAttendancePackageNames({ branch_id: listBranchId, user_id: uid || '' });
       const list = res?.data ?? [];
       setPackageNames(Array.isArray(list) ? list.map((p: any) => ({ id: p.id, name: p.name })) : []);
     } catch {}
     finally { setPkgNamesLoading(false); }
-  }, [branchId]);
+  }, [listBranchId]);
 
   useFocusEffect(useCallback(() => {
     loadTrainers();
@@ -116,7 +117,7 @@ const SPTAttendance = () => {
     setError('');
     try {
       const res = await getSPTAttendancePackages({
-        branch_id: branchId,
+        branch_id: listBranchId,
         trainer_id: trainerId || '',
         package_id: packageId || '',
         page: 1,
@@ -132,7 +133,7 @@ const SPTAttendance = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, trainerId, packageId, limit]);
+  }, [listBranchId, trainerId, packageId, limit]);
 
   const handleMarkAttendance = (pkg: SPTPackage, client: OrderDetail) => {
     Alert.alert(
@@ -166,10 +167,20 @@ const SPTAttendance = () => {
 
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Trainer</Text>

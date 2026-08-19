@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getAppointmentTrainers } from '../../../api/nutrition';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
 const TIME_SLOTS = [
@@ -30,9 +30,10 @@ interface AssignedRow {
 
 const ManageAvailability = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? `Branch ${branchId}`;
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [trainers, setTrainers] = useState<any[]>([]);
   const [trainer, setTrainer] = useState<any>(null);
@@ -44,10 +45,10 @@ const ManageAvailability = () => {
   const [assigned, setAssigned] = useState<AssignedRow[]>([]);
 
   useEffect(() => {
-    getAppointmentTrainers({ branch_id: branchId })
+    getAppointmentTrainers({ branch_id: listBranchId })
       .then(res => setTrainers(res.data?.data ?? []))
       .catch(() => setTrainers([]));
-  }, [branchId]);
+  }, [listBranchId]);
 
   const toggleSlot = (slot: string) => {
     setSelectedSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]);
@@ -91,11 +92,20 @@ const ManageAvailability = () => {
 
           <View style={styles.row2}>
             <View style={[styles.field, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>Branch Name <Text style={styles.req}>*</Text></Text>
-              <View style={styles.readonlyBox}>
-                <Text style={styles.readonlyText}>{branchName}</Text>
-                <Icon name="chevron-down" size={18} color="#aaa" />
-              </View>
+              <BranchField
+                label={<>Branch Name <Text style={styles.req}>*</Text></>}
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                staticChevron
+                labelStyle={styles.fieldLabel}
+                staticStyle={styles.readonlyBox}
+                staticTextStyle={styles.readonlyText}
+                pickerStyle={styles.readonlyBox}
+                pickerTextStyle={styles.readonlyText}
+              />
             </View>
 
             <View style={[styles.field, { flex: 1 }]}>

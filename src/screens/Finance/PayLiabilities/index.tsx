@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { payLiability } from '../../../api/employeeDashboard';
 
 const TYPES = ['Credit', 'Debit'];
@@ -25,9 +25,10 @@ const today = () => fmt(new Date());
 
 const PayLiabilities = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branch_name ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, select: selectBranch,
+  } = useBranchSelector();
 
   const [amount, setAmount] = useState('');
   const [type, setType] = useState('Credit');
@@ -46,6 +47,7 @@ const PayLiabilities = () => {
   const flash = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 3000); };
 
   const handleAdd = async () => {
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setError('Amount is required and must be a positive number.');
       return;
@@ -101,10 +103,13 @@ const PayLiabilities = () => {
           {/* Row 1: Branch | Amount */}
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name*</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Amount*</Text>
@@ -248,11 +253,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 9,
     fontSize: 13, color: '#222', backgroundColor: '#FAFAFA',
   },
-  staticInput: {
-    borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
-    paddingHorizontal: 10, paddingVertical: 11, backgroundColor: '#F0F0F0',
-  },
-  staticText: { fontSize: 13, color: '#444' },
   picker: {
     borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
     paddingHorizontal: 10, paddingVertical: 11, backgroundColor: '#FAFAFA',

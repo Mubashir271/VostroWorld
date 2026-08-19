@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, TextInput, Platform,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import {
   getSalaryComponents,
@@ -100,9 +100,10 @@ const EMPTY_FORM = {
 
 const SalaryComponent = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branch_name ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
   const formatCurrency = useCurrencyFormatter();
 
   const [records, setRecords] = useState<SalaryComp[]>([]);
@@ -128,7 +129,7 @@ const SalaryComponent = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getSalaryComponents({ branch_id: branchId, limit: 200 });
+      const res = await getSalaryComponents({ branch_id: listBranchId, limit: 200 });
       const rows: SalaryComp[] = res?.data?.data ?? res?.data ?? [];
       setRecords(Array.isArray(rows) ? rows : []);
     } catch {
@@ -136,15 +137,15 @@ const SalaryComponent = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadStaff = useCallback(async () => {
     try {
-      const res = await getStaffList({ branch_id: branchId, limit: 500 });
+      const res = await getStaffList({ branch_id: listBranchId, limit: 500 });
       const list: Staff[] = res?.data?.data ?? res?.data ?? [];
       setStaffList(Array.isArray(list) ? list : []);
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   useEffect(() => {
     load();
@@ -162,6 +163,7 @@ const SalaryComponent = () => {
   };
 
   const handleSave = async () => {
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!form.staffId) { setError('Please select a staff member.'); return; }
     if (!form.componentName.trim()) { setError('Component Name is required.'); return; }
     if (!form.amount || isNaN(Number(form.amount))) { setError('Amount is required.'); return; }
@@ -262,10 +264,14 @@ const SalaryComponent = () => {
           {/* Row 1: Branch | Staff | Component */}
           <View style={styles.row3}>
             <View style={styles.col3}>
-              <Text style={styles.label}>Branch Name *</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name *"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+              />
             </View>
             <View style={styles.col3}>
               <Text style={styles.label}>Staff Name *</Text>
@@ -507,12 +513,6 @@ const styles = StyleSheet.create({
     fontSize: 13, color: '#222', backgroundColor: '#FAFAFA',
   },
   textarea: { height: 72, textAlignVertical: 'top' },
-  staticInput: {
-    borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
-    paddingHorizontal: 10, paddingVertical: 10,
-    backgroundColor: '#F0F0F0',
-  },
-  staticText: { fontSize: 13, color: '#444' },
   picker: {
     borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
     paddingHorizontal: 10, paddingVertical: 10,

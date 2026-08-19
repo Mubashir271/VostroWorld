@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppHeader from '../../components/AppHeader';
+import BranchField from '../../components/BranchField';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
-import { RootState } from '../../redux/store';
+import { useBranchSelector } from '../../hooks/useBranchSelector';
 
 const TRAINING_TYPES = ['Cardio', 'Weight Training'];
 const EXERCISE_TYPES: Record<string, string[]> = {
@@ -35,8 +35,10 @@ const COL = { sr: 36, name: 130, training: 110, type: 100, desc: 90, action: 110
 
 const ManageExercises = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchName = profile?.branchName ?? `Branch ${profile?.branchId ?? ''}`;
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, select: selectBranch,
+  } = useBranchSelector();
 
   const [exercises, setExercises] = useState<Exercise[]>(SAMPLE_EXERCISES);
   const [trainingType, setTrainingType] = useState('Weight Training');
@@ -124,10 +126,19 @@ const ManageExercises = () => {
             <View style={s.divider} />
 
             <View style={s.formGroup}>
-              <Text style={s.label}>Branch Name <Text style={s.required}>*</Text></Text>
-              <View style={s.readonlyBox}>
-                <Text style={s.readonlyText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label={<>Branch Name <Text style={s.required}>*</Text></>}
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={s.label}
+                staticStyle={s.readonlyBox}
+                staticTextStyle={s.readonlyText}
+                pickerStyle={s.readonlyBox}
+                pickerTextStyle={s.readonlyText}
+              />
             </View>
 
             <View style={s.formGroup}>

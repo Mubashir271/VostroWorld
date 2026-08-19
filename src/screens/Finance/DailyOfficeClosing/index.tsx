@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getDailyOfficeClosing } from '../../../api/employeeDashboard';
 
 const R = '#C62828';
@@ -48,9 +48,10 @@ const TYPE_MAP: { type: string; label: string }[] = [
 
 const DailyOfficeClosing = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, select: selectBranch,
+  } = useBranchSelector();
 
   const [startDate, setStartDate] = useState(today());
   const [endDate, setEndDate] = useState(today());
@@ -62,6 +63,7 @@ const DailyOfficeClosing = () => {
   const [error, setError] = useState('');
 
   const handleGenerate = async () => {
+    if (branchId == null) { setError('Please select a branch.'); return; }
     setLoading(true);
     setError('');
     setFetched(false);
@@ -110,10 +112,17 @@ const DailyOfficeClosing = () => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Daily Office Closing Report</Text>
 
-          <Text style={styles.label}>Branch Name</Text>
-          <View style={styles.staticInput}>
-            <Text style={styles.staticText}>{branchName}</Text>
-          </View>
+          <BranchField
+            label="Branch Name"
+            needsPicker={needsPicker}
+            branchName={branchName}
+            options={branchOptions}
+            loadingOptions={loadingBranches}
+            onSelect={selectBranch}
+            labelStyle={styles.label}
+            staticStyle={styles.staticInput}
+            staticTextStyle={styles.staticText}
+          />
 
           <View style={styles.row2}>
             <View style={styles.col2}>

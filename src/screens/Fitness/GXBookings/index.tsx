@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getDetailedSalesReport } from '../../../api/reports';
 
 // Confirmed live 2026-06-25: GX category (15) rows from
@@ -50,9 +50,10 @@ const addDays = (iso: string, days: number) => {
 
 const GXBookings = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [clientFilter, setClientFilter] = useState('');
   const [trainerFilter, setTrainerFilter] = useState('');
@@ -67,7 +68,7 @@ const GXBookings = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getDetailedSalesReport({ branch_id: branchId, start_date: startOfMonth(), end_date: today() });
+      const res = await getDetailedSalesReport({ branch_id: listBranchId, start_date: startOfMonth(), end_date: today() });
       const data: BookingRow[] = res?.data?.data ?? [];
       setRows(data.filter((r: any) => r.category === '15'));
       setFetched(true);
@@ -81,7 +82,7 @@ const GXBookings = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -109,10 +110,17 @@ const GXBookings = () => {
           <Text style={styles.cardTitle}>New GX Bookings</Text>
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Client Name</Text>

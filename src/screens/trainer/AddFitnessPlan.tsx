@@ -7,8 +7,10 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppHeader from '../../components/AppHeader';
+import BranchField from '../../components/BranchField';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
+import { useBranchSelector } from '../../hooks/useBranchSelector';
 
 const todayStr = () => {
   const d = new Date();
@@ -65,8 +67,11 @@ const DateField = ({ label, value, onChange, required }: { label: string; value:
 
 const AddFitnessPlan = () => {
   const navigation = useNavigation<any>();
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, select: selectBranch,
+  } = useBranchSelector();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchName = profile?.branchName ?? `Branch ${profile?.branchId ?? ''}`;
   const trainerName = `${profile?.firstName ?? ''} ${profile?.lastName ?? ''}`.trim() || 'Trainer';
 
   const [clientName, setClientName] = useState('');
@@ -105,10 +110,19 @@ const AddFitnessPlan = () => {
 
           <View style={s.row}>
             <View style={[s.formGroup, s.flex1]}>
-              <Text style={s.label}>Branch Name <Text style={s.required}>*</Text></Text>
-              <View style={s.readonlyBox}>
-                <Text style={s.readonlyText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label={<>Branch Name <Text style={s.required}>*</Text></>}
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={s.label}
+                staticStyle={s.readonlyBox}
+                staticTextStyle={s.readonlyText}
+                pickerStyle={s.readonlyBox}
+                pickerTextStyle={s.readonlyText}
+              />
             </View>
             <View style={[s.formGroup, s.flex1]}>
               <Text style={s.label}>Trainer <Text style={s.required}>*</Text></Text>

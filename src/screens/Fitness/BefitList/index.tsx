@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getBefitClients } from '../../../api/employeeDashboard';
 
 // Confirmed live 2026-06-30 via a captured HAR of the web admin's "New
@@ -52,9 +52,10 @@ const PAGE_SIZE = 25;
 
 const BefitList = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [clientFilter, setClientFilter] = useState('');
 
@@ -72,7 +73,7 @@ const BefitList = () => {
     setError('');
     try {
       const res = await getBefitClients({
-        branch_id: branchId,
+        branch_id: listBranchId,
         trainer_reservation: reservation === 'All' ? undefined : reservation,
         limit: 1000,
       });
@@ -86,7 +87,7 @@ const BefitList = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, reservation]);
+  }, [listBranchId, reservation]);
 
   const visibleRows = rows.filter(r => {
     if (clientFilter.trim() && !(r.client_name ?? '').toLowerCase().includes(clientFilter.trim().toLowerCase())) return false;
@@ -115,10 +116,19 @@ const BefitList = () => {
           <Text style={styles.cardTitle}>New Befit Clients</Text>
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Client Name</Text>

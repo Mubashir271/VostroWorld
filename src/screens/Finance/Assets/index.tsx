@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getAssets, addAsset,
   getExpenseCategories, getExpenseSubCategories,
@@ -51,9 +51,10 @@ interface AssetRow {
 
 const Assets = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   // ── form state
   const [name, setName] = useState('');
@@ -109,7 +110,7 @@ const Assets = () => {
     setListError('');
     try {
       const res = await getAssets({
-        branch_id: branchId,
+        branch_id: listBranchId,
         start_date: startDate,
         end_date: endDate,
         page: targetPage,
@@ -125,7 +126,7 @@ const Assets = () => {
     } finally {
       setListLoading(false);
     }
-  }, [branchId, startDate, endDate]);
+  }, [listBranchId, startDate, endDate]);
 
   useFocusEffect(useCallback(() => {
     loadDropdowns();
@@ -144,6 +145,7 @@ const Assets = () => {
       );
       return;
     }
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!name.trim()) { setError('Asset Name is required.'); return; }
     if (!purchaseCost || isNaN(parseFloat(purchaseCost))) { setError('Purchase Cost is required.'); return; }
     setError('');
@@ -192,10 +194,20 @@ const Assets = () => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Add Asset</Text>
 
-          <Text style={styles.label}>Branch Name</Text>
-          <View style={styles.staticInput}>
-            <Text style={styles.staticText}>{branchName}</Text>
-          </View>
+          <BranchField
+            label="Branch Name"
+            needsPicker={needsPicker}
+            branchName={branchName}
+            options={branchOptions}
+            loadingOptions={loadingBranches}
+            onSelect={selectBranch}
+            labelStyle={styles.label}
+            staticStyle={styles.staticInput}
+            staticTextStyle={styles.staticText}
+            pickerStyle={styles.picker}
+            pickerTextStyle={styles.pickerText}
+            placeholderStyle={styles.placeholder}
+          />
 
           <View style={styles.row2}>
             <View style={styles.col2}>

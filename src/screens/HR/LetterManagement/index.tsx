@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, TextInput, Platform,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getStaffDocuments,
   addStaffDocument,
@@ -74,9 +74,10 @@ const EMPTY_FORM = {
 
 const LetterManagement = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [records, setRecords] = useState<DocRecord[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -98,7 +99,7 @@ const LetterManagement = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getStaffDocuments({ branch_id: branchId, limit: 200 } as any);
+      const res = await getStaffDocuments({ branch_id: listBranchId, limit: 200 } as any);
       const rows: DocRecord[] = res?.data?.data ?? res?.data ?? [];
       setRecords(Array.isArray(rows) ? rows : []);
     } catch {
@@ -106,15 +107,15 @@ const LetterManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadStaff = useCallback(async () => {
     try {
-      const res = await getStaffList({ branch_id: branchId, limit: 500 });
+      const res = await getStaffList({ branch_id: listBranchId, limit: 500 });
       const list: Staff[] = res?.data?.data ?? res?.data ?? [];
       setStaffList(Array.isArray(list) ? list : []);
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   useEffect(() => {
     load();
@@ -129,6 +130,7 @@ const LetterManagement = () => {
   const resetForm = () => setForm({ ...EMPTY_FORM });
 
   const handleSave = async () => {
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!form.staffId) { setError('Please select a Staff Name.'); return; }
     if (!form.type.trim()) { setError('Please select a Document Type.'); return; }
     if (!form.documentCode.trim()) { setError('Document Code is required.'); return; }
@@ -187,10 +189,20 @@ const LetterManagement = () => {
           {/* Row 1: Branch | Staff | Document Category */}
           <View style={styles.row3}>
             <View style={styles.col3}>
-              <Text style={styles.label}>Branch Name *</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name *"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.col3}>
               <Text style={styles.label}>Staff Name *</Text>

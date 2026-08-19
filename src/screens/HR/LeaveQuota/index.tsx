@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, TextInput,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getAllLeaveQuota,
   addLeaveQuota,
@@ -17,11 +17,17 @@ import {
   getStaffList,
 } from '../../../api/employeeDashboard';
 
+// Shapes /v1/hr/leaves-quota/index (HAR-confirmed 2026-08-19): branch and
+// staff names arrive nested under branch_info/user_info, not as flat
+// branch_name/staff_name columns. The flat fields are kept as fallbacks in
+// case the endpoint is ever flattened to match its siblings.
 interface QuotaRecord {
   id: number;
   branch_id?: number;
   branch_name?: string;
+  branch_info?: { id: number; name: string };
   user_id?: number;
+  user_info?: { id: number; name: string };
   staff_name?: string;
   name?: string;
   leave_type: string;
@@ -53,9 +59,10 @@ const STATUS_BG = (s: any) => STATUS_LABEL(s) === 'Active' ? '#E8F5E9' : '#FFEBE
 
 const LeaveQuota = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branch_name ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [records, setRecords] = useState<QuotaRecord[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -95,7 +102,7 @@ const LeaveQuota = () => {
     setLoading(true);
     setError('');
     try {
-      const params: any = { branch_id: branchId, limit: 500 };
+      const params: any = { branch_id: listBranchId, limit: 500 };
       if (filterStaffId) params.user_id = parseInt(filterStaffId, 10);
       const res = await getAllLeaveQuota(params);
       const rows: QuotaRecord[] = res?.data?.data ?? res?.data ?? [];
@@ -105,15 +112,15 @@ const LeaveQuota = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, filterStaffId]);
+  }, [listBranchId, filterStaffId]);
 
   const loadStaff = useCallback(async () => {
     try {
-      const res = await getStaffList({ branch_id: branchId, limit: 500 });
+      const res = await getStaffList({ branch_id: listBranchId, limit: 500 });
       const list: Staff[] = res?.data?.data ?? res?.data ?? [];
       setStaffList(Array.isArray(list) ? list : []);
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   useEffect(() => {
     load();
@@ -121,6 +128,7 @@ const LeaveQuota = () => {
   }, [load, loadStaff]);
 
   const handleAdd = async () => {
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!addStaffId) { setError('Please select a staff member.'); return; }
     if (!addLeaveType) { setError('Please select a leave type.'); return; }
     if (!addNoLeaves || isNaN(Number(addNoLeaves)) || Number(addNoLeaves) <= 0) {
@@ -226,10 +234,13 @@ const LeaveQuota = () => {
           {/* Row: Branch | Staff | Leave Type */}
           <View style={styles.row3}>
             <View style={styles.col3}>
-              <Text style={styles.label}>Branch Name*</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+              />
             </View>
             <View style={styles.col3}>
               <Text style={styles.label}>Staff Name *</Text>
@@ -312,8 +323,8 @@ const LeaveQuota = () => {
                     {displayed.map((rec, i) => (
                       <View key={rec.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                         <Text style={[styles.td, { width: COLS[0].width }]}>{i + 1}</Text>
-                        <Text style={[styles.td, { width: COLS[1].width }]}>{rec.branch_name ?? '-'}</Text>
-                        <Text style={[styles.td, { width: COLS[2].width }]}>{rec.staff_name ?? rec.name ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[1].width }]}>{rec.branch_info?.name ?? rec.branch_name ?? '-'}</Text>
+                        <Text style={[styles.td, { width: COLS[2].width }]}>{rec.user_info?.name ?? rec.staff_name ?? rec.name ?? '-'}</Text>
                         <Text style={[styles.td, { width: COLS[3].width }]}>{rec.leave_type}</Text>
                         <Text style={[styles.td, { width: COLS[4].width }]}>{rec.number_of_leaves}</Text>
                         <View style={[styles.td, { width: COLS[5].width }]}>
@@ -487,12 +498,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 8,
     fontSize: 13, color: '#222', backgroundColor: '#FAFAFA',
   },
-  staticInput: {
-    borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
-    paddingHorizontal: 10, paddingVertical: 10,
-    backgroundColor: '#F0F0F0',
-  },
-  staticText: { fontSize: 13, color: '#444' },
   picker: {
     borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
     paddingHorizontal: 10, paddingVertical: 10,

@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getBankDetails, addBankDetail } from '../../../api/employeeDashboard';
 
 // Submission is intentionally disabled for now — see hint text below.
@@ -26,9 +26,10 @@ interface BankAccountRow {
 
 const BankDetails = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [bankName, setBankName] = useState('');
   const [accountTitle, setAccountTitle] = useState('');
@@ -50,7 +51,7 @@ const BankDetails = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getBankDetails(branchId);
+      const res = await getBankDetails(listBranchId);
       const data = res?.data?.data ?? res?.data ?? [];
       setRows(Array.isArray(data) ? data : []);
     } catch (e: any) {
@@ -63,12 +64,13 @@ const BankDetails = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const handleAdd = async () => {
     if (!ADD_ENABLED) return;
+    if (branchId == null) { setFormError('Please select a branch.'); return; }
     if (!bankName.trim() || !accountTitle.trim() || !accountNumber.trim()) {
       setFormError('All fields are required.');
       return;
@@ -119,10 +121,17 @@ const BankDetails = () => {
 
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name*</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name*"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Bank Name*</Text>

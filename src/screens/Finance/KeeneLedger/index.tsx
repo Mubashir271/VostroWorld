@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Platform,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getKeeneLedger, deleteKeeneEntry } from '../../../api/employeeDashboard';
 
 interface LedgerRow {
@@ -79,8 +79,10 @@ const TABLE_W = COLS.reduce((s, c) => s + c.width, 0);
 
 const KeeneLedger = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [startDate, setStartDate] = useState(() => startOfMonth());
   const [endDate, setEndDate] = useState(today);
@@ -98,7 +100,7 @@ const KeeneLedger = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getKeeneLedger({ branch_id: branchId, start_date: startDate, end_date: endDate, limit: 500 });
+      const res = await getKeeneLedger({ branch_id: listBranchId, start_date: startDate, end_date: endDate, limit: 500 });
       const data: LedgerRow[] = res?.data?.data ?? res?.data ?? [];
       setRows(withRunningBalance(Array.isArray(data) ? data : []));
       setFetched(true);
@@ -112,7 +114,7 @@ const KeeneLedger = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, startDate, endDate]);
+  }, [listBranchId, startDate, endDate]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -159,10 +161,13 @@ const KeeneLedger = () => {
           {/* Branch + Start + End */}
           <View style={styles.row3}>
             <View style={styles.col3}>
-              <Text style={styles.label}>Branch Name*</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{profile?.branchName ?? 'Branch'}</Text>
-              </View>
+              <BranchField
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+              />
             </View>
             <View style={styles.col3}>
               <Text style={styles.label}>Start date</Text>
@@ -324,11 +329,6 @@ const styles = StyleSheet.create({
   row3: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   col3: { flex: 1 },
   label: { fontSize: 12, fontWeight: '600', color: '#444', marginBottom: 4 },
-  staticInput: {
-    borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
-    paddingHorizontal: 10, paddingVertical: 10, backgroundColor: '#F0F0F0',
-  },
-  staticText: { fontSize: 13, color: '#444' },
   datePicker: {
     borderWidth: 1, borderColor: '#DDD', borderRadius: 6,
     paddingHorizontal: 10, paddingVertical: 10, backgroundColor: '#FAFAFA',

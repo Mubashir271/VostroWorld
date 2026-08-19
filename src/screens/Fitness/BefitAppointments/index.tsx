@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getTrainerSchedule, getBefitBookingTrainers } from '../../../api/employeeDashboard';
 
 // Confirmed live 2026-06-30 via a captured HAR of the web admin's "Befit
@@ -62,9 +62,10 @@ const daysAhead = (n: number) => { const d = new Date(); d.setDate(d.getDate() +
 
 const BefitAppointments = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [trainerId, setTrainerId] = useState('');
@@ -82,20 +83,20 @@ const BefitAppointments = () => {
 
   const loadTrainers = useCallback(async () => {
     try {
-      const res = await getBefitBookingTrainers({ branch_id: branchId });
+      const res = await getBefitBookingTrainers({ branch_id: listBranchId });
       const list = res?.data ?? [];
       setTrainers((Array.isArray(list) ? list : []).map((t: any) => ({
         id: t.id, name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim(),
       })));
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const res = await getTrainerSchedule({
-        branch_id: branchId,
+        branch_id: listBranchId,
         trainer_id: trainerId ? parseInt(trainerId, 10) : undefined,
         start_date: startDate,
         end_date: endDate,
@@ -114,7 +115,7 @@ const BefitAppointments = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, trainerId, startDate, endDate]);
+  }, [listBranchId, trainerId, startDate, endDate]);
 
   useFocusEffect(useCallback(() => { loadTrainers(); load(); }, [loadTrainers, load]));
 
@@ -141,10 +142,20 @@ const BefitAppointments = () => {
 
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Available Trainers</Text>

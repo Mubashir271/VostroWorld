@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getStaffList,
   getSalaryList,
@@ -49,9 +49,10 @@ interface DropdownItem { id: number | string; name: string; }
 
 const DetailedHRReport = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   // ── filter state
   const [fromDate, setFromDate] = useState(today());
@@ -90,14 +91,14 @@ const DetailedHRReport = () => {
       const [depts, desigs, emps] = await Promise.all([
         getDepartmentNames(),
         getDesignationNames(),
-        getStaffList({ branch_id: branchId, status: 1, limit: 500 }),
+        getStaffList({ branch_id: listBranchId, status: 1, limit: 500 }),
       ]);
       setDepartments(Array.isArray(depts?.data) ? depts.data : []);
       setDesignations(Array.isArray(desigs?.data) ? desigs.data : []);
       const empList: any[] = emps?.data?.data ?? [];
       setEmployees(empList.map((s: any) => ({ id: s.id, name: fullName(s) })));
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   useFocusEffect(useCallback(() => { loadDropdowns(); }, [loadDropdowns]));
 
@@ -113,52 +114,52 @@ const DetailedHRReport = () => {
       const [staffRes, attRes, leaveRes, salRes, commRes, fineRes, advRes, loanRes, promRes] =
         await Promise.allSettled([
           getStaffList({
-            branch_id: branchId, status: 1, limit: LIMIT,
+            branch_id: listBranchId, status: 1, limit: LIMIT,
             department_id: deptId ? Number(deptId) : undefined,
             designation: desigId ? String(desigId) : undefined,
           }),
           getHRStaffAttendance({
-            branch_id: branchId,
+            branch_id: listBranchId,
             start_date: fromDate, end_date: toDate,
             user_id: userId || undefined,
             limit: LIMIT,
           }),
           getHRLeaveApplications({
-            branch_id: branchId, status: 1,
+            branch_id: listBranchId, status: 1,
             user_id: userId || undefined,
             limit: LIMIT,
           }),
           getSalaryList({
-            branch_id: branchId,
+            branch_id: listBranchId,
             start_date: fromDate, end_date: toDate,
             user_id: userId ? Number(userId) : undefined,
             limit: LIMIT,
           }),
           getHRCommissionsReport({
-            branch_id: branchId,
+            branch_id: listBranchId,
             start_date: fromDate, end_date: toDate,
             user_id: userId || undefined,
             limit: LIMIT,
           }),
           getHRStaffFines({
-            branch_id: branchId, category: 'Fine',
+            branch_id: listBranchId, category: 'Fine',
             user_id: userId || undefined,
             start_date: fromDate, end_date: toDate,
             limit: LIMIT,
           }),
           getHRStaffFines({
-            branch_id: branchId, category: 'Advance',
+            branch_id: listBranchId, category: 'Advance',
             user_id: userId || undefined,
             start_date: fromDate, end_date: toDate,
             limit: LIMIT,
           }),
           getHRStaffLoans({
-            branch_id: branchId,
+            branch_id: listBranchId,
             staff_id: userId || undefined,
             start_date: fromDate, end_date: toDate,
             status: 1, limit: LIMIT,
           }),
-          getHRStaffPromotions({ branch_id: branchId, status: 1, limit: LIMIT }),
+          getHRStaffPromotions({ branch_id: listBranchId, status: 1, limit: LIMIT }),
         ]);
 
       const safeArr = (r: PromiseSettledResult<any>, path?: string): any[] => {
@@ -255,10 +256,20 @@ const DetailedHRReport = () => {
             Employee-wise and combined HR reporting for attendance, leave, payroll, fines, advances, commissions, loans, and movement history.
           </Text>
 
-          <Text style={styles.label}>Branch Name</Text>
-          <View style={styles.staticInput}>
-            <Text style={styles.staticText}>{branchName}</Text>
-          </View>
+          <BranchField
+            label="Branch Name"
+            needsPicker={needsPicker}
+            branchName={branchName}
+            options={branchOptions}
+            loadingOptions={loadingBranches}
+            onSelect={selectBranch}
+            labelStyle={styles.label}
+            staticStyle={styles.staticInput}
+            staticTextStyle={styles.staticText}
+            pickerStyle={styles.picker}
+            pickerTextStyle={styles.pickerText}
+            placeholderStyle={styles.placeholder}
+          />
 
           <View style={styles.row2}>
             <View style={styles.col2}>

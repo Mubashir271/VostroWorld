@@ -271,7 +271,7 @@ const SessionPortalHR = () => {
                       <Text style={[styles.td, styles.cPkg]}>{r.package_name}</Text>
                       <Text style={[styles.td, styles.cPrice]}>{fmtPrice(r.package_price)}</Text>
                       <Text style={[styles.td, styles.cDate]}>{fmtDate(r.renewal_date)}</Text>
-                      <View style={[styles.td, styles.cAction]}>
+                      <View style={styles.cAction}>
                         <TouchableOpacity style={[styles.actionBtn, isActive ? styles.actionActive : styles.actionRenew]}>
                           <Icon name={isActive ? 'check-circle' : 'refresh'} size={12} color="#fff" />
                           <Text style={styles.actionText}>{isActive ? 'Active' : 'Renew'}</Text>

@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { addCashInHandEntry } from '../../../api/employeeDashboard';
 
 const R = '#C62828';
@@ -38,9 +38,10 @@ const AUTO_FIELDS = [
 
 const AddCashInHand = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, select: selectBranch,
+  } = useBranchSelector();
 
   const [date, setDate] = useState(today());
   const [bank, setBank] = useState('');
@@ -60,6 +61,7 @@ const AddCashInHand = () => {
   };
 
   const handleSubmit = async () => {
+    if (branchId == null) { setError('Please select a branch.'); return; }
     setError('');
     setSaving(true);
     try {
@@ -101,10 +103,17 @@ const AddCashInHand = () => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Add Cash In Hand</Text>
 
-          <Text style={styles.label}>Branch Name</Text>
-          <View style={styles.staticInput}>
-            <Text style={styles.staticText}>{branchName}</Text>
-          </View>
+          <BranchField
+            label="Branch Name"
+            needsPicker={needsPicker}
+            branchName={branchName}
+            options={branchOptions}
+            loadingOptions={loadingBranches}
+            onSelect={selectBranch}
+            labelStyle={styles.label}
+            staticStyle={styles.staticInput}
+            staticTextStyle={styles.staticText}
+          />
 
           <Text style={styles.label}>Date</Text>
           <TouchableOpacity style={styles.datePicker} onPress={() => setShowDatePicker(true)}>

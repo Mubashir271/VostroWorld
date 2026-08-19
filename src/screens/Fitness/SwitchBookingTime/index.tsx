@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getSwitchedTimeSlots,
   deleteSwitchedTimeSlot,
@@ -46,9 +46,10 @@ const statusColor = (s: string) => {
 
 const SwitchBookingTime = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   // ── form state
   const [formTrainer, setFormTrainer] = useState<Trainer | null>(null);
@@ -85,21 +86,21 @@ const SwitchBookingTime = () => {
 
   const loadTrainers = useCallback(async () => {
     try {
-      const res = await getSPTAppointmentTrainers({ branch_id: branchId });
+      const res = await getSPTAppointmentTrainers({ branch_id: listBranchId });
       const list = res?.data ?? [];
       setTrainers((Array.isArray(list) ? list : []).map((t: any) => ({
         id: t.id,
         name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim(),
       })));
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadTable = useCallback(async (targetPage = 1) => {
     setLoading(true);
     setListError('');
     try {
       const res = await getSwitchedTimeSlots({
-        branch_id: branchId,
+        branch_id: listBranchId,
         trainer_id: filterTrainer ? filterTrainer.id : undefined,
         page: targetPage,
         limit: PAGE_SIZE,
@@ -115,7 +116,7 @@ const SwitchBookingTime = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, filterTrainer]);
+  }, [listBranchId, filterTrainer]);
 
   useFocusEffect(useCallback(() => {
     loadTrainers();
@@ -179,10 +180,20 @@ const SwitchBookingTime = () => {
           <Text style={styles.cardTitle}>Switch Time Slots</Text>
           <Text style={styles.hint}>Fields marked * are required.</Text>
 
-          <Text style={styles.label}>Branch Name *</Text>
-          <View style={styles.staticInput}>
-            <Text style={styles.staticText}>{branchName}</Text>
-          </View>
+          <BranchField
+            label="Branch Name *"
+            needsPicker={needsPicker}
+            branchName={branchName}
+            options={branchOptions}
+            loadingOptions={loadingBranches}
+            onSelect={selectBranch}
+            labelStyle={styles.label}
+            staticStyle={styles.staticInput}
+            staticTextStyle={styles.staticText}
+            pickerStyle={styles.picker}
+            pickerTextStyle={styles.pickerText}
+            placeholderStyle={styles.placeholder}
+          />
 
           <View style={styles.row2}>
             <View style={styles.col2}>

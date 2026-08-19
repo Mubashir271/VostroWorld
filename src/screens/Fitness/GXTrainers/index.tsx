@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getStaffList } from '../../../api/employeeDashboard';
 
 // Confirmed live 2026-06-25: "All GX Trainer" is just the staff list
@@ -24,9 +24,10 @@ interface Staff { id: number; name: string; uid?: string; is_gx_trainer?: number
 
 const GXTrainers = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [allStaff, setAllStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,7 @@ const GXTrainers = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getStaffList({ branch_id: branchId, limit: 500 });
+      const res = await getStaffList({ branch_id: listBranchId, limit: 500 });
       const list: Staff[] = res?.data?.data ?? res?.data ?? [];
       setAllStaff(Array.isArray(list) ? list : []);
     } catch {
@@ -48,7 +49,7 @@ const GXTrainers = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -92,10 +93,20 @@ const GXTrainers = () => {
 
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name *</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name *"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Available Trainers *</Text>

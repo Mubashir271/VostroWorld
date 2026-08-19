@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getGXAttendancePackages,
   getSPTBookingTrainers,
@@ -30,9 +30,10 @@ interface Slot { id: number; name: string; }
 
 const GXAttendance = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -53,8 +54,8 @@ const GXAttendance = () => {
   const loadDropdowns = useCallback(async () => {
     try {
       const [trRes, slRes] = await Promise.all([
-        getSPTBookingTrainers({ branch_id: branchId }),
-        getSPTSlots({ branch_id: branchId }),
+        getSPTBookingTrainers({ branch_id: listBranchId }),
+        getSPTSlots({ branch_id: listBranchId }),
       ]);
       const trList = trRes?.data ?? [];
       setTrainers((Array.isArray(trList) ? trList : []).map((t: any) => ({
@@ -64,14 +65,14 @@ const GXAttendance = () => {
       const slList = slRes?.data ?? [];
       setSlots(Array.isArray(slList) ? slList : []);
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   const load = useCallback(async (targetPage = 1) => {
     setLoading(true);
     setError('');
     try {
       const res = await getGXAttendancePackages({
-        branch_id: branchId,
+        branch_id: listBranchId,
         trainer_id: trainer?.id ?? '',
         package_id: slot?.id ?? '',
         page: targetPage,
@@ -89,7 +90,7 @@ const GXAttendance = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, trainer, slot]);
+  }, [listBranchId, trainer, slot]);
 
   useFocusEffect(useCallback(() => {
     loadDropdowns();
@@ -128,10 +129,20 @@ const GXAttendance = () => {
         <View style={styles.filterCard}>
           <View style={styles.filterRow}>
             <View style={styles.filterCol}>
-              <Text style={styles.label}>Branch Name</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.filterCol}>
               <Text style={styles.label}>Trainer</Text>

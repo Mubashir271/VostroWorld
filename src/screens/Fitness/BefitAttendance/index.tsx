@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getBefitAttendanceTrainers,
   getBefitTrainerPackages,
@@ -226,9 +226,10 @@ const AttendanceTable = ({
 
 const BefitAttendance = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   // Form state
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -276,19 +277,19 @@ const BefitAttendance = () => {
 
   const loadTrainers = useCallback(async () => {
     try {
-      const res = await getBefitAttendanceTrainers(branchId);
+      const res = await getBefitAttendanceTrainers(listBranchId);
       const list = res?.data ?? [];
       setTrainers((Array.isArray(list) ? list : []).map((t: any) => ({
         id: t.id,
         name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim(),
       })));
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadActiveRows = useCallback(async () => {
     setActiveLoading(true);
     try {
-      const res = await getBefitAttendance({ branch_id: branchId, status: 0, limit: 500 });
+      const res = await getBefitAttendance({ branch_id: listBranchId, status: 0, limit: 500 });
       const data: AttendanceRow[] = res?.data?.data ?? res?.data ?? [];
       setActiveRows(Array.isArray(data) ? data : []);
     } catch (e: any) {
@@ -297,12 +298,12 @@ const BefitAttendance = () => {
     } finally {
       setActiveLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadInactiveRows = useCallback(async () => {
     setInactiveLoading(true);
     try {
-      const res = await getBefitAttendance({ branch_id: branchId, status: 1, limit: 500 });
+      const res = await getBefitAttendance({ branch_id: listBranchId, status: 1, limit: 500 });
       const data: AttendanceRow[] = res?.data?.data ?? res?.data ?? [];
       setInactiveRows(Array.isArray(data) ? data : []);
     } catch (e: any) {
@@ -311,7 +312,7 @@ const BefitAttendance = () => {
     } finally {
       setInactiveLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   useFocusEffect(useCallback(() => {
     loadTrainers();
@@ -348,6 +349,7 @@ const BefitAttendance = () => {
   useEffect(() => { setActivePage(1); }, [activeTrainerId, activePackage, activeRows]);
 
   const handleAdd = async () => {
+    if (branchId == null) { setFormError('Please select a branch.'); return; }
     const pErr = !packageId;
     const tErr = !time;
     setPackageErr(pErr);
@@ -409,10 +411,20 @@ const BefitAttendance = () => {
 
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name*</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name*"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Trainer*</Text>

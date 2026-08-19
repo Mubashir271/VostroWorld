@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, TextInput, Platform,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getPromotions,
   addPromotion,
@@ -75,9 +75,10 @@ const EMPTY_FORM = {
 
 const StaffPromotion = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [records, setRecords] = useState<PromotionRecord[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -104,7 +105,7 @@ const StaffPromotion = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getPromotions({ branch_id: branchId, limit: 200 } as any);
+      const res = await getPromotions({ branch_id: listBranchId, limit: 200 } as any);
       const rows: PromotionRecord[] = res?.data?.data ?? res?.data ?? [];
       setRecords(Array.isArray(rows) ? rows : []);
     } catch {
@@ -112,15 +113,15 @@ const StaffPromotion = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadStaff = useCallback(async () => {
     try {
-      const res = await getStaffList({ branch_id: branchId, limit: 500 });
+      const res = await getStaffList({ branch_id: listBranchId, limit: 500 });
       const list: Staff[] = res?.data?.data ?? res?.data ?? [];
       setStaffList(Array.isArray(list) ? list : []);
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadDepartments = useCallback(async () => {
     try {
@@ -148,6 +149,7 @@ const StaffPromotion = () => {
 
   const handleSave = async () => {
     if (!ADD_ENABLED) return;
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!selectedStaff) { setError('Please select a staff member.'); return; }
     if (form.promotionType !== 'Salary' && !form.newDepartmentId && form.promotionType === 'Department') {
       setError('Please select the new department.'); return;
@@ -219,10 +221,20 @@ const StaffPromotion = () => {
 
           <View style={styles.row3}>
             <View style={styles.col3}>
-              <Text style={styles.label}>Branch Name *</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name *"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.col3}>
               <Text style={styles.label}>Name *</Text>

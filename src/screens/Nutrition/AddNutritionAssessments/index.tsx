@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
   ActivityIndicator, Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getClientHub, addNutritionAssessment } from '../../../api/nutrition';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
 const PMH_FIELDS = [
@@ -66,9 +66,10 @@ const RadioGroup = ({ options, value, onChange }: { options: string[]; value: st
 
 const AddNutritionAssessments = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? `Branch ${branchId}`;
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [client, setClient] = useState<any>(null);
   const [clientSearch, setClientSearch] = useState('');
@@ -96,7 +97,7 @@ const AddNutritionAssessments = () => {
     if (text.trim().length < 2) { setClientResults([]); return; }
     setSearching(true);
     try {
-      const res = await getClientHub({ branch_id: branchId, search: text.trim(), limit: 10 });
+      const res = await getClientHub({ branch_id: listBranchId, search: text.trim(), limit: 10 });
       const data = res.data?.data?.data ?? [];
       setClientResults(Array.isArray(data) ? data : []);
     } catch {
@@ -104,7 +105,7 @@ const AddNutritionAssessments = () => {
     } finally {
       setSearching(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   const selectClient = (c: any) => {
     setClient(c);
@@ -122,6 +123,10 @@ const AddNutritionAssessments = () => {
   const handleAdd = async () => {
     if (!clientName.trim() || !dailyWaterIntake.trim() || !dislikedFoods.trim() || !allergicFoods.trim() || !preferredFoods.trim() || !activityLevel || !musclePain.trim()) {
       Alert.alert('Missing Fields', 'Please fill in all required (*) fields.');
+      return;
+    }
+    if (branchId == null) {
+      Alert.alert('Missing Fields', 'Please select a branch.');
       return;
     }
     setSaving(true);
@@ -171,11 +176,20 @@ const AddNutritionAssessments = () => {
         <View style={styles.card}>
           {/* Branch Name */}
           <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Branch Name <Text style={styles.req}>*</Text></Text>
-            <View style={styles.readonlyBox}>
-              <Text style={styles.readonlyText}>{branchName}</Text>
-              <Icon name="chevron-down" size={18} color="#aaa" />
-            </View>
+            <BranchField
+              label={<>Branch Name <Text style={styles.req}>*</Text></>}
+              needsPicker={needsPicker}
+              branchName={branchName}
+              options={branchOptions}
+              loadingOptions={loadingBranches}
+              onSelect={selectBranch}
+              staticChevron
+              labelStyle={styles.fieldLabel}
+              staticStyle={styles.readonlyBox}
+              staticTextStyle={styles.readonlyText}
+              pickerStyle={styles.readonlyBox}
+              pickerTextStyle={styles.readonlyText}
+            />
           </View>
 
           {/* Search & Select Client */}

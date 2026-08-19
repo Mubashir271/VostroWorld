@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, ActivityIndicator, RefreshControl,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getMealPlans } from '../../../api/nutrition';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
 interface MealPlan {
@@ -34,9 +34,10 @@ const today = fmt(new Date());
 
 const ViewMealsPlan = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? `Branch ${branchId}`;
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [clientName, setClientName] = useState('');
   const [startDate, setStartDate]   = useState(today);
@@ -52,7 +53,7 @@ const ViewMealsPlan = () => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const res = await getMealPlans({
-        branch_id: branchId,
+        branch_id: listBranchId,
         client_name: clientName.trim() || undefined,
         limit: 100,
       });
@@ -65,7 +66,7 @@ const ViewMealsPlan = () => {
       setRefreshing(false);
       setSearched(true);
     }
-  }, [branchId, clientName, startDate, endDate]);
+  }, [listBranchId, clientName, startDate, endDate]);
 
   const handleSearch = () => load();
 
@@ -103,11 +104,20 @@ const ViewMealsPlan = () => {
           <View style={styles.filterGrid}>
             {/* Branch */}
             <View style={styles.filterField}>
-              <Text style={styles.fieldLabel}>Branch Name <Text style={styles.req}>*</Text></Text>
-              <View style={styles.readonlyBox}>
-                <Text style={styles.readonlyText}>{branchName}</Text>
-                <Icon name="chevron-down" size={18} color="#aaa" />
-              </View>
+              <BranchField
+                label={<>Branch Name <Text style={styles.req}>*</Text></>}
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                staticChevron
+                labelStyle={styles.fieldLabel}
+                staticStyle={styles.readonlyBox}
+                staticTextStyle={styles.readonlyText}
+                pickerStyle={styles.readonlyBox}
+                pickerTextStyle={styles.readonlyText}
+              />
             </View>
 
             {/* Client Name */}

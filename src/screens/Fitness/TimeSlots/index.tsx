@@ -2,14 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 import { getTimeSlots, addTimeSlot, updateTimeSlot } from '../../../api/employeeDashboard';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
 const displayTime = (d: Date) => {
@@ -30,9 +31,10 @@ interface SlotRow {
 const TimeSlots = () => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? `Branch ${branchId}`;
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
@@ -46,7 +48,7 @@ const TimeSlots = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getTimeSlots({ branch_id: branchId, limit: 200 });
+      const res = await getTimeSlots({ branch_id: listBranchId, limit: 200 });
       const raw: any[] = res?.data?.data ?? [];
       setSlots(raw.map(r => ({
         id: r.id,
@@ -59,7 +61,7 @@ const TimeSlots = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, branchName]);
+  }, [listBranchId, branchName]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -86,6 +88,11 @@ const TimeSlots = () => {
         await updateTimeSlot(editingId, payload);
         dispatch(showSnackbar({ message: 'Time slot updated', type: 'success' }));
       } else {
+        // Only a new slot carries a branch; an edit keeps the one it has.
+        if (branchId == null) {
+          dispatch(showSnackbar({ message: 'Please select a branch', type: 'error' }));
+          return;
+        }
         await addTimeSlot({ branch_id: branchId, ...payload });
         dispatch(showSnackbar({ message: 'Time slot added', type: 'success' }));
       }
@@ -134,11 +141,20 @@ const TimeSlots = () => {
           <Text style={styles.notice}>! The Fields With *Must Required Or Fill.</Text>
 
           <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Branch Name <Text style={styles.req}>*</Text></Text>
-            <View style={styles.readonlyBox}>
-              <Text style={styles.readonlyText}>{branchName}</Text>
-              <Icon name="chevron-down" size={18} color="#aaa" />
-            </View>
+            <BranchField
+              label={<>Branch Name <Text style={styles.req}>*</Text></>}
+              needsPicker={needsPicker}
+              branchName={branchName}
+              options={branchOptions}
+              loadingOptions={loadingBranches}
+              onSelect={selectBranch}
+              staticChevron
+              labelStyle={styles.fieldLabel}
+              staticStyle={styles.readonlyBox}
+              staticTextStyle={styles.readonlyText}
+              pickerStyle={styles.readonlyBox}
+              pickerTextStyle={styles.readonlyText}
+            />
           </View>
 
           <View style={styles.row2}>

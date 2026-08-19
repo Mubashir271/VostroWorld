@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { addBankCashEntry, getBankDetails } from '../../../api/employeeDashboard';
 
 // Submission is intentionally disabled for now — see hint text below.
@@ -34,9 +34,10 @@ interface BankAccount {
 
 const AddBankCash = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
-  const branchName = profile?.branchName ?? 'Branch';
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [amount, setAmount] = useState('');
   const [type, setType] = useState('');
@@ -59,7 +60,7 @@ const AddBankCash = () => {
   const flash = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 3000); };
 
   useEffect(() => {
-    getBankDetails(branchId)
+    getBankDetails(listBranchId)
       .then(res => {
         const list = res?.data ?? [];
         setBankAccounts((Array.isArray(list) ? list : []).map((b: any) => ({
@@ -68,10 +69,11 @@ const AddBankCash = () => {
         })));
       })
       .catch(() => setBankAccounts([]));
-  }, [branchId]);
+  }, [listBranchId]);
 
   const handleAdd = async () => {
     if (!ADD_ENABLED) return;
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setError('Amount is required and must be a positive number.');
       return;
@@ -132,10 +134,20 @@ const AddBankCash = () => {
           {/* Row 1: Branch | Amount */}
           <View style={styles.row2}>
             <View style={styles.col2}>
-              <Text style={styles.label}>Branch Name*</Text>
-              <View style={styles.staticInput}>
-                <Text style={styles.staticText}>{branchName}</Text>
-              </View>
+              <BranchField
+                label="Branch Name*"
+                needsPicker={needsPicker}
+                branchName={branchName}
+                options={branchOptions}
+                loadingOptions={loadingBranches}
+                onSelect={selectBranch}
+                labelStyle={styles.label}
+                staticStyle={styles.staticInput}
+                staticTextStyle={styles.staticText}
+                pickerStyle={styles.picker}
+                pickerTextStyle={styles.pickerText}
+                placeholderStyle={styles.placeholder}
+              />
             </View>
             <View style={styles.col2}>
               <Text style={styles.label}>Amount*</Text>
