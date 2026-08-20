@@ -72,6 +72,7 @@ import StaffFinance from '../../screens/StaffFinance';
 
 // ── Admin screens ─────────────────────────────────────────────────────────────
 import ViewClients from '../../screens/Sales/ViewClients';
+import ClientProfile from '../../screens/Sales/ClientProfile';
 import ViewFreezing from '../../screens/Sales/ViewFreezing';
 import ApprovalsScreen from '../../screens/Sales/Approvals';
 import ViewCards from '../../screens/Sales/ViewCards';
@@ -355,6 +356,7 @@ const AppNavigator = () => {
 
                 {/* ── Admin: Sales ── */}
                 <Stack.Screen name="ViewClients" component={protect(ViewClients)} />
+                <Stack.Screen name="ClientProfile" component={protect(ClientProfile)} />
                 <Stack.Screen name="ViewFreezing" component={protect(ViewFreezing)} />
                 <Stack.Screen name="ApprovalsScreen" component={protect(ApprovalsScreen)} />
                 <Stack.Screen name="ClientsReport" component={protect(SalesClientsReportScreen)} />

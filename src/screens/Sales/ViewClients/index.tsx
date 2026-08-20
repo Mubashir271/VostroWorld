@@ -91,7 +91,7 @@ const ViewClients = () => {
     return (
       <TouchableOpacity
         key={item.id}
-        onPress={() => navigation.navigate('NewMemberRegistration', { clientId: item.id })}
+        onPress={() => navigation.navigate('ClientProfile', { clientId: item.id })}
       >
         <View style={[tbl.dataRow, pageIndex % 2 === 1 && tbl.dataRowAlt]}>
           <Text style={[tbl.cell, tbl.cellMuted, { width: 38 }]}>{globalIndex + 1}</Text>

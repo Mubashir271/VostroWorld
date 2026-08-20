@@ -285,6 +285,14 @@ export const getClientsList = async (params: {
   return res.data;
 };
 
+// Single client, for the client profile screen. HAR-confirmed 2026-08-20:
+// returns the same row shape as the list endpoint, but wrapped in a
+// one-element `data` ARRAY (not an object), plus `active_packages`.
+export const getClientById = async (id: number) => {
+  const res = await api.get(`/v1/clients/get/${id}`);
+  return res.data;
+};
+
 // ── 6.5 Leaves ────────────────────────────────────────────────────────────────
 
 export const getLeaveQuota = async (params: {
