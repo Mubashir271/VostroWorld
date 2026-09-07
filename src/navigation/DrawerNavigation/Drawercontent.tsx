@@ -13,6 +13,7 @@ import { clearCredentials } from '../../utils/biometrics';
 import {
   isAdmin,
   isHR,
+  isSales,
   isNutritionist,
   isFitnessManager,
   TRAINER_ALLOWED_MENUS,
@@ -462,7 +463,101 @@ const MENU = [
   { title: 'Approval', icon: 'check-circle', screen: 'ApprovalsScreen' },
   { title: 'Notifications', icon: 'bell-outline', screen: 'Notifications' },
 ]
-// ─── Navigation helper ───────────────────────────────────────────────────────
+// ─── Sales menu ─────────────────────────────────────────────────────────────
+// Captured 2026-09-02 from the web admin's Sales login with every section
+// expanded. Spelled out rather than filtered from MENU because the Sales menu
+// reorders its items, renames two ('View Freezing' → 'Freezing Management'),
+// and pulls in two entries that don't live in admin's Sales section at all
+// ('Daily Sales Report' → /daily-sales-counter, and 'Cafe Products').
+//
+// Omitted — present on the web but with no screen in this app yet:
+//   Cafe ▸ Detailed Cafe Report      (/detailed-cafe-report)
+//   Reports ▸ Active Clients Report  (/active-clients-report)
+//   Reports ▸ Client Details Report  (/client-details-report)
+//   Reports ▸ Detailed Cafe Report   (/detailed-cafe-report)
+// 'Social Leads (Sales)' is also on the web menu, deliberately deferred.
+const SALES_MENU = [
+  { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
+  {
+    title: 'Sales',
+    icon: 'store',
+    children: [
+      { title: 'View Clients', screen: 'ViewClients' },
+      { title: 'Add Client', screen: 'NewMemberRegistration' },
+      { title: 'Clients Report', screen: 'ClientsReport' },
+      { title: 'Daily Sales Report', screen: 'DailySalesCounter' },
+      {
+        title: 'Packages',
+        children: [
+          { title: 'Membership Packages', screen: 'MembershipPackages' },
+          { title: 'Gym Packages', screen: 'GymPackages' },
+          { title: 'Trainer Packages', screen: 'TrainerPackages' },
+          { title: 'Bootcamp Packages', screen: 'BootcampPackages' },
+          { title: 'Physiotherapy Packages', screen: 'PhysiotherapyPackages' },
+          { title: 'Massage Chair', screen: 'MassageChair' },
+          { title: 'Small PT Group Packages', screen: 'SmallPTGroupPackages' },
+          { title: 'GX Packages', screen: 'GXPackages' },
+          { title: 'CFT', screen: 'CFTPackages' },
+          { title: 'General Packages', screen: 'GeneralPackages' },
+          { title: 'Detailed Packages', screen: 'DetailedPackages' },
+        ],
+      },
+      { title: 'Cafe Products', screen: 'CafeProducts' },
+      { title: 'Sell Package', screen: 'SellPackage' },
+      { title: 'Freezing Management', screen: 'ViewFreezing' },
+      { title: 'Assign Cards', screen: 'AssignCards' },
+      { title: 'View Cards', screen: 'ViewCards' },
+    ],
+  },
+  {
+    title: 'Cafe',
+    icon: 'coffee',
+    children: [
+      { title: 'Cafe Dashboard', screen: 'CafeDashboard' },
+      { title: 'Cafe Categories', screen: 'CafeCategories' },
+      { title: 'Cafe Products', screen: 'CafeProducts' },
+      { title: 'Cafe Deposits', screen: 'CafeDeposits' },
+      { title: 'Add Clients Deposit', screen: 'AddClientsDeposit' },
+      { title: 'Clients Available Balance', screen: 'ClientsAvailableBalance' },
+      { title: 'Deposits History', screen: 'DepositsHistory' },
+      { title: 'Cafe Sales Report', screen: 'CafeSalesReport' },
+      { title: 'Management Pendings', screen: 'ManagementPendings' },
+    ],
+  },
+  {
+    title: 'Reports',
+    icon: 'chart-bar',
+    children: [
+      { title: 'Clients Reports', screen: 'ClientsReports' },
+      { title: 'Sales', screen: 'SalesReport' },
+      { title: 'Detailed Sales Report', screen: 'DetailedSalesReport' },
+      { title: 'MIS Report', screen: 'MISReport' },
+      { title: 'Sales By Services', screen: 'SalesByServices' },
+      { title: 'Sales By Bootcamp', screen: 'SalesByBootcamp' },
+      { title: 'Cafe Sales', screen: 'CafeReports' },
+      { title: 'Transaction Report', screen: 'TransactionReport' },
+      { title: 'Clients Attendance', screen: 'ClientsAttendance' },
+      { title: 'Footfall Report', screen: 'FootfallReport' },
+    ],
+  },
+  {
+    title: 'Nutrition',
+    icon: 'food-apple',
+    children: [
+      { title: 'Nutrition Packages', screen: 'NutritionPackages' },
+      { title: 'Appointments', screen: 'NutritionAppointments' },
+    ],
+  },
+  {
+    title: 'Physiotherapy',
+    icon: 'medical-bag',
+    children: [
+      { title: 'Appointments', screen: 'PhysiotherapyAppointments' },
+    ],
+  },
+  { title: 'Approval', icon: 'check-circle', screen: 'ApprovalsScreen' },
+  { title: 'Notifications', icon: 'bell-outline', screen: 'Notifications' },
+];
 
 // ─── Navigation helper ───────────────────────────────────────────────────────
 // Screens that are also a bottom tab's root for certain roles must be reached
@@ -502,6 +597,12 @@ const filterMenuForRole = (
     // HR: only Dashboard, Human Resource, Notifications — confirmed live
     // 2026-06-29 against the web admin's HR-login menu.
     return menu.filter(item => HR_ALLOWED_MENUS.includes(item.title));
+  }
+
+  if (isSales(role)) {
+    // Sales has its own menu rather than a filtered view of the admin one —
+    // see SALES_MENU for why.
+    return SALES_MENU as typeof MENU;
   }
 
   if (isFitnessManager(role)) {

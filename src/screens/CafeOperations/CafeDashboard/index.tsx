@@ -9,9 +9,28 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
-import { getCafeDashboard } from '../../../api/cafe';
+import {
+  getCafeSalesReport, getCafeClientsBalance, getCafeManagementPendings, getCafeProducts,
+} from '../../../api/cafe';
 
 const fmtRs = (val: any) => `Rs ${parseFloat(val ?? 0).toLocaleString()}/-`;
+
+const fmtDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const listOf = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (!payload?.status) return [];
+  const d = payload.data;
+  return Array.isArray(d) ? d : d?.data ?? [];
+};
+
+const sum = (arr: any[], fn: (r: any) => any) =>
+  arr.reduce((s, r) => s + (parseFloat(fn(r) ?? 0) || 0), 0);
 
 interface StatCardProps { icon: string; label: string; value: string; color: string; onPress?: () => void; }
 
@@ -36,11 +55,35 @@ const CafeDashboard = () => {
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // There is no cafe dashboard endpoint (`/v1/cafe/dashboard` 404s), so the
+  // tiles are assembled from the same reads the individual cafe screens use.
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    const today = fmtDate(new Date());
+    const yearAgo = fmtDate(new Date(Date.now() - 365 * 24 * 60 * 60 * 1000));
     try {
-      const res = await getCafeDashboard({ branch_id: branchId });
-      setData(res.data?.data ?? res.data ?? {});
+      const [sales, balances, pendings, products] = await Promise.all([
+        getCafeSalesReport({ branch_id: branchId, start_date: today, end_date: today }).catch(() => null),
+        getCafeClientsBalance({ branch_id: branchId, limit: 100000 }).catch(() => null),
+        getCafeManagementPendings({ branch_id: branchId, start_date: yearAgo, end_date: today }).catch(() => null),
+        getCafeProducts({ branch_id: branchId }).catch(() => null),
+      ]);
+
+      const orders = listOf(sales?.data);
+      const balanceRows = listOf(balances?.data);
+      const received = orders.reduce(
+        (s, o) => s + sum(o.payment_history ?? [], (p: any) => p.received), 0,
+      );
+
+      setData({
+        today_orders: orders.length,
+        today_sales: sum(orders, o => o.net_price),
+        today_received: received,
+        clients_with_balance: balances?.data?.totalRecord ?? balanceRows.length,
+        total_client_balance: sum(balanceRows, r => r.available_balance),
+        staff_receivable: sum(listOf(pendings?.data), r => r.net_price),
+        active_products: listOf(products?.data).length,
+      });
     } catch {
       setData({});
     } finally {
@@ -87,9 +130,10 @@ const CafeDashboard = () => {
           <View style={styles.statsGrid}>
             <StatCard icon="receipt" label="Today's Orders" value={String(data?.today_orders ?? '—')} color="#E63946" />
             <StatCard icon="cash" label="Today's Sales" value={fmtRs(data?.today_sales ?? 0)} color="#10b981" />
-            <StatCard icon="account-group" label="Total Clients" value={String(data?.total_clients ?? '—')} color="#3B82F6" />
-            <StatCard icon="bank-transfer-in" label="Total Deposits" value={fmtRs(data?.total_deposits ?? 0)} color="#8B5CF6" />
-            <StatCard icon="alert-circle-outline" label="Pending Amount" value={fmtRs(data?.pending_amount ?? 0)} color="#F59E0B" />
+            <StatCard icon="cash-check" label="Today's Received" value={fmtRs(data?.today_received ?? 0)} color="#0EA5E9" />
+            <StatCard icon="account-group" label="Clients With Balance" value={String(data?.clients_with_balance ?? '—')} color="#3B82F6" />
+            <StatCard icon="bank-transfer-in" label="Total Client Balance" value={fmtRs(data?.total_client_balance ?? 0)} color="#8B5CF6" />
+            <StatCard icon="alert-circle-outline" label="Staff Receivable" value={fmtRs(data?.staff_receivable ?? 0)} color="#F59E0B" />
             <StatCard icon="food" label="Active Products" value={String(data?.active_products ?? '—')} color="#06B6D4" />
           </View>
 

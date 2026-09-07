@@ -3,11 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
 } from 'react-native';
-import { getCafeSalesReport } from '../../../api/cafe';
+import { getCafeSalesReport, getCafeSummaryReport } from '../../../api/cafe';
 import { reportStyles as rStyles } from '../styles/reportStyles';
 import AppHeader from '../../../components/AppHeader';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import ClientNameCell from '../../../components/ClientNameCell';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useSelector } from 'react-redux';
@@ -46,8 +47,20 @@ const QUICK_ROWS = [
   ],
 ];
 
-const COL_W = [36, 120, 74, 90, 80, 80, 70, 90];
-const COL_L = ['Sr#', 'Client', 'Order ID', 'Sale Date', 'Price', 'Discount', 'GST', 'Net Price'];
+const COL_W = [36, 120, 74, 90, 80, 80, 70, 90, 90, 80, 100];
+const COL_L = ['Sr#', 'Client', 'Order ID', 'Sale Date', 'Price', 'Discount', 'GST', 'Net Price', 'Received', 'Pending', 'Payment Type'];
+
+const SUM_COL_W = [36, 110, 80, 100, 90, 80, 100];
+const SUM_COL_L = ['Sr#', 'Date', 'Orders', 'Price', 'Discount', 'GST', 'Net Price'];
+
+// Received/pending live on each order's payment_history — there is no
+// `total_received` field on the response.
+const receivedOf = (row: any) =>
+  (row.payment_history ?? []).reduce((s: number, p: any) => s + (parseFloat(p.received ?? 0) || 0), 0);
+const pendingOf = (row: any) =>
+  (row.payment_history ?? []).reduce((s: number, p: any) => s + (parseFloat(p.pending ?? 0) || 0), 0);
+const paymentTypesOf = (row: any) =>
+  (row.payment_history ?? []).map((p: any) => p.payment_type).filter(Boolean).join(', ') || '—';
 
 const flatten = (raw: any[]): any[] => {
   if (raw.length > 0 && raw[0]?.date && Array.isArray(raw[0]?.data)) {
@@ -56,18 +69,40 @@ const flatten = (raw: any[]): any[] => {
   return raw;
 };
 
-const CafeRow = React.memo(({ item, index }: { item: any; index: number }) => (
+const CafeRow = React.memo(({ item, index }: { item: any; index: number }) => {
+  const pending = pendingOf(item);
+  return (
+    <View style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
+      <Text style={[tbl.cell, tbl.cellMuted, { width: COL_W[0] }]}>{index + 1}</Text>
+      <ClientNameCell
+        name={item.client_name ?? item.member_name}
+        clientId={item.client_id}
+        // Cafe orders can have no client attached — those stay non-tappable.
+        fallback="Walk in Customer"
+        style={[tbl.cell, tbl.cellRed, { width: COL_W[1] }]}
+      />
+      <Text style={[tbl.cell, { width: COL_W[2] }]}>{item.order_id ?? item.id ?? '—'}</Text>
+      <Text style={[tbl.cell, { width: COL_W[3] }]}>{item._date ?? item.sale_date ?? item.date ?? '—'}</Text>
+      <Text style={[tbl.cell, { width: COL_W[4] }]}>{fmtRs(item.price)}</Text>
+      <Text style={[tbl.cell, { width: COL_W[5] }]}>{fmtRs(item.discount)}</Text>
+      <Text style={[tbl.cell, { width: COL_W[6] }]}>{fmtRs(item.gst ?? item.tax)}</Text>
+      <Text style={[tbl.cell, tbl.cellGreen, { width: COL_W[7] }]}>{fmtRs(item.net_price ?? item.price)}</Text>
+      <Text style={[tbl.cell, { width: COL_W[8] }]}>{fmtRs(receivedOf(item))}</Text>
+      <Text style={[tbl.cell, pending > 0 && tbl.cellRed, { width: COL_W[9] }]}>{fmtRs(pending)}</Text>
+      <Text style={[tbl.cell, { width: COL_W[10] }]} numberOfLines={1}>{paymentTypesOf(item)}</Text>
+    </View>
+  );
+});
+
+const SummaryRow = React.memo(({ item, index }: { item: any; index: number }) => (
   <View style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
-    <Text style={[tbl.cell, tbl.cellMuted, { width: COL_W[0] }]}>{index + 1}</Text>
-    <Text style={[tbl.cell, tbl.cellRed, { width: COL_W[1] }]} numberOfLines={1}>
-      {item.client_name ?? item.member_name ?? 'Walk in Customer'}
-    </Text>
-    <Text style={[tbl.cell, { width: COL_W[2] }]}>{item.order_id ?? item.id ?? '—'}</Text>
-    <Text style={[tbl.cell, { width: COL_W[3] }]}>{item._date ?? item.sale_date ?? item.date ?? '—'}</Text>
-    <Text style={[tbl.cell, { width: COL_W[4] }]}>{fmtRs(item.price)}</Text>
-    <Text style={[tbl.cell, { width: COL_W[5] }]}>{fmtRs(item.discount)}</Text>
-    <Text style={[tbl.cell, { width: COL_W[6] }]}>{fmtRs(item.gst ?? item.tax)}</Text>
-    <Text style={[tbl.cell, tbl.cellGreen, { width: COL_W[7] }]}>{fmtRs(item.net_price ?? item.price)}</Text>
+    <Text style={[tbl.cell, tbl.cellMuted, { width: SUM_COL_W[0] }]}>{index + 1}</Text>
+    <Text style={[tbl.cell, { width: SUM_COL_W[1] }]}>{item.order_date ?? '—'}</Text>
+    <Text style={[tbl.cell, { width: SUM_COL_W[2] }]}>{item.order_count ?? 0}</Text>
+    <Text style={[tbl.cell, { width: SUM_COL_W[3] }]}>{fmtRs(item.total_price)}</Text>
+    <Text style={[tbl.cell, { width: SUM_COL_W[4] }]}>{fmtRs(item.total_discount)}</Text>
+    <Text style={[tbl.cell, { width: SUM_COL_W[5] }]}>{fmtRs(item.total_tax)}</Text>
+    <Text style={[tbl.cell, tbl.cellGreen, { width: SUM_COL_W[6] }]}>{fmtRs(item.total_net_price)}</Text>
   </View>
 ));
 
@@ -83,21 +118,27 @@ const CafeReportScreen = () => {
   const [endDate, setEndDate]       = useState(today);
   const [pickerFor, setPickerFor]   = useState<'start' | 'end' | null>(null);
   const [reportType, setReportType] = useState<'detail' | 'summary'>('detail');
+  // Which mode the rows on screen actually came from — the radio can move
+  // before the next Go.
+  const [loadedType, setLoadedType] = useState<'detail' | 'summary'>('detail');
   const [filterOpen, setFilterOpen] = useState(true);
 
   const load = async () => {
     setLoading(true);
     try {
-      const res = await getCafeSalesReport({
-        branch_id: branchId,
-        start_date: startDate,
-        end_date: endDate,
-        report_type: reportType,
-      });
+      const params = { branch_id: branchId, start_date: startDate, end_date: endDate };
+      const res = reportType === 'summary'
+        ? await getCafeSummaryReport(params)
+        : await getCafeSalesReport(params);
       const raw = res.data?.data ?? (Array.isArray(res.data) ? res.data : []);
       setRows(flatten(raw));
+      setLoadedType(reportType);
       setFetched(true);
       setFilterOpen(false); // collapse filter when results load
+    } catch {
+      setRows([]);
+      setLoadedType(reportType);
+      setFetched(true);
     } finally {
       setLoading(false);
     }
@@ -115,33 +156,56 @@ const CafeReportScreen = () => {
     setEndDate(q.end());
   };
 
+  // Totals are always derived from the rows on screen. The shared
+  // `/transaction-report` endpoint also returns `total_price`/`total_net_price`,
+  // but those ignore the category filter and disagree with the rows — don't use
+  // them here.
+  const isSummary = loadedType === 'summary';
   const {
     totalPrice, totalDiscount, totalGst, totalNet, totalReceived, totalPending,
   } = useMemo(() => {
-    const price    = rows.reduce((s, r) => s + (parseFloat(r.price ?? 0) || 0), 0);
-    const discount = rows.reduce((s, r) => s + (parseFloat(r.discount ?? 0) || 0), 0);
-    const gst      = rows.reduce((s, r) => s + (parseFloat(r.gst ?? r.tax ?? 0) || 0), 0);
-    const net      = rows.reduce((s, r) => s + (parseFloat(r.net_price ?? r.price ?? 0) || 0), 0);
-    const received = rows.reduce((s, r) => s + (parseFloat(r.total_received ?? r.net_price ?? r.price ?? 0) || 0), 0);
-    return {
-      totalPrice: price, totalDiscount: discount, totalGst: gst, totalNet: net,
-      totalReceived: received, totalPending: Math.max(0, net - received),
-    };
-  }, [rows]);
+    const sum = (fn: (r: any) => any) =>
+      rows.reduce((s, r) => s + (parseFloat(fn(r) ?? 0) || 0), 0);
 
-  const TableHeader = () => (
-    <View style={tbl.headerRow}>
-      {COL_L.map((lbl, i) => (
-        <Text key={lbl} style={[tbl.headerCell, { width: COL_W[i] }]}>{lbl}</Text>
-      ))}
-    </View>
-  );
+    if (isSummary) {
+      return {
+        totalPrice: sum(r => r.total_price),
+        totalDiscount: sum(r => r.total_discount),
+        totalGst: sum(r => r.total_tax),
+        totalNet: sum(r => r.total_net_price),
+        totalReceived: null,
+        totalPending: null,
+      };
+    }
+    return {
+      totalPrice: sum(r => r.price),
+      totalDiscount: sum(r => r.discount),
+      totalGst: sum(r => r.gst ?? r.tax),
+      totalNet: sum(r => r.net_price ?? r.price),
+      totalReceived: rows.reduce((s, r) => s + receivedOf(r), 0),
+      totalPending: rows.reduce((s, r) => s + pendingOf(r), 0),
+    };
+  }, [rows, isSummary]);
+
+  const TableHeader = () => {
+    const labels = isSummary ? SUM_COL_L : COL_L;
+    const widths = isSummary ? SUM_COL_W : COL_W;
+    return (
+      <View style={tbl.headerRow}>
+        {labels.map((lbl, i) => (
+          <Text key={lbl} style={[tbl.headerCell, { width: widths[i] }]}>{lbl}</Text>
+        ))}
+      </View>
+    );
+  };
 
   const renderRow = useCallback(
     ({ item, index }: { item: any; index: number }) => (
-      <CafeRow item={item} index={index} />
+      isSummary
+        ? <SummaryRow item={item} index={index} />
+        : <CafeRow item={item} index={index} />
     ),
-    [],
+    [isSummary],
   );
 
   return (
@@ -291,12 +355,20 @@ const CafeReportScreen = () => {
               <View style={ui.summaryRow}><Text style={ui.sumLabel}>Total Price</Text><Text style={ui.sumVal}>{fmtRs(totalPrice)}</Text></View>
               <View style={ui.summaryRow}><Text style={ui.sumLabel}>Total Discount</Text><Text style={ui.sumVal}>{fmtRs(totalDiscount)}</Text></View>
               <View style={ui.summaryRow}><Text style={ui.sumLabel}>Total GST</Text><Text style={ui.sumVal}>{fmtRs(totalGst)}</Text></View>
-              <View style={ui.summaryRow}><Text style={ui.sumLabel}>Total Net Price</Text><Text style={ui.sumValBold}>{fmtRs(totalNet)}</Text></View>
-              <View style={ui.summaryRow}><Text style={ui.sumLabel}>Total Received</Text><Text style={ui.sumValBold}>{fmtRs(totalReceived)}</Text></View>
-              <View style={[ui.summaryRow, { borderBottomWidth: 0 }]}>
-                <Text style={ui.sumLabel}>Total Pending</Text>
-                <Text style={[ui.sumValBold, { color: totalPending > 0 ? '#C0392B' : '#10b981' }]}>{fmtRs(totalPending)}</Text>
+              <View style={[ui.summaryRow, isSummary && { borderBottomWidth: 0 }]}>
+                <Text style={ui.sumLabel}>Total Net Price</Text>
+                <Text style={ui.sumValBold}>{fmtRs(totalNet)}</Text>
               </View>
+              {/* Summary mode returns per-day aggregates only — no payment rows. */}
+              {!isSummary && (
+                <>
+                  <View style={ui.summaryRow}><Text style={ui.sumLabel}>Total Received</Text><Text style={ui.sumValBold}>{fmtRs(totalReceived)}</Text></View>
+                  <View style={[ui.summaryRow, { borderBottomWidth: 0 }]}>
+                    <Text style={ui.sumLabel}>Total Pending</Text>
+                    <Text style={[ui.sumValBold, { color: (totalPending ?? 0) > 0 ? '#C0392B' : '#10b981' }]}>{fmtRs(totalPending)}</Text>
+                  </View>
+                </>
+              )}
             </View>
           </ScrollView>
         )}

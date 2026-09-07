@@ -14,7 +14,7 @@
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
-import { isAdmin, TRAINER_ALLOWED_SCREENS } from '../config/permissions';
+import { isAdmin, isSales, SALES_ALLOWED_SCREENS, TRAINER_ALLOWED_SCREENS } from '../config/permissions';
 
 interface RouteGuardResult {
   accessDenied: boolean;  // true  → render <AccessDenied />
@@ -34,8 +34,17 @@ export const useRouteGuard = (screenName?: string): RouteGuardResult => {
   const profile     = useSelector((state: RootState) => state.user.profile);
   const userIsAdmin = isAdmin(profile?.role);
 
+  // Sales shares the admin bottom tabs (Members/Package/Reports), so it has to
+  // clear this guard too — MembersStack and PackageStack call it with their
+  // tab route names.
+  const salesAllowed =
+    isSales(profile?.role) &&
+    !!screenName &&
+    SALES_ALLOWED_SCREENS.includes(screenName);
+
   const allowed =
     userIsAdmin ||
+    salesAllowed ||
     !screenName ||
     TRAINER_ALLOWED_SCREENS.includes(screenName);
 

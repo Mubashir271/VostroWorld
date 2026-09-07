@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator,
+  ActivityIndicator, ScrollView,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -30,6 +30,23 @@ const QUICK = [
   { label: 'Last 30',  start: () => daysAgo(30), end: today },
 ];
 
+const COL_W = [36, 130, 74, 96, 92, 100];
+const COL_L = ['Sr#', 'Client', 'Order ID', 'Deposits Date', 'Amount', 'Payment Type'];
+
+// Rows arrive grouped by date: [{ date, data: [order, …] }, …].
+const flatten = (raw: any[]): any[] => {
+  if (raw.length > 0 && raw[0]?.date && Array.isArray(raw[0]?.data)) {
+    return raw.flatMap((g: any) => g.data.map((r: any) => ({ ...r, _date: r.date ?? g.date })));
+  }
+  return raw;
+};
+
+const paymentTypes = (row: any) =>
+  (row.payment_history ?? [])
+    .map((p: any) => p.payment_type)
+    .filter(Boolean)
+    .join(', ') || '—';
+
 const DepositsHistory = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
@@ -45,8 +62,12 @@ const DepositsHistory = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await getCafeDepositsHistory({ branch_id: branchId, start_date: startDate, end_date: endDate, limit: 200 });
-      setRows(res.data?.data ?? res.data ?? []);
+      const res = await getCafeDepositsHistory({ branch_id: branchId, start_date: startDate, end_date: endDate });
+      // 404 + {status:false} is how "no deposits in range" comes back.
+      setRows(res.data?.status ? flatten(res.data.data ?? []) : []);
+      setFetched(true);
+    } catch {
+      setRows([]);
       setFetched(true);
     } finally {
       setLoading(false);
@@ -60,18 +81,19 @@ const DepositsHistory = () => {
     setPickerFor(null);
   };
 
-  const total = rows.reduce((s, r) => s + (parseFloat(r.amount ?? 0) || 0), 0);
+  // The deposit amount is the order's `price` — there is no `amount` field.
+  const total = rows.reduce((s, r) => s + (parseFloat(r.price ?? 0) || 0), 0);
 
   const renderRow = ({ item, index }: { item: any; index: number }) => (
     <View style={[styles.dataRow, index % 2 === 1 && styles.dataRowAlt]}>
-      <Text style={[styles.cell, styles.cellMuted, { width: 36 }]}>{index + 1}</Text>
-      <Text style={[styles.cell, styles.cellRed, { flex: 2 }]} numberOfLines={1}>
-        {item.client_name ?? `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() ?? '—'}
+      <Text style={[styles.cell, styles.cellMuted, { width: COL_W[0] }]}>{index + 1}</Text>
+      <Text style={[styles.cell, styles.cellRed, { width: COL_W[1] }]} numberOfLines={1}>
+        {item.client_name ?? '—'}
       </Text>
-      <Text style={[styles.cell, { flex: 1.2 }]} numberOfLines={1}>{item.date ?? item.created_at ?? '—'}</Text>
-      <Text style={[styles.cell, styles.cellGreen, { flex: 1, textAlign: 'right' }]}>
-        {fmtRs(item.amount)}
-      </Text>
+      <Text style={[styles.cell, { width: COL_W[2] }]}>{item.id ?? '—'}</Text>
+      <Text style={[styles.cell, { width: COL_W[3] }]}>{item._date ?? item.date ?? '—'}</Text>
+      <Text style={[styles.cell, styles.cellGreen, { width: COL_W[4] }]}>{fmtRs(item.price)}</Text>
+      <Text style={[styles.cell, { width: COL_W[5] }]} numberOfLines={1}>{paymentTypes(item)}</Text>
     </View>
   );
 
@@ -141,26 +163,27 @@ const DepositsHistory = () => {
         )}
 
         {!loading && fetched && rows.length > 0 && (
-          <>
-            <View style={styles.headerRow}>
-              <Text style={[styles.headerCell, { width: 36 }]}>Sr#</Text>
-              <Text style={[styles.headerCell, { flex: 2 }]}>Client</Text>
-              <Text style={[styles.headerCell, { flex: 1.2 }]}>Date</Text>
-              <Text style={[styles.headerCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator>
+            <View>
+              <View style={styles.headerRow}>
+                {COL_L.map((lbl, i) => (
+                  <Text key={lbl} style={[styles.headerCell, { width: COL_W[i] }]}>{lbl}</Text>
+                ))}
+              </View>
+              <FlatList
+                data={rows}
+                keyExtractor={(_, i) => i.toString()}
+                renderItem={renderRow}
+                showsVerticalScrollIndicator={false}
+                ListFooterComponent={
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.totalsLabel}>Total Deposits:</Text>
+                    <Text style={styles.totalsVal}>{fmtRs(total)}</Text>
+                  </View>
+                }
+              />
             </View>
-            <FlatList
-              data={rows}
-              keyExtractor={(_, i) => i.toString()}
-              renderItem={renderRow}
-              showsVerticalScrollIndicator={false}
-              ListFooterComponent={
-                <View style={styles.totalsRow}>
-                  <Text style={styles.totalsLabel}>Total Deposits:</Text>
-                  <Text style={styles.totalsVal}>{fmtRs(total)}</Text>
-                </View>
-              }
-            />
-          </>
+          </ScrollView>
         )}
       </View>
 

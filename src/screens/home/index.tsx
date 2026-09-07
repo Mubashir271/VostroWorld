@@ -23,10 +23,11 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../redux/store';
 import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin, ROLE_LABELS } from '../../config/permissions';
+import { isAdmin, isSales, ROLE_LABELS } from '../../config/permissions';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { fetchMembers } from '../../redux/slices/membersSlice';
+import RenewalsPanel from './RenewalsPanel';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -54,6 +55,21 @@ const StatCard = ({ label, value, iconName }: StatCardProps) => (
             <Icon name={iconName} size={scale(20)} color="#fff" />
         </View>
     </View>
+);
+
+
+// Same footprint as StatCard but tappable and value-less — mirrors the web
+// dashboard's "Sell Package" tile, which sits inline in the stats grid rather
+// than in the quick-actions row.
+const ActionCard = ({ label, iconName, onPress }: { label: string; iconName: string; onPress?: () => void }) => (
+    <TouchableOpacity style={styles.statCard} onPress={onPress} activeOpacity={0.8}>
+        <View style={styles.statCardLeft}>
+            <Text style={styles.statLabel} numberOfLines={2}>{label}</Text>
+        </View>
+        <View style={styles.statIconCircle}>
+            <Icon name={iconName} size={scale(20)} color="#fff" />
+        </View>
+    </TouchableOpacity>
 );
 
 
@@ -102,15 +118,19 @@ export default function DashboardScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const userIsAdmin = isAdmin(profile?.role || profile?.type);
+    const userIsSales = isSales(profile?.role);
+    // Sales sees the same client-stats dashboard as admin (confirmed against
+    // the web Sales login), not the employee/trainer self-service one.
+    const showStatsDashboard = userIsAdmin || userIsSales;
 
     // Preload the Members list in the background so the Members tab opens
     // instantly instead of showing its own loading spinner on first tap.
     useEffect(() => {
-        if (!userIsAdmin || !branchId) return;
+        if (!showStatsDashboard || !branchId) return;
         if (membersCache.loaded && membersCache.branchId === branchId) return;
         if (membersCache.loading) return;
         dispatch(fetchMembers({ branchId }));
-    }, [userIsAdmin, branchId, membersCache.loaded, membersCache.branchId, membersCache.loading, dispatch]);
+    }, [showStatsDashboard, branchId, membersCache.loaded, membersCache.branchId, membersCache.loading, dispatch]);
 
     // ── Admin stats ───────────────────────────────────────────────────────────
     const [clientsAll, setClientsAll] = useState({ all: 0, active: 0, inactive: 0, dormant: 0 });
@@ -156,7 +176,7 @@ export default function DashboardScreen() {
     const fetchDashboard = useCallback(async (isRefresh = false) => {
         try {
             if (!isRefresh) setLoading(true);
-            if (userIsAdmin) {
+            if (showStatsDashboard) {
                 await Promise.all([fetchClientStats(), fetchTodaySales()]);
             } else if (branchId && profile?.id) {
                 const stats = await getEmployeeDashboardStats({
@@ -170,7 +190,7 @@ export default function DashboardScreen() {
         } finally {
             if (!isRefresh) setLoading(false);
         }
-    }, [userIsAdmin, branchId, profile?.id, fetchClientStats, fetchTodaySales]);
+    }, [showStatsDashboard, branchId, profile?.id, fetchClientStats, fetchTodaySales]);
 
     useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
@@ -187,7 +207,7 @@ export default function DashboardScreen() {
                 ? { uri: profile.image }
                 : require('../../assets/img/userIcon.png');
 
-    const headerTitle = userIsAdmin ? 'Vostro Admin' : 'Vostro Employee';
+    const headerTitle = userIsAdmin ? 'Vostro Admin' : userIsSales ? 'Vostro Sales' : 'Vostro Employee';
 
     return (
         <>
@@ -222,8 +242,8 @@ export default function DashboardScreen() {
                             />
                         }
                     >
-                        {userIsAdmin ? (
-                            /* ── ADMIN DASHBOARD ─────────────────────────────── */
+                        {showStatsDashboard ? (
+                            /* ── ADMIN / SALES DASHBOARD ─────────────────────── */
                             <>
                                 <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
                                 <ProfileHeader
@@ -235,11 +255,19 @@ export default function DashboardScreen() {
                                     onEditPress={() => console.log('Edit Pressed')}
                                 />
 
-                                {/* Stats Grid */}
+                                {/* Stats Grid — Sales mirrors the web dashboard, which
+                                    puts a "Sell Package" action tile 4th in the grid. */}
                                 <View style={styles.statsGrid}>
                                     <StatCard label="Total Clients"    value={clientsAll.all}     iconName="account-group" />
                                     <StatCard label="F-11 Clients"     value={clientsF11}          iconName="account" />
                                     <StatCard label="G-13 Clients"     value={clientsG13}          iconName="account" />
+                                    {userIsSales && (
+                                        <ActionCard
+                                            label="Sell Package"
+                                            iconName="cart-plus"
+                                            onPress={() => navigation.navigate('SellPackage')}
+                                        />
+                                    )}
                                     <StatCard label="Active Clients"   value={clientsAll.active}   iconName="account-check" />
                                     <StatCard label="Inactive Clients" value={clientsAll.inactive} iconName="account-off" />
                                     <StatCard label="Dormant Clients"  value={clientsAll.dormant}  iconName="account-clock" />
@@ -254,18 +282,30 @@ export default function DashboardScreen() {
                                     </View>
                                 </View>
 
-                                {/* Quick Actions */}
-                                <View style={styles.quickActionsGrid}>
-                                    <QuickAction icon={NewRegistration} label="New Registration"   onPress={() => navigation.navigate('NewMemberRegistration')} />
-                                    <QuickAction icon={Package}         label="Sell Package"        onPress={() => navigation.navigate('NewPackage')} />
-                                    <QuickAction icon={Attendance}      label="View Attendance"     onPress={() => navigation.navigate('AttendanceScreen')} />
-                                    <QuickAction icon={ViewReports}     label="View Reports"        onPress={() => navigation.navigate('Reports')} />
-                                    <QuickAction icon={ManageStaff}     label="Manage Staff"        onPress={() => navigation.navigate('ViewStaff')} />
-                                    <QuickAction icon={Finance}         label="Finance Dashboard"   onPress={() => navigation.navigate('FinanceDashboard')} />
-                                    <QuickAction icon={Fitness}         label="PT Roster"           onPress={() => navigation.navigate('PTRoster')} />
-                                    <QuickAction icon={Payments}        label="Approvals"           onPress={() => navigation.navigate('ApprovalsScreen')} />
-                                    <QuickAction icon={Features}        label="All Features"        onPress={() => navigation.openDrawer()} />
-                                </View>
+                                {/* Quick Actions — not shown for Sales: the web's Sales
+                                    dashboard goes straight from the stat cards into the
+                                    renewals tabs, and Sell Package / View Clients are
+                                    already reachable from the grid tile and the drawer. */}
+                                {!userIsSales && (
+                                    <View style={styles.quickActionsGrid}>
+                                        <QuickAction icon={NewRegistration} label="New Registration"   onPress={() => navigation.navigate('NewMemberRegistration')} />
+                                        <QuickAction icon={Package}         label="Sell Package"        onPress={() => navigation.navigate('NewPackage')} />
+                                        <QuickAction icon={Attendance}      label="View Attendance"     onPress={() => navigation.navigate('AttendanceScreen')} />
+                                        <QuickAction icon={ViewReports}     label="View Reports"        onPress={() => navigation.navigate('Reports')} />
+                                        <QuickAction icon={ManageStaff}     label="Manage Staff"        onPress={() => navigation.navigate('ViewStaff')} />
+                                        <QuickAction icon={Finance}         label="Finance Dashboard"   onPress={() => navigation.navigate('FinanceDashboard')} />
+                                        <QuickAction icon={Fitness}         label="PT Roster"           onPress={() => navigation.navigate('PTRoster')} />
+                                        <QuickAction icon={Payments}        label="Approvals"           onPress={() => navigation.navigate('ApprovalsScreen')} />
+                                        <QuickAction icon={Features}        label="All Features"        onPress={() => navigation.openDrawer()} />
+                                    </View>
+                                )}
+
+                                {/* Renewals — Sales only, matching the web dashboard.
+                                    Needs a concrete branch; Super Admin's "all
+                                    branches" (branchId 0/null) has no equivalent here. */}
+                                {userIsSales && branchId ? (
+                                    <RenewalsPanel branchId={branchId} />
+                                ) : null}
                             </>
                         ) : (
                             /* ── TRAINER / EMPLOYEE DASHBOARD ───────────────── */

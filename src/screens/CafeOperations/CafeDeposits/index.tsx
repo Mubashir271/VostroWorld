@@ -13,7 +13,15 @@ import { getCafeDeposits, addCafeDeposit, updateCafeDeposit, toggleCafeDepositSt
 
 const fmtRs = (val: any) => `Rs ${parseFloat(val ?? 0).toLocaleString()}/-`;
 
-interface Deposit { id: number; branch_name: string; name: string; price: number; status: string; }
+// Cafe deposits are category-13 packages, so the row shape is a package's:
+// `package_name` / `branches_name`, not `name` / `branch_name`.
+interface Deposit { id: number; branches_name: string; package_name: string; price: number; status: string; }
+
+const unwrap = (payload: any): Deposit[] => {
+  if (!payload?.status) return [];              // {status:false} = no record
+  const d = payload.data;
+  return Array.isArray(d) ? d : d?.data ?? [];  // packages/get paginates
+};
 
 const CafeDeposits = () => {
   const navigation = useNavigation<any>();
@@ -41,10 +49,13 @@ const CafeDeposits = () => {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const res = await getCafeDeposits({ branch_id: branchId, limit: 200 });
-      const all: Deposit[] = res.data?.data ?? res.data ?? [];
-      setActive(all.filter(d => d.status !== 'inactive' && d.status !== '0'));
-      setInactive(all.filter(d => d.status === 'inactive' || d.status === '0'));
+      // Status is a server-side filter on packages/get, so ask for each list.
+      const [act, inact] = await Promise.all([
+        getCafeDeposits({ branch_id: branchId, status: 1 }),
+        getCafeDeposits({ branch_id: branchId, status: 0 }).catch(() => null),
+      ]);
+      setActive(unwrap(act.data));
+      setInactive(unwrap(inact?.data));
     } catch {
       // non-blocking
     } finally {
@@ -62,7 +73,7 @@ const CafeDeposits = () => {
     if (!p || p <= 0) { Alert.alert('Error', 'Please enter a valid price.'); return; }
     setAdding(true);
     try {
-      await addCafeDeposit({ branch_id: branchId, name: name.trim(), price: p });
+      await addCafeDeposit({ branch_id: branchId, package_name: name.trim(), price: p });
       setName(''); setPrice('');
       load();
     } catch (err: any) {
@@ -80,7 +91,7 @@ const CafeDeposits = () => {
       {
         text: 'Yes', onPress: async () => {
           try {
-            await toggleCafeDepositStatus(item.id, { branch_id: branchId, status: next });
+            await toggleCafeDepositStatus(item.id, next);
             load();
           } catch {
             Alert.alert('Error', 'Failed to update status.');
@@ -92,7 +103,7 @@ const CafeDeposits = () => {
 
   const openEdit = (item: Deposit) => {
     setEditItem(item);
-    setEditName(item.name);
+    setEditName(item.package_name);
     setEditPrice(String(item.price));
   };
 
@@ -100,7 +111,7 @@ const CafeDeposits = () => {
     if (!editItem || !editName.trim()) return;
     setSaving(true);
     try {
-      await updateCafeDeposit(editItem.id, { branch_id: branchId, name: editName.trim(), price: parseFloat(editPrice) || editItem.price });
+      await updateCafeDeposit(editItem.id, { branch_id: branchId, package_name: editName.trim(), price: parseFloat(editPrice) || editItem.price });
       setEditItem(null);
       load();
     } catch (err: any) {
@@ -110,14 +121,15 @@ const CafeDeposits = () => {
     }
   };
 
-  const filteredActive   = search.trim() ? active.filter(d   => d.name.toLowerCase().includes(search.toLowerCase())) : active;
-  const filteredInactive = search.trim() ? inactive.filter(d => d.name.toLowerCase().includes(search.toLowerCase())) : inactive;
+  const matches = (d: Deposit) => (d.package_name ?? '').toLowerCase().includes(search.toLowerCase());
+  const filteredActive   = search.trim() ? active.filter(matches)   : active;
+  const filteredInactive = search.trim() ? inactive.filter(matches) : inactive;
 
   const renderRow = (item: Deposit, index: number, isActive: boolean) => (
     <View key={item.id} style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
       <Text style={[tbl.cell, tbl.cellMuted, { width: 36 }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, { flex: 1.2 }]} numberOfLines={1}>{item.branch_name ?? 'F 11'}</Text>
-      <Text style={[tbl.cell, { flex: 2 }]} numberOfLines={1}>{item.name}</Text>
+      <Text style={[tbl.cell, { flex: 1.2 }]} numberOfLines={1}>{item.branches_name ?? profile?.branchName ?? '—'}</Text>
+      <Text style={[tbl.cell, { flex: 2 }]} numberOfLines={1}>{item.package_name}</Text>
       <Text style={[tbl.cell, tbl.cellGreen, { flex: 1.2 }]}>{fmtRs(item.price)}</Text>
       <View style={tbl.actions}>
         <TouchableOpacity style={tbl.updateBtn} onPress={() => openEdit(item)}>

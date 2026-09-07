@@ -27,7 +27,9 @@ const ClientsAvailableBalance = () => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const res = await getCafeClientsBalance({ branch_id: branchId, limit: 100 });
-      setRows(res.data?.data ?? res.data ?? []);
+      // Paginated: the page array sits at data.data.data, not data.data.
+      const page = res.data?.data;
+      setRows(Array.isArray(page) ? page : page?.data ?? []);
     } catch {
       // non-blocking
     } finally {

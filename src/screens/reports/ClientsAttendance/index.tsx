@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import ClientNameCell from '../../../components/ClientNameCell';
 import { RootState } from '../../../redux/store';
 import { getClientsAttendanceReport } from '../../../api/reports';
 
@@ -27,12 +28,30 @@ const QUICK = [
   { label: 'Last 30',   start: () => daysAgo(30), end: today },
 ];
 
+// /v1/attendance/get nests the person under `attendee` — {id, uid, first_name,
+// last_name, image} — with `attendee_type` saying whether it's a Client or a
+// staff record. The flat client_name/member_name/name/full_name fields this
+// row used to read do not exist on the response, so the column rendered '—'
+// for every row.
+const attendeeName = (item: any) => {
+  const a = item.attendee;
+  const joined = [a?.first_name, a?.last_name].filter(Boolean).join(' ').trim();
+  return joined || item.client_name || item.member_name || item.name || item.full_name || '—';
+};
+
+const attendeeClientId = (item: any) =>
+  String(item.attendee_type ?? '').includes('Client')
+    ? (item.attendee?.id ?? item.attendee_id ?? null)
+    : null;
+
 const AttendanceRow = React.memo(({ item, index }: { item: any; index: number }) => (
   <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
     <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
-    <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
-      {item.client_name ?? item.member_name ?? item.name ?? item.full_name ?? '—'}
-    </Text>
+    <ClientNameCell
+      name={attendeeName(item)}
+      clientId={attendeeClientId(item)}
+      style={[tbl.cell, tbl.red, { width: 140 }]}
+    />
     <Text style={[tbl.cell, { width: 80 }]}>
       {item.date ?? item.attendance_date ?? item.check_in_date ?? '—'}
     </Text>

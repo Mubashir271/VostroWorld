@@ -293,6 +293,110 @@ export const getClientById = async (id: number) => {
   return res.data;
 };
 
+// ── Client search (Sell Package flow) ───────────────────────────────────────
+// HAR-confirmed 2026-09-02 from the web's Sell Package page. The search key is
+// a *different query param* per mode rather than a `type` field — the web maps
+// its dropdown value 1/2/3 onto `id` / `membership_no` / `name`. All three
+// verified live against branch 15.
+export const CLIENT_SEARCH_MODES = [
+  { value: 'name', label: 'By Name' },
+  { value: 'id', label: 'By Client ID' },
+  { value: 'membership_no', label: 'By Membership No' },
+] as const;
+
+export type ClientSearchMode = 'name' | 'id' | 'membership_no';
+
+export type ClientSearchRow = {
+  id: number;
+  branch_id: number;
+  uid: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+};
+
+export const searchClients = async (params: {
+  mode: ClientSearchMode;
+  value: string;
+  branch_id: number | string;
+  status?: number | string;
+  limit?: number;
+  page?: number;
+}) => {
+  const { mode, value, branch_id, status = 1, limit = 25, page = 1 } = params;
+  const res = await api.get(`/v1/clients/search-clients?${mode}=${encodeURIComponent(value)}`, {
+    params: { branch_id, status, limit, page },
+  });
+  const body = res.data ?? {};
+  return {
+    rows: (body.data?.data ?? []) as ClientSearchRow[],
+    totalRecord: Number(body.totalRecord ?? 0),
+    totalPages: Number(body.totalPages ?? 1),
+    currentPage: Number(body.data?.current_page ?? page),
+  };
+};
+
+// Update a client (multipart). Route + field names confirmed 2026-09-02 from
+// the web bundle's `UpdateClientProfile`. Two upload modes exist:
+//   image_upload_from = "gallery" → a real file, plus a `fileName` field
+//   image_upload_from = "webcam"  → a base64 blob from a webcam capture
+// A picked image from the phone is a file, so this always uses "gallery".
+//
+// The web submits its whole profile form on every save, so this sends the
+// unchanged fields back alongside the new image rather than a file-only
+// payload — a partial multipart update has never been tested against this
+// endpoint and could blank whatever it omits. `password` /
+// `must_change_password` are deliberately never sent: they drive the member
+// portal login, and an empty value could reset it.
+export type ClientImageUpload = { uri: string; type?: string; name?: string };
+
+export const updateClientProfile = async (
+  id: number,
+  fields: Record<string, string | number | null | undefined>,
+  image?: ClientImageUpload,
+) => {
+  const form = new FormData();
+
+  Object.entries(fields).forEach(([k, v]) => {
+    if (v === null || v === undefined) return;
+    const s = String(v).trim();
+    // The API uses these as "unset" sentinels; echoing them back can fail
+    // validation, so drop them instead.
+    if (!s || s === 'N/A' || s === '0000-00-00') return;
+    form.append(k, s);
+  });
+
+  if (image?.uri) {
+    const name = image.name || `client_${id}_${Date.now()}.jpg`;
+    form.append('file', {
+      uri: image.uri,
+      type: image.type || 'image/jpeg',
+      name,
+    } as any);
+    form.append('fileName', name);
+    form.append('image_upload_from', 'gallery');
+  }
+
+  const res = await api.post(`/v1/clients/update/${id}`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
+// Row shape of `getClientNames` (defined further down — /v1/clients/client-name).
+// It powers the web's autocomplete datalist on the Sell Package page: every
+// client name for the branch in one shot (3284 rows for branch 15), so fetch
+// once per branch and filter locally rather than per keystroke.
+export type ClientNameRow = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  uid: string;
+  joining_date: string;
+};
+
 // ── 6.5 Leaves ────────────────────────────────────────────────────────────────
 
 export const getLeaveQuota = async (params: {

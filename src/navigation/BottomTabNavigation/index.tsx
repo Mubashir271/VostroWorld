@@ -8,7 +8,7 @@ import {
   AccountTab, HomeTab, MembersTab, PackageTab, ReportsTab,
 } from '../../assets/icons';
 import { RootState } from '../../redux/store';
-import { isAdmin, isHR, isNutritionist, isFitnessManager } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager } from '../../config/permissions';
 
 // ── Stacks ───────────────────────────────────────────────────────────────────
 import HomeStack from '../stacks/HomeStack';
@@ -69,8 +69,13 @@ const BottomTabNavigation = () => {
   const profile = useSelector((state: RootState) => state.user.profile);
   const userIsAdmin = isAdmin(profile?.role || profile?.type);
   const userIsHR = isHR(profile?.role);
+  const userIsSales = isSales(profile?.role);
   const userIsNutritionist = isNutritionist(profile?.role);
   const userIsFitnessManager = isFitnessManager(profile?.role);
+
+  // Sales works the same client/package/report surface as admin, so it gets
+  // the same tab set rather than the trainer's My Clients/Attendance/Roster.
+  const useAdminTabs = userIsAdmin || userIsSales;
 
   return (
     <Tab.Navigator screenOptions={screenOptions}>
@@ -82,8 +87,8 @@ const BottomTabNavigation = () => {
         options={{ tabBarIcon: imgIcon(HomeTab) }}
       />
 
-      {userIsAdmin ? (
-        /* ── Admin tabs ── */
+      {useAdminTabs ? (
+        /* ── Admin / Sales tabs ── */
         <>
           <Tab.Screen
             name="Members"

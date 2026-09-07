@@ -8,6 +8,7 @@ import { reportStyles as styles } from '../styles/reportStyles';
 import AppHeader from '../../../components/AppHeader';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import ClientNameCell from '../../../components/ClientNameCell';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useSelector } from 'react-redux';
@@ -75,9 +76,11 @@ const flatten = (raw: any[]): any[] => {
 const TransactionRow = React.memo(({ item, index }: { item: any; index: number }) => (
   <View style={[tbl.dataRow, index % 2 === 1 && tbl.dataRowAlt]}>
     <Text style={[tbl.cell, tbl.cellMuted, { width: COL_WIDTHS[0] }]}>{index + 1}</Text>
-    <Text style={[tbl.cell, tbl.cellRed,  { width: COL_WIDTHS[1] }]} numberOfLines={1}>
-      {item.client_name ?? item.member_name ?? '—'}
-    </Text>
+    <ClientNameCell
+      name={item.client_name ?? item.member_name}
+      clientId={item.client_id}
+      style={[tbl.cell, tbl.cellRed, { width: COL_WIDTHS[1] }]}
+    />
     <Text style={[tbl.cell, { width: COL_WIDTHS[2] }]}>{item.order_id ?? item.id ?? '—'}</Text>
     <Text style={[tbl.cell, { width: COL_WIDTHS[3] }]} numberOfLines={1}>{item.sold_by ?? '—'}</Text>
     <Text style={[tbl.cell, { width: COL_WIDTHS[4] }]}>

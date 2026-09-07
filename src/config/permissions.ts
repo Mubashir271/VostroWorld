@@ -3,6 +3,7 @@
 export const ROLES = {
   SUPER_ADMIN: '1', // confirmed live via /v1/auth/app-login (admin@vostroworld.com)
   ADMIN: '3',
+  SALES: '4',      // confirmed live 2026-09-02 via /v1/auth/app-login (harrison@vostroworld.com)
   TRAINER: '9',    // Personal Trainer
   NUTRITIONIST: '10', // confirmed live 2026-07-23 via /v1/auth/get (designation "Nutritionist")
   FITNESS_MANAGER: '11', // confirmed live 2026-07-23 via /v1/auth/app-login (fitnessmanagerf11@/g13@)
@@ -16,6 +17,7 @@ export const ROLES = {
 export const ROLE_LABELS: Record<string, string> = {
   [ROLES.SUPER_ADMIN]: 'Super Admin',
   [ROLES.ADMIN]: 'Admin',
+  [ROLES.SALES]: 'Sales',
   [ROLES.TRAINER]: 'Personal Trainer',
   [ROLES.NUTRITIONIST]: 'Nutritionist',
   [ROLES.FITNESS_MANAGER]: 'Fitness Manager',
@@ -73,12 +75,57 @@ export const ADMIN_HIDDEN_MENUS = [
 ];
 
 export const isAdmin = (role?: string | null) => role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
+export const isSales = (role?: string | null) => role === ROLES.SALES;
 export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
 export const isHR = (role?: string | null) => role === ROLES.HR;
 export const isNutritionist = (role?: string | null) => role === ROLES.NUTRITIONIST;
 export const isFitnessManager = (role?: string | null) => role === ROLES.FITNESS_MANAGER;
 
 export const hasFullAccess = (role?: string | null) => isAdmin(role);
+
+// Sales-role screen allow-list — mirrors the web admin's Sales-login menu
+// (harrison@vostroworld.com, role '4'), captured 2026-09-02 with every
+// section expanded. The menu itself is `SALES_MENU` in DrawerContent.tsx;
+// this list is the flattened set of screens those entries reach, plus the
+// always-allowed shared ones. Without it, role '4' fell through to the
+// generic trainer branch and `ProtectedScreen` rendered <AccessDenied/> on
+// all of them.
+//
+// The web menu also carries a 'Social Leads (Sales)' entry above 'Sales';
+// it has no screen in this app and is deliberately left out for now.
+//
+// Three web entries have no app screen yet and are omitted from both the
+// menu and this list: 'Detailed Cafe Report' (/detailed-cafe-report),
+// 'Active Clients Report' (/active-clients-report) and 'Client Details
+// Report' (/client-details-report).
+export const SALES_ALLOWED_SCREENS = [
+  'Drawer', 'Dashboard', 'Notifications', 'Account',
+  // Bottom-tab route names — MembersStack/PackageStack guard themselves with
+  // useRouteGuard('Members'/'Package'), so these must be listed here too.
+  'Members', 'Package', 'Reports',
+  // Sales
+  'ViewClients', 'ClientProfile', 'NewMemberRegistration', 'ClientsReport',
+  'DailySalesCounter', 'CafeProducts', 'SellPackage', 'ViewFreezing',
+  'AssignCards', 'ViewCards',
+  // Sales › Packages
+  'MembershipPackages', 'GymPackages', 'TrainerPackages', 'BootcampPackages',
+  'PhysiotherapyPackages', 'MassageChair', 'SmallPTGroupPackages', 'GXPackages',
+  'CFTPackages', 'GeneralPackages', 'DetailedPackages',
+  // Cafe
+  'CafeDashboard', 'CafeCategories', 'CafeDeposits', 'AddClientsDeposit',
+  'ClientsAvailableBalance', 'DepositsHistory', 'CafeSalesReport',
+  'ManagementPendings',
+  // Reports
+  'ClientsReports', 'SalesReport', 'DetailedSalesReport', 'MISReport',
+  'SalesByServices', 'SalesByBootcamp', 'CafeReports', 'TransactionReport',
+  'ClientsAttendance', 'FootfallReport',
+  // Nutrition
+  'NutritionPackages', 'NutritionAppointments', 'AddNutritionAppointment',
+  // Physiotherapy
+  'PhysiotherapyAppointments',
+  // Approval
+  'ApprovalsScreen',
+];
 
 // HR-role drawer sections — confirmed live 2026-06-29 against the web
 // admin's HR-login menu (Employee Dashboard, Announcements, Human

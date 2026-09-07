@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import ClientNameCell from '../../../components/ClientNameCell';
 import { RootState } from '../../../redux/store';
 import { getClientsReport } from '../../../api/reports';
 
@@ -53,9 +54,12 @@ const ClientsRow = React.memo(({ item, index }: { item: any; index: number }) =>
   return (
     <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
       <Text style={[tbl.cell, tbl.muted, { width: 36 }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, tbl.red, { width: 140 }]} numberOfLines={1}>
-        {clientName}
-      </Text>
+      <ClientNameCell
+        name={clientName}
+        // /v1/clients/get rows are clients themselves, so `id` IS the client id.
+        clientId={item.id ?? item.client_id}
+        style={[tbl.cell, tbl.red, { width: 140 }]}
+      />
       <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
         {item.phone ?? item.phone_number ?? item.mobile ?? '—'}
       </Text>

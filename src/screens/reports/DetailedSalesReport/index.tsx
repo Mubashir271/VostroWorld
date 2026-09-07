@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import ClientNameCell from '../../../components/ClientNameCell';
 import { RootState } from '../../../redux/store';
 import { getDetailedSalesReport } from '../../../api/reports';
 
@@ -55,9 +56,11 @@ const DetailRow = React.memo(({ item, index }: { item: any; index: number }) => 
   return (
     <View style={[tbl.row, index % 2 === 1 && tbl.rowAlt]}>
       <Text style={[tbl.cell, tbl.cellMuted, { width: 36 }]}>{index + 1}</Text>
-      <Text style={[tbl.cell, tbl.cellRed, { width: 130 }]} numberOfLines={1}>
-        {item.client_name ?? item.member_name ?? '—'}
-      </Text>
+      <ClientNameCell
+        name={item.client_name ?? item.member_name}
+        clientId={item.client_id}
+        style={[tbl.cell, tbl.cellRed, { width: 130 }]}
+      />
       <Text style={[tbl.cell, { width: 100 }]} numberOfLines={1}>
         {item.package_name ?? item.product_name ?? '—'}
       </Text>

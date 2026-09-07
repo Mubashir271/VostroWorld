@@ -32,6 +32,7 @@ import DrawerNavigation from '../DrawerNavigation';
 import NewMemberRegistrationScreen from '../../screens/NewMemberRegistration';
 import NotificationScreen from '../../screens/Notification';
 import NewPackage from '../../screens/NewPackage';
+import SellPackage from '../../screens/Sales/SellPackage';
 import Settings from '../../screens/Settings';
 import SMTP from '../../screens/Settings/smtp';
 import DeleteRole from '../../screens/Settings/DeleteRole';
@@ -58,7 +59,7 @@ import AccessDenied from '../../screens/AccessDenied';
 import LegalScreen from '../../screens/Legal';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
-import { isAdmin, isHR, isNutritionist, isFitnessManager, HR_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, HR_ALLOWED_SCREENS, SALES_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS } from '../../config/permissions';
 import AttendanceScreen from '../../screens/Attendance';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
@@ -252,10 +253,11 @@ const ProtectedScreen = ({
     const userIsAdmin = isAdmin(profile?.role);
     const screenName = rest?.route?.name;
     const hrAllowed = isHR(profile?.role) && !!screenName && HR_ALLOWED_SCREENS.includes(screenName);
+    const salesAllowed = isSales(profile?.role) && !!screenName && SALES_ALLOWED_SCREENS.includes(screenName);
     const nutritionistAllowed = isNutritionist(profile?.role) && !!screenName && NUTRITIONIST_ALLOWED_SCREENS.includes(screenName);
     const fitnessManagerAllowed = isFitnessManager(profile?.role) && !!screenName && FITNESS_MANAGER_ALLOWED_SCREENS.includes(screenName);
 
-    if (!userIsAdmin && !hrAllowed && !nutritionistAllowed && !fitnessManagerAllowed) {
+    if (!userIsAdmin && !hrAllowed && !salesAllowed && !nutritionistAllowed && !fitnessManagerAllowed) {
         return <AccessDenied />;
     }
 
@@ -336,6 +338,7 @@ const AppNavigator = () => {
                 {/* ── Admin-only screens → show AccessDenied for non-admins ── */}
                 <Stack.Screen name="NewMemberRegistration" component={protect(NewMemberRegistrationScreen)} />
                 <Stack.Screen name="NewPackage" component={protect(NewPackage)} />
+                <Stack.Screen name="SellPackage" component={protect(SellPackage)} />
                 <Stack.Screen name="Settings" component={protect(Settings)} />
                 <Stack.Screen name="SMTP" component={protect(SMTP)} />
                 <Stack.Screen name="DeleteRole" component={protect(DeleteRole)} />

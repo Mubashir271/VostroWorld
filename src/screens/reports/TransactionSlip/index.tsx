@@ -9,6 +9,7 @@ import { reportStyles as styles } from '../styles/reportStyles';
 import AppHeader from '../../../components/AppHeader';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import ClientNameCell from '../../../components/ClientNameCell';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useSelector } from 'react-redux';
@@ -57,7 +58,11 @@ const TransactionSlipScreen = () => {
   const renderTx = (tx: any, key: any) => (
     <View key={key} style={txStyles.txRow}>
       <View style={txStyles.txHeader}>
-        <Text style={txStyles.clientName}>{tx.client_name ?? tx.member_name ?? '—'}</Text>
+        <ClientNameCell
+          name={tx.client_name ?? tx.member_name}
+          clientId={tx.client_id}
+          style={txStyles.clientName}
+        />
         <Text style={txStyles.netPrice}>{parseFloat(tx.net_price ?? tx.total ?? 0).toLocaleString()}</Text>
       </View>
       {tx.package_name && (

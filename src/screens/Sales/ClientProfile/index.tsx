@@ -1,20 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import FastImage from '@d11/react-native-fast-image';
+import { launchCamera, launchImageLibrary, Asset } from 'react-native-image-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { getClientById } from '../../../api/employeeDashboard';
+import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
+import { getClientById, updateClientProfile } from '../../../api/employeeDashboard';
 
-// Mirrors the web admin's client profile page. Editing is intentionally not
-// wired: no update endpoint for a client has ever been captured or confirmed,
-// and this project already carries several "shows success, saves nothing"
-// screens. Fields render read-only until that contract is confirmed, at which
-// point this becomes a form.
+// Mirrors the web admin's client profile page. The text fields stay read-only
+// — the full edit form isn't wired yet — but the client photo is editable:
+// POST /v1/clients/update/{id} (multipart) was confirmed 2026-09-02 from the
+// web bundle, so the "no confirmed update endpoint" note that used to sit
+// here no longer applies to the image.
 const EDIT_ENABLED = false;
 
 interface ClientDetail {
@@ -54,6 +56,24 @@ const val = (v?: string | number | null) => {
   return s;
 };
 
+// `image` is an absolute URL when set, but the API also returns the literal
+// string "N/A" (and an empty string) for clients with no photo — confirmed
+// live: 34 of 40 clients on branch 15 come back with "". Feeding either to
+// FastImage renders a broken image instead of the placeholder.
+const imageUri = (v?: string | null) => {
+  const s = (v ?? '').trim();
+  if (!s || s === 'N/A' || s === 'null' || s === 'undefined') { return null; }
+  return s;
+};
+
+// Fields echoed back on an image-only save, so the multipart update can't
+// blank them. Mirrors what the web's form submits.
+const PROFILE_FIELDS = [
+  'first_name', 'last_name', 'email', 'phone', 'address', 'city',
+  'club_id', 'country', 'postal_code', 'gender', 'birthday',
+  'identification_type', 'identification_number',
+] as const;
+
 const Field = ({ label, value, flex }: { label: string; value?: string | number | null; flex?: boolean }) => (
   <View style={[styles.field, flex && styles.fieldFlex]}>
     <Text style={styles.label}>{label}</Text>
@@ -79,6 +99,8 @@ const ClientProfile = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const { showSnackbar } = useSnackbarStore();
 
   const load = useCallback(async (isRefresh = false) => {
     if (clientId == null) { setError('No client selected.'); setLoading(false); return; }
@@ -103,6 +125,49 @@ const ClientProfile = () => {
 
   const name = `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim() || EMPTY;
   const membership = client?.membership_type?.[0]?.get_package_name?.name;
+
+  const photo = imageUri(client?.image);
+
+  const uploadImage = useCallback(async (asset: Asset) => {
+    if (!client || !asset.uri) { return; }
+    setUploading(true);
+    try {
+      const fields: Record<string, any> = {};
+      PROFILE_FIELDS.forEach(f => { fields[f] = (client as any)[f]; });
+
+      await updateClientProfile(
+        client.id,
+        fields,
+        { uri: asset.uri, type: asset.type, name: asset.fileName ?? undefined },
+      );
+      showSnackbar('Client photo updated.');
+      // Re-read rather than trusting a local preview — the server rewrites the
+      // image to its own /public/images/Clients/ URL.
+      await load(true);
+    } catch (e: any) {
+      showSnackbar(e?.response?.data?.message || 'Could not update the photo.');
+    } finally {
+      setUploading(false);
+    }
+  }, [client, load, showSnackbar]);
+
+  const pickImage = useCallback(() => {
+    if (!client || uploading) { return; }
+    const handle = (res: any) => {
+      if (res?.didCancel || res?.errorCode) { return; }
+      const asset: Asset | undefined = res?.assets?.[0];
+      if (asset?.uri) { uploadImage(asset); }
+    };
+    Alert.alert(
+      photo ? 'Replace Client Photo' : 'Add Client Photo',
+      'Choose an option',
+      [
+        { text: 'Take Photo', onPress: () => launchCamera({ mediaType: 'photo', quality: 0.8, saveToPhotos: false }, handle) },
+        { text: 'Choose from Gallery', onPress: () => launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, handle) },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [client, photo, uploading, uploadImage]);
 
   return (
     <View style={styles.root}>
@@ -159,18 +224,44 @@ const ClientProfile = () => {
                 </View>
               </View>
 
-              {/* Client image */}
+              {/* Client image — tap to add or replace, like the web's camera badge */}
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Client Image</Text>
                 <View style={styles.avatarWrap}>
-                  {client.image ? (
-                    <FastImage source={{ uri: client.image }} style={styles.avatar} />
-                  ) : (
-                    <View style={[styles.avatar, styles.avatarEmpty]}>
-                      <Icon name="account" size={44} color="#BBB" />
-                    </View>
-                  )}
+                  <TouchableOpacity
+                    onPress={pickImage}
+                    disabled={uploading}
+                    activeOpacity={0.8}
+                    style={styles.avatarTouch}
+                  >
+                    {photo ? (
+                      <FastImage
+                        source={{ uri: photo }}
+                        style={styles.avatar}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarEmpty]}>
+                        <Icon name="account" size={44} color="#BBB" />
+                      </View>
+                    )}
+
+                    {uploading ? (
+                      <View style={styles.avatarOverlay}>
+                        <ActivityIndicator color="#fff" />
+                      </View>
+                    ) : (
+                      <View style={styles.cameraBadge}>
+                        <Icon name={photo ? 'camera' : 'camera-plus'} size={14} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 </View>
+                <Text style={styles.avatarHint}>
+                  {uploading
+                    ? 'Uploading…'
+                    : photo ? 'Tap to replace photo' : 'Tap to add a photo'}
+                </Text>
               </View>
 
               <View style={styles.card}>
@@ -260,8 +351,22 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#1B5E20' },
   chipTextInactive: { color: '#B71C1C' },
   avatarWrap: { alignItems: 'center', paddingVertical: 6 },
+  avatarTouch: { width: 96, height: 96 },
   avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#F0F0F0' },
   avatarEmpty: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E5E5' },
+  avatarOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 48, backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cameraBadge: {
+    position: 'absolute', right: 0, bottom: 2,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#C62828',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#fff',
+  },
+  avatarHint: { textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 8 },
   section: { marginBottom: 6 },
   sectionTitle: { fontSize: 13, fontWeight: '800', color: '#C62828', marginBottom: 10 },
   row2: { flexDirection: 'row', gap: 10 },
