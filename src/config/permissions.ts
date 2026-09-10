@@ -8,6 +8,9 @@ export const ROLES = {
   NUTRITIONIST: '10', // confirmed live 2026-07-23 via /v1/auth/get (designation "Nutritionist")
   FITNESS_MANAGER: '11', // confirmed live 2026-07-23 via /v1/auth/app-login (fitnessmanagerf11@/g13@)
   HR: '12',        // HR Department — confirmed live 2026-06-29 via app-login
+  EMPLOYEE: '13',  // Plain staff record — confirmed live 2026-09-09 via app-login
+                   // (khawar1973.kk@gmail.com). The web renders this as
+                   // "Role: Employee"; the job title lives in designation.
 };
 
 // Human-readable label for a role id — used wherever the UI would otherwise
@@ -22,6 +25,7 @@ export const ROLE_LABELS: Record<string, string> = {
   [ROLES.NUTRITIONIST]: 'Nutritionist',
   [ROLES.FITNESS_MANAGER]: 'Fitness Manager',
   [ROLES.HR]: 'HR Department',
+  [ROLES.EMPLOYEE]: 'Employee',
 };
 
 
@@ -74,6 +78,35 @@ export const ADMIN_HIDDEN_MENUS = [
   'HR Management', // trainer-only HR section; admin uses 'Human Resource'
 ];
 
+/**
+ * A plain staff record: the web resolves it to "Role: Employee" and shows
+ * exactly one menu item, Employee Dashboard.
+ *
+ * Two shapes both mean this, and both must match:
+ *   - role '13'  — what /v1/auth/app-login returns today. Confirmed live
+ *     2026-09-09 with khawar1973.kk@gmail.com (designation Executive
+ *     Director, branch 15).
+ *   - role ''    — what the same account returned on 2026-09-07. Kept
+ *     because other staff records may still come back blank.
+ *
+ * Matching only the blank case is what broke this: '13' is a non-empty role
+ * that no other isX() recognises, so the account fell through into the
+ * trainer branch and was handed My Clients / Attendance / Roster and a
+ * Fitness menu — none of which the web offers such an account.
+ */
+export const isEmployee = (role?: string | null) => {
+  const r = String(role ?? '').trim();
+  return !r || r === ROLES.EMPLOYEE;
+};
+
+// The blank-role surface: the dashboard itself plus the always-allowed shared
+// screens. Mirrors the web's single "Employee Dashboard" entry.
+export const EMPLOYEE_ALLOWED_SCREENS = [
+  'Drawer', 'EmployeeDashboard', 'Notifications', 'Account',
+];
+
+export const EMPLOYEE_ALLOWED_MENUS = ['Employee Dashboard'];
+
 export const isAdmin = (role?: string | null) => role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
 export const isSales = (role?: string | null) => role === ROLES.SALES;
 export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
@@ -94,10 +127,11 @@ export const hasFullAccess = (role?: string | null) => isAdmin(role);
 // The web menu also carries a 'Social Leads (Sales)' entry above 'Sales';
 // it has no screen in this app and is deliberately left out for now.
 //
-// Three web entries have no app screen yet and are omitted from both the
-// menu and this list: 'Detailed Cafe Report' (/detailed-cafe-report),
-// 'Active Clients Report' (/active-clients-report) and 'Client Details
-// Report' (/client-details-report).
+// Two web entries have no app screen yet and are omitted from both the menu
+// and this list: 'Active Clients Report' (/active-clients-report) and
+// 'Client Details Report' (/client-details-report). ('Detailed Cafe Report'
+// was the third until 2026-09-07; it now exists and, like the web, appears
+// under both Cafe and Reports.)
 export const SALES_ALLOWED_SCREENS = [
   'Drawer', 'Dashboard', 'Notifications', 'Account',
   // Bottom-tab route names — MembersStack/PackageStack guard themselves with
@@ -105,7 +139,7 @@ export const SALES_ALLOWED_SCREENS = [
   'Members', 'Package', 'Reports',
   // Sales
   'ViewClients', 'ClientProfile', 'NewMemberRegistration', 'ClientsReport',
-  'DailySalesCounter', 'CafeProducts', 'SellPackage', 'ViewFreezing',
+  'DailySalesCounter', 'CafeProducts', 'SellPackage', 'PackageSell', 'ViewFreezing',
   'AssignCards', 'ViewCards',
   // Sales › Packages
   'MembershipPackages', 'GymPackages', 'TrainerPackages', 'BootcampPackages',
@@ -114,7 +148,7 @@ export const SALES_ALLOWED_SCREENS = [
   // Cafe
   'CafeDashboard', 'CafeCategories', 'CafeDeposits', 'AddClientsDeposit',
   'ClientsAvailableBalance', 'DepositsHistory', 'CafeSalesReport',
-  'ManagementPendings',
+  'ManagementPendings', 'DetailedCafeReport',
   // Reports
   'ClientsReports', 'SalesReport', 'DetailedSalesReport', 'MISReport',
   'SalesByServices', 'SalesByBootcamp', 'CafeReports', 'TransactionReport',

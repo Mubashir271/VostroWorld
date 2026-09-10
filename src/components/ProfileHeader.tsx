@@ -9,7 +9,10 @@ interface ProfileHeaderProps {
   role: string;
   branch: string;
   avatar?: string | ImageSourcePropType; // support URI string OR local image
-  editIcon: ImageSourcePropType;
+  // The edit affordance only renders when both are supplied. Callers with
+  // nothing to open must omit onEditPress rather than pass a no-op — an icon
+  // that looks tappable and does nothing reads as a broken screen.
+  editIcon?: ImageSourcePropType;
   onEditPress?: () => void;
 }
 
@@ -47,9 +50,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       </View>
 
       {/* Edit Button */}
-      <TouchableOpacity onPress={onEditPress} style={styles.editContainer}>
-        <Image source={editIcon} style={styles.editIcon} />
-      </TouchableOpacity>
+      {!!onEditPress && !!editIcon && (
+        <TouchableOpacity onPress={onEditPress} style={styles.editContainer}>
+          <Image source={editIcon} style={styles.editIcon} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

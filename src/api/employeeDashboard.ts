@@ -13,8 +13,9 @@ export const getAttendanceList = async (params: {
   limit?: number;
   page?: number;
 }) => {
+  // category 2 + type=Staff — the pair the web sends (HAR 2026-09-07).
   const res = await api.get('/v1/attendance/index', {
-    params: { category: 2, ...params },
+    params: { category: 2, type: 'Staff', ...params },
   });
   return res.data;
 };
@@ -44,7 +45,7 @@ export const getDutyHourRequests = async (params: {
   day?: string;
   limit?: number;
 }) => {
-  const res = await api.get('/hr/employee-duty-hour-requests/index', {
+  const res = await api.get('/v1/hr/employee-duty-hour-requests/index', {
     params,
   });
   return res.data;
@@ -91,7 +92,7 @@ export const getSalarySlips = async (params: {
   end_date?: string;
   limit?: number;
 }) => {
-  const res = await api.get('/salary', { params });
+  const res = await api.get('/v1/salary', { params });
   return res.data;
 };
 
@@ -148,14 +149,17 @@ export const getSalaryComponents = async (params: {
 
 // Confirmed live: POST /v1/hr/salary-components/store exists. Payload field
 // names/casing below are unconfirmed (not probed live to avoid writing test data).
+// Confirmed live on dev 2026-09-10 (201, read-back verified). The previous
+// payload used `user_id` and `salary_month`; the API requires **`staff_id`**
+// and **`return_month`** (a full date), and rejected the old shape with a 422.
 export const addSalaryComponent = async (payload: {
   branch_id: number | string;
-  user_id: number;
+  staff_id: number;
   component_name: string;
-  type: string; // 'Addition' | 'Deduction'
+  type: string; // lowercase 'addition' | 'deduction'
   amount: number;
   date: string;
-  salary_month: string; // 'YYYY-MM'
+  return_month: string; // YYYY-MM-DD
   description?: string;
 }) => {
   const res = await api.post('/v1/hr/salary-components/store', payload);
@@ -236,11 +240,18 @@ export const addStaffLoan = async (payload: {
   staff_id: number;
   amount: number;
   term: number;
-  installment: number;
-  payment_method: string;
-  transaction_type: string;
+  /**
+   * Server-computed as `amount / term` — whatever is sent here is ignored
+   * (verified on dev 2026-09-10: sent 1, stored 1000 for 6000/6 and 1250 for
+   * 5000/4). Kept optional so a caller can display an estimate without
+   * implying it is authoritative.
+   */
+  installment?: number;
+  /** id from `/related_things/get-names-list?type=PaymentMethod` (Cash=31). */
+  payment_type_id?: number;
+  transaction_type?: string;
   reason?: string;
-  return_start_date: string;
+  return_start_date?: string;
 }) => {
   const res = await api.post('/v1/staff-loans/add', payload);
   return res.data;
@@ -314,6 +325,81 @@ export type ClientSearchRow = {
   last_name: string;
   email: string;
   phone: string;
+};
+
+// ── Sell Package (web admin's /package-sell flow) ────────────────────────────
+// All four confirmed against a HAR of the web admin's Sell Package page
+// (2026-09-10) and re-verified live on dev.
+
+/**
+ * "Select Service" options for one client. The client id is a **path**
+ * segment, not a query param, and the result is scoped to that client — a
+ * client who already holds a membership is not offered Registration again.
+ * Shape: `{ "<tag>": "<category code>" }`, e.g. `{ registration: "6" }`.
+ * Answers 404 with the standard "No record found" body when a client has no
+ * eligible services.
+ */
+export const getClientServiceOptions = async (clientId: number | string) => {
+  const res = await api.get(`/v1/cart/list-package-categories/${clientId}`);
+  return res.data;
+};
+
+/**
+ * "Membership Type" options — the packages inside a chosen service category.
+ * The web uses `names-list` here, not `/packages/get`; it returns a flat
+ * `{id, name}` array.
+ */
+export const getPackageNamesForCategory = async (params: {
+  branch_id: number | string;
+  category: number | string;
+  status?: 0 | 1;
+  user_id?: number | string;
+}) => {
+  const res = await api.get('/v1/packages/names-list', {
+    params: { status: 1, ...params },
+  });
+  return res.data;
+};
+
+/**
+ * Price + start/end dates for a chosen package.
+ *
+ * ⚠️ The package id goes in **`id`**. Passing `package_id` is accepted but
+ * returns `price: 0` with default dates — a silent wrong answer rather than an
+ * error. Confirmed on dev: `id=2` returns 45000, `package_id=2` returns 0.
+ */
+export const getPackageInfo = async (params: {
+  id: number | string;
+  startDate: string;
+  quantity?: number;
+}) => {
+  const res = await api.get('/v1/packages/fetch-package-info', {
+    params: { quantity: 1, ...params },
+  });
+  return res.data;
+};
+
+/** "Add Package" — puts the configured package in the client's cart. */
+export const addPackageToCart = async (payload: {
+  branch_id: number | string;
+  client_id: number;
+  package_id: number;
+  category: string;
+  sale_type: string;
+  price: number;
+  discount: number;
+  discount_type: 'Amount' | 'Percentage';
+  net_price: number;
+  sale_date: string;
+  quantity?: number;
+  start_date?: string;
+  end_date?: string;
+  approved_by?: string;
+  referenced_by?: string;
+  sales_notes?: string;
+}) => {
+  const res = await api.post('/v1/cart/add', { quantity: 1, ...payload });
+  return res.data;
 };
 
 export const searchClients = async (params: {
@@ -560,6 +646,47 @@ export const addStaffDocument = async (payload: {
   return res.data;
 };
 
+// The web's Employee Dashboard "Update Contact Details" form. Confirmed from
+// the 2026-09-09 HAR's bundle: UpdateStaffProfile posts multipart FormData to
+// /auth/update/{id}, and appends only values that are neither undefined, null
+// nor "" — sending an empty string would blank the field server-side. A picked
+// image goes in as `file` alongside `image_upload_from: 'gallery'`.
+export const updateStaffProfile = async (
+  userId: number,
+  fields: Partial<{
+    // "Change Information" modal
+    first_name: string;
+    last_name: string;
+    // "Update Contact Details" panel
+    cnic: string;
+    email: string;
+    phone: string;
+    password: string;
+    address: string;
+  }>,
+  image?: { uri: string; type?: string; fileName?: string } | null,
+) => {
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      formData.append(key, String(value).trim());
+    }
+  });
+  if (image?.uri) {
+    formData.append('file', {
+      uri: image.uri,
+      type: image.type || 'image/jpeg',
+      name: image.fileName || 'profile.jpg',
+    } as any);
+    formData.append('image_upload_from', 'gallery');
+  }
+
+  const res = await api.post(`/v1/auth/update/${userId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
 // ── 6.1 Promotions / Announcements ───────────────────────────────────────────
 
 export const getPromotions = async (params: {
@@ -789,19 +916,30 @@ export const getExpensePaymentMethods = async () => {
   return res.data?.data ?? [];
 };
 
+// Confirmed live on dev 2026-09-10 (201, read-back verified). The body is a
+// top-level **array** of rows. Each row must carry `originalIndex` — its
+// position in the array — or the backend 500s with `Undefined array key
+// "originalIndex"` before validating anything. Per-row required fields:
+// category_id, sub_category_id, transaction_type, amount, payment_type_id,
+// occurrence_date, is_liability. The response reports per-row outcomes under
+// `results.Success` / `results.Failed`, so a 201 does not mean every row saved.
 export const addExpenseRows = async (rows: Array<{
   branch_id: number | string;
   occurrence_date: string;
   amount: number;
-  category_id?: number;
-  sub_category_id?: number;
-  transaction_type?: string;
-  payment_type_id?: number;
+  category_id: number;
+  sub_category_id: number;
+  transaction_type: string;
+  payment_type_id: number;
+  is_liability: 0 | 1;
   bank_account_id?: number;
   cheque_number?: string;
   description?: string;
 }>) => {
-  const res = await api.post('/v1/expense/store', rows);
+  const res = await api.post(
+    '/v1/expense/store',
+    rows.map((r, originalIndex) => ({ originalIndex, ...r })),
+  );
   return res.data;
 };
 
@@ -848,13 +986,31 @@ export const getPaidExpenseReport = async (params: { date: string }) => {
   return res.data;
 };
 
+// Confirmed live on dev 2026-09-10. ⚠️ The write field names are NOT the
+// column names: the API takes `<column>_amount` and silently ignores anything
+// else, so the previous `bank`/`charity`/`gst`/`cash_in_hand` payload wrote a
+// row of zeros while still answering 201. Verified mapping (sent -> stored):
+//   bank_amount -> bank                 charity_amount -> charity
+//   gst_amount -> gst                   cash_in_hand_amount -> cash_in_hand
+//   cash_in_safe_amount -> cash_in_safe sale_counter_amount -> sale_counter
+//   cafe_amount -> cafe                 other_amount -> other
+//   expense_amount -> expense
+// `cash_in_bank` and `charity_balance` are the two exceptions — those are
+// written under their own names.
 export const addCashInHandEntry = async (payload: {
   branch_id: number | string;
   date: string;
-  bank?: number;
-  charity?: number;
-  gst?: number;
-  cash_in_hand?: number;
+  bank_amount?: number;
+  charity_amount?: number;
+  gst_amount?: number;
+  cash_in_hand_amount?: number;
+  cash_in_safe_amount?: number;
+  sale_counter_amount?: number;
+  cafe_amount?: number;
+  other_amount?: number;
+  expense_amount?: number;
+  cash_in_bank?: number;
+  charity_balance?: number;
   description?: string;
 }) => {
   const res = await api.post('/v1/finance/cash-in-hand/add', payload);
@@ -876,17 +1032,35 @@ export const updateCashInHandEntry = async (id: number, payload: {
 
 // ── Liabilities ──────────────────────────────────────────────────────────────
 
+// Confirmed live on dev 2026-09-10 (201, read-back verified via
+// `/v1/finance/liabilities/get`). The previous payload used four wrong field
+// names — `category`, `sub_category`, `amount`, `due_date` — and was rejected
+// outright with a 400. Required: branch_id, category_id, sub_category_id,
+// amount_owned, maturity_date.
 export const addLiability = async (payload: {
   branch_id: number | string;
-  category: string;
-  sub_category?: string;
+  category_id: number;
+  sub_category_id: number;
+  amount_owned: number;
+  maturity_date: string;
   creditor_name?: string;
   creditor_contact?: string;
-  amount: number;
   description?: string;
-  due_date?: string;
 }) => {
   const res = await api.post('/v1/finance/liabilities/add', payload);
+  return res.data;
+};
+
+// The liability *records* (what you pay against), as opposed to
+// `liability-ledger` which is the transaction feed. Route confirmed live on
+// dev 2026-09-10; the app previously had no helper for it, which is why
+// PayLiabilities had no way to supply the required `liability_id`.
+export const getLiabilities = async (params: {
+  branch_id: number | string;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/finance/liabilities/get', { params });
   return res.data;
 };
 
@@ -906,12 +1080,15 @@ export const getLiabilityBalance = async (branch_id: number | string) => {
   return res.data;
 };
 
+// Confirmed live on dev 2026-09-10. `liability_id` is **required** and was
+// missing entirely from the previous payload, so every payment was rejected.
 export const payLiability = async (payload: {
   branch_id: number | string;
+  liability_id: number;
   amount: number;
-  type: string;
   resource: string;
   date: string;
+  type?: string;
   description?: string;
 }) => {
   const res = await api.post('/v1/finance/liability-installments/pay', payload);
@@ -1466,19 +1643,24 @@ export const getBefitAttendance = async (params: {
   return res.data;
 };
 
-// NOT CONFIRMED — endpoint inferred from REST convention; do not call until
-// confirmed live from the web admin's Network tab on a successful Add submit.
+// Confirmed live on dev 2026-09-10 (HTTP 201). Corrections vs the earlier
+// guess: the route is `add`, not `store` (`store` 404s), and the payload keys
+// were wrong — `session_attendance` has no `time`, `trainer_attendance` or
+// `client_attendance` columns. The real optional status columns are
+// `staff_status`/`client_status`; `type` and `day` are derived server-side
+// from the order, so passing `type` has no effect. A repeat submit for the
+// same client/order/date answers 403 "This record is Already Exists!..",
+// and an expired package answers 422 "Session limit reached."
 export const addBefitAttendance = async (payload: {
   branch_id: number | string;
-  user_id: number;
-  package_id: number;
-  time: string;
-  trainer_attendance: string;
-  client_attendance: string;
+  client_id: number;
+  order_id: number;
+  trainer_id: number;
   date: string;
-  type: 'Befit';
+  staff_status?: string;
+  client_status?: string;
 }) => {
-  const res = await api.post('/v1/fitness/session-attendance/store', payload);
+  const res = await api.post('/v1/fitness/session-attendance/add', payload);
   return res.data;
 };
 
@@ -1622,21 +1804,15 @@ export const getHRPortalClients = async (params: {
   return res.data;
 };
 
-// NOT CONFIRMED — no payout/record-payment call was captured live; endpoint
-// path and payload are inferred from the commissions response shape
-// (payout_status/payout_date/paid_commission). Screen must handle failure
-// gracefully until confirmed against the real backend.
-export const recordHRCommissionPayment = async (payload: {
-  trainer_id: number;
-  branch_id: number | string;
-  start_date: string;
-  end_date: string;
-  amount: number;
-  note?: string;
-}) => {
-  const res = await api.post('/v1/fitness/commission-portal/hr/commissions/pay', payload);
-  return res.data;
-};
+// REMOVED 2026-09-10 — the backend has no commission-payout capability.
+// `/fitness/commission-portal/hr/commissions/pay` 404s on dev, as do
+// `/commissions/payout`, `/commission/pay` and `/hr/pay`. The premise was
+// wrong too: this helper was inferred from supposed `payout_status` /
+// `payout_date` / `paid_commission` fields, but the live commissions response
+// carries none of them — it is a pure computed report (commission derived
+// from delivered sessions via `formula_guide`), with no payout state to
+// record against. Recording payouts needs a new backend endpoint; do not
+// re-add a client helper until one exists.
 
 // Same endpoint as `getHRSessions`, but loops through every page instead of
 // trusting a single `limit` guess — confirmed live 2026-06-29 that the web
@@ -1786,23 +1962,23 @@ export const getSPTBookings = async (params: {
 };
 
 // ── GX Slot (package, category 15) ───────────────────────────────────────────
-// NOT confirmed safe — see PROJECT_STATUS.md "2026-06-24 — repeat incident".
-// `POST /v1/packages/add` accepted a minimal payload (branch_id, package_name,
-// category) and inserted a row, then crashed in `handleTimeSlot()` on a
-// missing `time_id` key. This payload includes a best-guess `time_id` (the
-// id from `getTimeSlots`) to dodge that specific crash, but the full
-// contract — and whether `days`/`booking_days` need a separate call to
-// `/v1/fitness/time-slot-assignment/add` — is unconfirmed. Do not call this
-// until the real payload is confirmed (e.g. captured from the web admin's
-// Network tab); the AddGXSlots screen gates the submit button accordingly.
+// Confirmed live on dev 2026-09-10 (HTTP 201). History: a minimal payload
+// (branch_id, package_name, category) inserts a row and then 500s inside
+// `handleTimeSlot()` — see PROJECT_STATUS.md "2026-06-24 — repeat incident".
+// The missing pieces turned out to be `time_id` AND `day`: without `day` the
+// backend throws `Undefined array key "day"` *after* inserting. Both are
+// required in practice even though validation only names branch_id /
+// package_name / category. No separate `/fitness/time-slot-assignment/add`
+// call is needed.
 export const addGXSlot = async (payload: {
   branch_id: number | string;
   package_name: string;
   category: '15';
+  time_id: number;
+  day: string; // e.g. 'Monday'
   user_id?: number;
   booking_capacity?: number;
   session_count?: number;
-  time_id?: number;
   price?: number;
   duration?: number;
 }) => {
@@ -1873,16 +2049,19 @@ export const deleteSwitchedTimeSlot = async (id: number) => {
   return res.data;
 };
 
+// Confirmed live on dev 2026-09-10 (HTTP 201). `schedule_id` and
+// `new_time_slot_id` are **required**, not optional as previously typed —
+// `schedule_id` is the `detail.id` of an existing row from
+// `/fitness/time-slot-switching/index`. `trainer_id` is not a valid field.
 export const addSwitchedTimeSlot = async (payload: {
   branch_id: number | string;
-  trainer_id?: number;
-  schedule_id?: number;
-  new_time_slot_id?: number;
+  schedule_id: number;
+  new_time_slot_id: number;
   start_date: string;
   end_date: string;
   reason?: string;
 }) => {
-  const res = await api.post('/v1/fitness/time-slot-switching/store', payload); // NOT CONFIRMED
+  const res = await api.post('/v1/fitness/time-slot-switching/store', payload);
   return res.data;
 };
 
@@ -1976,20 +2155,28 @@ export const getBankingDetailsListing = async (params: { branch_id: number | str
   return res.data;
 };
 
-// NOT CONFIRMED — inferred from the `/v1/users-finance/get` naming
-// convention; no submit was ever captured. Gate the Add button until a real
-// submit is captured in a HAR, same pattern as `registerStaff`.
+// Confirmed live on dev 2026-09-10 (201) and verified by read-back.
+// Validation requires user_id, amount, category, occurrence_date, branch_id.
+// Two traps the 201 alone does not reveal:
+//   - `return_month` is NOT in the validation list, but the column is NOT
+//     NULL, so omitting it 500s. It is also a **DATE** column, not a
+//     "YYYY-MM" string: sending "2026-10" silently stores `0000-00-00`.
+//     Always send a full `YYYY-MM-DD`.
+//   - the column is `payment_type_id` (an id from `/related_things/
+//     get-names-list?type=PaymentMethod`, e.g. Cash=31), **not**
+//     `payment_method`. A `payment_method` string is silently dropped; with
+//     `payment_type_id` set, the read-back echoes `payment_method: "Cash"`.
 export const addStaffAdvance = async (payload: {
   branch_id: number | string;
   user_id: number;
   amount: number;
-  return_month: string;
-  transaction_type: string;
-  payment_method: string;
+  return_month: string; // YYYY-MM-DD
+  occurrence_date: string;
+  category: 'Advance';
+  transaction_type?: string;
+  payment_type_id?: number;
   bank_id?: number;
   reason?: string;
-  occurrence_date?: string;
-  category: 'Advance';
 }) => {
   const res = await api.post('/v1/users-finance/add', payload);
   return res.data;
@@ -2035,7 +2222,13 @@ export const getDailyOfficeClosing = async (params: {
 };
 
 // ── Assets ────────────────────────────────────────────────────────────────────
-// NOT CONFIRMED — endpoints inferred from codebase pattern; no HAR captured.
+// The whole module is **singular** `asset`, on read as well as write.
+// Confirmed live on dev 2026-09-10: `/v1/finance/assets/get` (plural) 404s —
+// which the Assets screen silently swallowed as "no records", so the list has
+// always rendered empty. `/v1/finance/asset/get` returns real rows.
+// Row shape: { id, name, category_name, sub_category_name, purchase_cost,
+// quantity, total_cost, current_value, acquisition_date, vendor_name,
+// vendor_contact, description }.
 export const getAssets = async (params: {
   branch_id: number | string;
   start_date?: string;
@@ -2043,36 +2236,35 @@ export const getAssets = async (params: {
   page?: number;
   limit?: number;
 }) => {
-  const res = await api.get('/v1/finance/assets/get', { params });
+  const res = await api.get('/v1/finance/asset/get', { params });
   return res.data;
 };
 
+// Confirmed live on dev 2026-09-10 (HTTP 201). Note the route is **singular**
+// `asset/add` while the read side is plural `assets/get` — the earlier
+// `assets/add` guess 404s. Required: branch_id, category_id, sub_category_id,
+// name, acquisition_date (all four rejected as missing on an empty body).
 export const addAsset = async (payload: {
   branch_id: number | string;
-  category_id?: number;
-  sub_category_id?: number;
+  category_id: number;
+  sub_category_id: number;
   name: string;
+  acquisition_date: string;
   purchase_cost: number;
   quantity?: number;
   total_cost?: number;
   current_value?: number;
-  acquisition_date?: string;
   vendor_name?: string;
   vendor_contact?: string;
   description?: string;
 }) => {
-  const res = await api.post('/v1/finance/assets/add', payload); // NOT CONFIRMED
+  const res = await api.post('/v1/finance/asset/add', payload);
   return res.data;
 };
 
 // ── Staff Registration (Add Staff) ───────────────────────────────────────────
 // Confirmed live 2026-06-24: POST /v1/auth/register exists, no auth token
-// required, requires at minimum branch_id/first_name/last_name/gender. The
-// full field contract is NOT confirmed — sending an incomplete-but-valid-
-// looking payload triggered a backend 500 (`trim(): Argument #1 ($string)
-// must be of type string, DateTime given` in Controller.php). Still not
-// wired to a live submit — treat as fragile until the backend bug is fixed
-// and a real submit is captured in a HAR.
+// required.
 //
 // 2026-07-03: a HAR of the web admin's "Add Staff" page (Downloads/
 // vostro-new.com.har) only captured the page load — the visible "required"
@@ -2091,11 +2283,38 @@ export const addAsset = async (payload: {
 // AssignCards/ViewCards module instead) — omitted from the payload below.
 // The AddStaff screen keeps ADD_ENABLED = false until a real submit is
 // captured.
+// ✅ CONFIRMED WORKING on dev 2026-09-10 (HTTP 201, `{status, message:"User
+// successfully registered", id}`), and a read-back via `/auth/get/{id}`
+// confirmed all 20 submitted fields stored correctly with an auto-generated
+// `uid` (e.g. SF11-2609-22).
+//
+// The long-standing "backend bug" was a misdiagnosis. The controller reads
+// `$request['key']` directly with **no defaults**, so any key it touches must
+// be present or PHP throws. Two different symptoms come from the same cause:
+//   - a missing scalar key  -> 500 `Undefined array key "<name>"`
+//   - a missing `appointment_date` -> 500 `trim(): ... DateTime given`
+//     (it falls back to a DateTime, which `trim()` then rejects)
+// Earlier probes sent `date`/`joining_date`/`birthday`; the real field names
+// are `joining`/`dob`/`appointment_date`, taken from `/auth/get/{id}`.
+//
+// Verified by dropping one key at a time from a working payload:
+//   REQUIRED: branch_id, first_name, gender (validation) +
+//             department_id, designation_id, salary, joining,
+//             appointment_date (raw array access -> 500 if absent)
+//   OPTIONAL: last_name, dob, confirmation_date, employment_end_date, and
+//             every other field below.
+// The 8 required ones are typed as required here precisely because passing
+// `undefined` drops the key from the JSON body and reproduces the 500.
 export const registerStaff = async (payload: {
   branch_id: number | string;
   first_name: string;
-  last_name: string;
   gender: 'Male' | 'Female' | 'Others';
+  department_id: number;
+  designation_id: number;
+  salary: number;
+  joining: string;
+  appointment_date: string;
+  last_name?: string;
   father_name?: string;
   email?: string;
   official_email?: string;
@@ -2107,13 +2326,8 @@ export const registerStaff = async (payload: {
   blood_group?: string;
   city?: string;
   address?: string;
-  department_id?: number;
-  designation_id?: number;
   role?: string;
-  joining?: string;
-  appointment_date?: string;
   probation_duration?: number;
-  salary?: number;
   monthly_medical?: number;
   [key: string]: any;
 }) => {

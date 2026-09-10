@@ -15,10 +15,10 @@ import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 import { getPackages } from '../../../api/dashboard';
 import { getTimeSlots, getGXTrainers, addGXSlot } from '../../../api/employeeDashboard';
 
-// addGXSlot() is wired and ready; flip ADD_ENABLED once the real payload
-// contract is confirmed (see the function's comment in employeeDashboard.ts
-// and PROJECT_STATUS.md's "2026-06-24 — repeat incident" note).
-const ADD_ENABLED = false;
+// Confirmed live on dev 2026-09-10 (HTTP 201). The 2026-06-24 incident was
+// caused by a missing `day` field, which the form now collects — see the
+// addGXSlot() comment in employeeDashboard.ts.
+const ADD_ENABLED = true;
 
 // Confirmed live via /v1/branches/get 2026-06-24: id 1 = G 13, id 15 = F 11.
 const BRANCH_OPTIONS = [
@@ -28,6 +28,13 @@ const BRANCH_OPTIONS = [
 
 // GX category code (see API_REFERENCE.md Category Code Reference).
 const GX_CATEGORY = 15;
+
+// `day` is required by POST /v1/packages/add for GX packages — confirmed live
+// on dev 2026-09-10, where omitting it inserts the row and *then* 500s with
+// `Undefined array key "day"`.
+const DAY_OPTIONS: Option[] = [
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+].map(d => ({ id: d, label: d }));
 
 interface Option { id: string; label: string; }
 
@@ -59,7 +66,13 @@ const AddGXSlots = () => {
   const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.user);
 
-  const [branchId, setBranchId] = useState(String(profile?.branchId ?? 15));
+  // `?? 15` does not catch the Super Admin sentinel, because `branch_id` is 0
+  // rather than null — `0 ?? 15` is 0, so the screen defaulted to a branch that
+  // does not exist and would have posted `branch_id: 0`. Fall back to the first
+  // real branch instead, and only for users with no branch of their own.
+  const [branchId, setBranchId] = useState(
+    String(profile?.branchId || BRANCH_OPTIONS[0].id),
+  );
   const [branchModal, setBranchModal] = useState(false);
 
   const [trainers, setTrainers] = useState<Option[]>([]);
@@ -69,6 +82,9 @@ const AddGXSlots = () => {
   const [timeSlots, setTimeSlots] = useState<Option[]>([]);
   const [timeSlot, setTimeSlot] = useState<Option | null>(null);
   const [timeSlotModal, setTimeSlotModal] = useState(false);
+
+  const [day, setDay] = useState<Option | null>(null);
+  const [dayModal, setDayModal] = useState(false);
 
   const [slotName, setSlotName] = useState('');
   const [bookingSpace, setBookingSpace] = useState('');
@@ -128,6 +144,7 @@ const AddGXSlots = () => {
   const resetForm = () => {
     setTrainer(null);
     setTimeSlot(null);
+    setDay(null);
     setSlotName('');
     setBookingSpace('');
     setSessionCount('');
@@ -138,6 +155,7 @@ const AddGXSlots = () => {
     if (!trainer) { dispatch(showSnackbar({ message: 'Please select a trainer', type: 'error' })); return; }
     if (!slotName.trim()) { dispatch(showSnackbar({ message: 'Please enter a slot name', type: 'error' })); return; }
     if (!timeSlot) { dispatch(showSnackbar({ message: 'Please select a time slot', type: 'error' })); return; }
+    if (!day) { dispatch(showSnackbar({ message: 'Please select a day', type: 'error' })); return; }
     if (!bookingSpace.trim()) { dispatch(showSnackbar({ message: 'Please enter booking space', type: 'error' })); return; }
     if (!sessionCount.trim()) { dispatch(showSnackbar({ message: 'Please enter number of sessions', type: 'error' })); return; }
 
@@ -151,6 +169,7 @@ const AddGXSlots = () => {
         booking_capacity: Number(bookingSpace),
         session_count: Number(sessionCount),
         time_id: Number(timeSlot.id),
+        day: day.label,
       });
       dispatch(showSnackbar({ message: 'GX slot added', type: 'success' }));
       resetForm();
@@ -218,6 +237,13 @@ const AddGXSlots = () => {
               value={timeSlot?.label ?? ''}
               placeholder="Select Time Slot"
               onPress={() => ADD_ENABLED && setTimeSlotModal(true)}
+            />
+
+            <SelectionField
+              label="Day *"
+              value={day?.label ?? ''}
+              placeholder="Select Day"
+              onPress={() => ADD_ENABLED && setDayModal(true)}
             />
 
             <View style={styles.row2}>
@@ -341,6 +367,18 @@ const AddGXSlots = () => {
           setTimeSlotModal(false);
         }}
         onClose={() => setTimeSlotModal(false)}
+      />
+
+      <SelectionModal
+        visible={dayModal}
+        title="Select Day"
+        options={DAY_OPTIONS}
+        selectedValue={day?.label ?? ''}
+        onSelect={(val: string) => {
+          setDay(DAY_OPTIONS.find(d => d.label === val) ?? null);
+          setDayModal(false);
+        }}
+        onClose={() => setDayModal(false)}
       />
     </View>
   );

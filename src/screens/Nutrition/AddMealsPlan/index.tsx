@@ -19,7 +19,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
-import { addMealPlan } from '../../../api/nutrition';
+import { addMealPlan, getClientHub } from '../../../api/nutrition';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -120,8 +120,23 @@ const AddMealsPlan = () => {
   const branchId = profile?.branchId || '';
   const branchName = (profile as any)?.branchName ?? `Branch ${branchId}`;
 
-  // Header fields
+  // Header fields. The API needs a real `client_id`, so the free-text name
+  // field was replaced with a search that resolves to a client record.
   const [clientName, setClientName] = useState('');
+  const [client, setClient] = useState<any>(null);
+  const [clientResults, setClientResults] = useState<any[]>([]);
+  const [clientDropOpen, setClientDropOpen] = useState(false);
+
+  const searchClients = useCallback(async (text: string) => {
+    setClientName(text);
+    setClient(null);
+    if (text.trim().length < 2) { setClientResults([]); return; }
+    try {
+      const res = await getClientHub({ branch_id: branchId, search: text.trim(), limit: 10 });
+      const data = res.data?.data?.data ?? [];
+      setClientResults(Array.isArray(data) ? data : []);
+    } catch { setClientResults([]); }
+  }, [branchId]);
   const [startDate, setStartDate] = useState(todayStr());
   const [endDate, setEndDate] = useState(todayStr());
 
@@ -172,6 +187,10 @@ const AddMealsPlan = () => {
 
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    if (!client) {
+      Alert.alert('Validation', 'Please pick a client from the search results.');
+      return;
+    }
     if (!clientName.trim()) {
       Alert.alert('Validation', 'Please enter Client Name.');
       return;
@@ -185,6 +204,7 @@ const AddMealsPlan = () => {
     try {
       await addMealPlan({
         branch_id: branchId,
+        client_id: Number(client.id ?? client.client_id),
         client_name: clientName.trim(),
         start_date: startDate,
         end_date: endDate,
@@ -276,15 +296,35 @@ const AddMealsPlan = () => {
               <Text style={styles.readonlyText}>{branchName}</Text>
             </View>
 
-            {/* Client name */}
+            {/* Client — searched, so the plan carries a real client_id */}
             <Text style={styles.label}>Client Name</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter client name"
+              placeholder="Type to search client"
               placeholderTextColor="#aaa"
               value={clientName}
-              onChangeText={setClientName}
+              onChangeText={(t) => { searchClients(t); setClientDropOpen(true); }}
             />
+            {clientDropOpen && clientResults.length > 0 && !client && (
+              <View style={styles.clientDrop}>
+                {clientResults.map((c: any) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={styles.clientDropItem}
+                    onPress={() => {
+                      setClient(c);
+                      setClientName(c.full_name || `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim());
+                      setClientDropOpen(false);
+                      setClientResults([]);
+                    }}
+                  >
+                    <Text style={styles.clientDropText}>
+                      {c.full_name || `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Dates */}
             <View style={styles.datesRow}>
@@ -371,6 +411,12 @@ export default AddMealsPlan;
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  clientDrop: {
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
+    backgroundColor: '#FFF', marginTop: -6, marginBottom: 10, overflow: 'hidden',
+  },
+  clientDropItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  clientDropText: { fontSize: 13, color: '#111' },
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   scroll: { padding: 12, paddingBottom: 40 },
 

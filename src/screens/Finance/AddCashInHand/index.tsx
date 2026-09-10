@@ -68,10 +68,12 @@ const AddCashInHand = () => {
       await addCashInHandEntry({
         branch_id: branchId,
         date,
-        bank: bank ? parseFloat(bank) : undefined,
-        cash_in_hand: cashInHand ? parseFloat(cashInHand) : undefined,
-        charity: charity ? parseFloat(charity) : undefined,
-        gst: gst ? parseFloat(gst) : undefined,
+        // The API takes `<column>_amount`; the bare column names are ignored
+        // and silently store 0 — see addCashInHandEntry()'s comment.
+        bank_amount: bank ? parseFloat(bank) : undefined,
+        cash_in_hand_amount: cashInHand ? parseFloat(cashInHand) : undefined,
+        charity_amount: charity ? parseFloat(charity) : undefined,
+        gst_amount: gst ? parseFloat(gst) : undefined,
         description: description.trim() || undefined,
       });
       flash('Cash in hand entry added successfully.');

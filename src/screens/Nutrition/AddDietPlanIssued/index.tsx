@@ -3,15 +3,16 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
   ActivityIndicator, Alert, Switch,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { RootState } from '../../../redux/store';
+import BranchField from '../../../components/BranchField';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getClientHub,
   getDietPlanGoalOptions,
   getAppointmentTrainers,
+  addDietPlanIssued,
 } from '../../../api/nutrition';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
@@ -31,8 +32,14 @@ const today = fmt(new Date());
 
 const AddDietPlanIssued = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
+  // Super Admin carries `branch_id: 0`, which `|| ''` turned into an empty
+  // branch — every submit then failed with "The branch id field is required."
+  // (confirmed live on dev 2026-09-10). `useBranchSelector` treats 0 as "no
+  // branch" and makes the user pick one.
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [client, setClient] = useState<any>(null);
   const [clientSearch, setClientSearch] = useState('');
@@ -57,17 +64,17 @@ const AddDietPlanIssued = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getDietPlanGoalOptions({ branch_id: branchId })
+    getDietPlanGoalOptions({ branch_id: listBranchId })
       .then(res => setGoalOptions(res.data?.data ?? []))
       .catch(() => setGoalOptions([]));
-  }, [branchId]);
+  }, [listBranchId]);
 
   useFocusEffect(
     useCallback(() => {
-      getAppointmentTrainers({ branch_id: branchId })
+      getAppointmentTrainers({ branch_id: listBranchId })
         .then(res => setTrainers(res.data?.data ?? []))
         .catch(() => setTrainers([]));
-    }, [branchId]),
+    }, [listBranchId]),
   );
 
   const searchClients = useCallback(async (text: string) => {
@@ -75,7 +82,7 @@ const AddDietPlanIssued = () => {
     if (text.trim().length < 2) { setClientResults([]); return; }
     setSearching(true);
     try {
-      const res = await getClientHub({ branch_id: branchId, search: text.trim(), limit: 10 });
+      const res = await getClientHub({ branch_id: listBranchId, search: text.trim(), limit: 10 });
       const data = res.data?.data?.data ?? [];
       setClientResults(Array.isArray(data) ? data : []);
     } catch {
@@ -83,7 +90,7 @@ const AddDietPlanIssued = () => {
     } finally {
       setSearching(false);
     }
-  }, [branchId]);
+  }, [listBranchId]);
 
   const selectClient = (c: any) => {
     setClient(c);
@@ -99,15 +106,38 @@ const AddDietPlanIssued = () => {
     setPickerOpen(false);
   };
 
-  const handleSave = () => {
+  // POST /v1/nutrition/diet-plans confirmed live on dev 2026-09-10 (HTTP 201),
+  // which retires the earlier "avoid POST for now" guidance. Note the API
+  // field is `remarks`, not `notes`.
+  const handleSave = async () => {
+    if (branchId == null) {
+      Alert.alert('Missing Fields', 'Please select a Branch.');
+      return;
+    }
     if (!client || !date) {
       Alert.alert('Missing Fields', 'Please select a Client and Date.');
       return;
     }
-    // NOTE: POST /v1/nutrition/diet-plans (addDietPlanIssued) is implemented in
-    // src/api/nutrition.ts but intentionally not called yet, per the
-    // "avoid POST for now" guidance.
-    Alert.alert('Not Yet Enabled', 'Saving diet plan records is not yet enabled in this build.');
+    setSaving(true);
+    try {
+      await addDietPlanIssued({
+        branch_id: branchId,
+        client_id: Number(client.id ?? client.client_id),
+        date,
+        goal: goal || undefined,
+        trainer_id: trainer?.id ? Number(trainer.id) : undefined,
+        diet_plan_issued: dietPlanIssued,
+        remarks: remarks.trim() || undefined,
+      });
+      Alert.alert('Saved', 'Diet plan record added.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      Alert.alert('Could not save', typeof msg === 'string' ? msg : 'Failed to add diet plan record.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -123,6 +153,20 @@ const AddDietPlanIssued = () => {
 
       <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
+          {/* Branch — only rendered as a picker for users with no own branch */}
+          <View style={styles.field}>
+            <BranchField
+              needsPicker={needsPicker}
+              branchName={branchName}
+              options={branchOptions}
+              loadingOptions={loadingBranches}
+              onSelect={selectBranch}
+              label={<Text style={styles.fieldLabel}>Branch <Text style={styles.req}>*</Text></Text>}
+              pickerStyle={styles.dateBox}
+              staticStyle={styles.dateBox}
+            />
+          </View>
+
           {/* Client */}
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Client <Text style={styles.req}>*</Text></Text>

@@ -39,9 +39,10 @@ const TransactionSlipScreen = () => {
     setLoading(true);
     try {
       const res = await getTransactionReport({ branch_id: branchId, start_date: startDate, end_date: endDate });
-      // API returns grouped by date: [{ date, data: [tx, ...] }] or flat array
-      const raw = res.data?.data ?? (Array.isArray(res.data) ? res.data : []);
-      setData(raw);
+      // getTransactionReport already flattens the API's per-date groups, so
+      // this is a plain list of orders (the isGrouped branch below is a
+      // leftover for the raw shape and no longer fires).
+      setData(res.orders);
       setFetched(true);
     } finally {
       setLoading(false);

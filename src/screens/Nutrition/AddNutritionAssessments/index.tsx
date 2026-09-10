@@ -138,18 +138,22 @@ const AddNutritionAssessments = () => {
         daily_water_intake: dailyWaterIntake.trim(),
         disliked_foods: dislikedFoods.trim(),
         allergic_foods: allergicFoods.trim(),
-        preferred_foods: preferredFoods.trim(),
-        diabetes: !!pmh.diabetes,
-        hypertension_cvd: !!pmh.hypertension_cvd,
-        polycystic_ovarian_syndrome: !!pmh.polycystic_ovarian_syndrome,
-        anemia: !!pmh.anemia,
-        ibs: !!pmh.ibs,
-        h_pylori: !!pmh.h_pylori,
-        stress_level: stressLevel || undefined,
+        // Confirmed live on dev 2026-09-10: the API field is `favorite_foods`
+        // (not `preferred_foods`), the medical-history flags must be **strings**
+        // not booleans ("The Diabetes must be a string"), and the stress field
+        // is `take_stress`, not `stress_level`. All are required.
+        favorite_foods: preferredFoods.trim(),
+        diabetes: pmh.diabetes ? 'Yes' : 'No',
+        hypertension_cvd: pmh.hypertension_cvd ? 'Yes' : 'No',
+        polycystic_ovarian_syndrome: pmh.polycystic_ovarian_syndrome ? 'Yes' : 'No',
+        anemia: pmh.anemia ? 'Yes' : 'No',
+        ibs: pmh.ibs ? 'Yes' : 'No',
+        h_pylori: pmh.h_pylori ? 'Yes' : 'No',
+        take_stress: stressLevel || 'No',
         activity_level: activityLevel,
-        comments: comments.trim() || undefined,
+        comments: comments.trim(),
         muscle_pain: musclePain.trim(),
-        any_other_issue: anyOtherIssue.trim() || undefined,
+        any_other_issue: anyOtherIssue.trim(),
       });
       Alert.alert('Success', 'Nutrition assessment saved successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },

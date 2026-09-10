@@ -15,7 +15,7 @@ import {
 import FastImage from '@d11/react-native-fast-image';
 import { Attendance, Edit_fill, Features, Finance, Fitness, ManageStaff, NewRegistration, Package, Payments, ViewReports } from '../../assets/icons';
 import AppHeader from '../../components/AppHeader';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import ProfileHeader from '../../components/ProfileHeader';
@@ -23,7 +23,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../redux/store';
 import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin, isSales, ROLE_LABELS } from '../../config/permissions';
+import { isAdmin, isSales, isEmployee, ROLE_LABELS } from '../../config/permissions';
+import EmployeeDashboardScreen from '../HR/EmployeeDashboard';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { fetchMembers } from '../../redux/slices/membersSlice';
@@ -96,6 +97,7 @@ const QuickAction = ({ icon, label, onPress }: QuickActionProps) => (
 
 export default function DashboardScreen() {
     const navigation = useNavigation() as any;
+    const route = useRoute();
 
     const dispatch = useDispatch<AppDispatch>();
     const { profile, appImage } = useSelector(
@@ -118,6 +120,9 @@ export default function DashboardScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const userIsAdmin = isAdmin(profile?.role || profile?.type);
+    // A staff record with no role gets the Employee Dashboard as its whole
+    // app, matching the web — so Home is that dashboard, not this one.
+    const userIsEmployee = isEmployee(profile?.role);
     const userIsSales = isSales(profile?.role);
     // Sales sees the same client-stats dashboard as admin (confirmed against
     // the web Sales login), not the employee/trainer self-service one.
@@ -209,6 +214,11 @@ export default function DashboardScreen() {
 
     const headerTitle = userIsAdmin ? 'Vostro Admin' : userIsSales ? 'Vostro Sales' : 'Vostro Employee';
 
+    // Placed after every hook above so hook order stays constant.
+    // `openEdit` is set by the drawer's edit icon and carries a timestamp, so
+    // tapping it repeatedly re-opens the Change Information modal.
+    if (userIsEmployee) return <EmployeeDashboardScreen focusContact={(route as any)?.params?.openEdit} />;
+
     return (
         <>
             <AppHeader
@@ -289,7 +299,7 @@ export default function DashboardScreen() {
                                 {!userIsSales && (
                                     <View style={styles.quickActionsGrid}>
                                         <QuickAction icon={NewRegistration} label="New Registration"   onPress={() => navigation.navigate('NewMemberRegistration')} />
-                                        <QuickAction icon={Package}         label="Sell Package"        onPress={() => navigation.navigate('NewPackage')} />
+                                        <QuickAction icon={Package}         label="Sell Package"        onPress={() => navigation.navigate('SellPackage')} />
                                         <QuickAction icon={Attendance}      label="View Attendance"     onPress={() => navigation.navigate('AttendanceScreen')} />
                                         <QuickAction icon={ViewReports}     label="View Reports"        onPress={() => navigation.navigate('Reports')} />
                                         <QuickAction icon={ManageStaff}     label="Manage Staff"        onPress={() => navigation.navigate('ViewStaff')} />

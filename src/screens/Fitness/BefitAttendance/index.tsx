@@ -18,7 +18,12 @@ import {
 } from '../../../api/employeeDashboard';
 
 interface Trainer { id: number; name: string; }
-interface Package { id: number; name: string; }
+// `clientId`/`orderId` come from the trainer-package row and are what
+// POST /v1/fitness/session-attendance/add actually keys on — it takes
+// client_id + order_id, not package_id. Field names confirmed live on dev
+// 2026-09-10 from `/orders-detail/list-trainer-packages` (category 2, the
+// only category with rows); Befit (category 16) is the same row shape.
+interface Package { id: number; name: string; clientId?: number; orderId?: number; }
 interface AttendanceRow {
   id: number;
   trainer_name?: string;
@@ -335,6 +340,8 @@ const BefitAttendance = () => {
       setPackages((Array.isArray(list) ? list : []).map((p: any) => ({
         id: p.id,
         name: p.package_name ?? p.name ?? String(p.id),
+        clientId: p.client_id,
+        orderId: p.order_id,
       })));
     } catch {}
     finally { setPackagesLoading(false); }
@@ -358,18 +365,22 @@ const BefitAttendance = () => {
       setFormError('Please fill all required fields.');
       return;
     }
+    const pkg = packages.find(p => String(p.id) === String(packageId));
+    if (pkg?.clientId == null || pkg?.orderId == null) {
+      setFormError('This package is missing its client/order reference, so attendance cannot be recorded against it.');
+      return;
+    }
     setFormError('');
     setSubmitting(true);
     try {
       await addBefitAttendance({
         branch_id: branchId,
-        user_id: Number(trainerId),
-        package_id: Number(packageId),
-        time,
-        trainer_attendance: trainerAtt,
-        client_attendance: clientAtt,
+        client_id: Number(pkg.clientId),
+        order_id: Number(pkg.orderId),
+        trainer_id: Number(trainerId),
         date: fmtApi(dateObj),
-        type: 'Befit',
+        staff_status: trainerAtt,
+        client_status: clientAtt,
       });
       setTrainerId(''); setTrainerName('');
       setPackageId(''); setPackageName(''); setPackages([]);

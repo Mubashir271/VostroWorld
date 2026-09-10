@@ -105,8 +105,8 @@ const AddClientsDeposit = () => {
       await addClientCafeDeposit({
         branch_id: branchId,
         client_id: selectedClient.id,
-        name: depName.trim(),
-        price: p,
+        amount: p,
+        description: depName.trim() || undefined,
       });
       Alert.alert('Success', 'Deposit added successfully.', [
         { text: 'OK', onPress: handleReset },

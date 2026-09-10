@@ -213,7 +213,7 @@ const SellPackage = () => {
                 <TouchableOpacity
                   key={c.id}
                   style={s.row}
-                  onPress={() => navigation.navigate('ClientProfile', { clientId: c.id })}
+                  onPress={() => navigation.navigate('PackageSell', { client: c })}
                 >
                   <Text style={s.rowNo}>{(page - 1) * PAGE_SIZE + i + 1}</Text>
                   <View style={s.rowMain}>

@@ -136,7 +136,14 @@ const AddNutritionAppointment = () => {
         branch_id: branchId,
         appointment_date: appointmentDate,
         appointment_time: appointmentTime || undefined,
-        trainer_id: trainer?.id,
+        // The trainer dropdown mixes real staff with two sentinel referral
+        // sources (`special:g13_branch`, `special:outsider`, both `is_special`).
+        // Those ids are not staff ids — sending one as `trainer_id` is rejected
+        // with "The selected trainer id is invalid", so they go to
+        // `trainer_label` instead.
+        ...(trainer?.is_special || String(trainer?.id ?? '').startsWith('special:')
+          ? { trainer_label: clientLabel(trainer) }
+          : { trainer_id: trainer?.id }),
         client_id: client?.id,
         client_name: clientName.trim(),
         contact: contact.trim(),
@@ -147,8 +154,18 @@ const AddNutritionAppointment = () => {
       Alert.alert('Success', 'Appointment created successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
-      Alert.alert('Error', 'Could not create the appointment. Please try again.');
+    } catch (e: any) {
+      // Surface the server's own message — a bare "please try again" hid a
+      // precise 422 here for a long time.
+      const msg = e?.response?.data?.message ?? e?.response?.data?.errors;
+      Alert.alert(
+        'Error',
+        typeof msg === 'string'
+          ? msg
+          : msg
+            ? Object.values(msg).flat().join('\n')
+            : 'Could not create the appointment. Please try again.',
+      );
     } finally {
       setSaving(false);
     }

@@ -12,8 +12,8 @@ import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getBankDetails, addBankDetail } from '../../../api/employeeDashboard';
 
 // Submission is intentionally disabled for now — see hint text below.
-// addBankDetail() is wired and ready; flip ADD_ENABLED once the endpoint is confirmed.
-const ADD_ENABLED = false;
+// Confirmed live on dev 2026-09-10 (HTTP 201): branch_id + name + account_no.
+const ADD_ENABLED = true;
 
 interface BankAccountRow {
   id: number;

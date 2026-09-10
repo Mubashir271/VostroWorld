@@ -27,6 +27,7 @@ import {
   FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN,
   FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN,
   ROLE_LABELS,
+  isEmployee,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
@@ -161,7 +162,10 @@ const MENU = [
           { title: 'Detailed Packages', screen: 'DetailedPackages' },
         ],
       },
-      { title: 'Sell Package', screen: 'NewPackage' },
+      // Real sell/renew flow (client search -> Package Sell -> cart). The old
+      // `NewPackage` screen it used to point at is a hardcoded package-definition
+      // mock with no API calls — see screens/Sales/SellPackage.
+      { title: 'Sell Package', screen: 'SellPackage' },
       { title: 'View Freezing', screen: 'ViewFreezing' },
       { title: 'Categories', screen: 'Categories' },
       { title: 'Sub-Categories', screen: 'SubCategories' },
@@ -233,6 +237,7 @@ const MENU = [
       { title: 'Clients Available Balance', screen: 'ClientsAvailableBalance' },
       { title: 'Deposits History', screen: 'DepositsHistory' },
       { title: 'Cafe Sales Report', screen: 'CafeSalesReport' },
+      { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
       { title: 'Management Pendings', screen: 'ManagementPendings' },
     ],
   },
@@ -250,6 +255,7 @@ const MENU = [
       { title: 'Sales & Expense Daily', screen: 'SalesExpenseDaily' },
       { title: 'Sales By Bootcamp', screen: 'SalesByBootcamp' },
       { title: 'Cafe Sales', screen: 'CafeReports' },
+      { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
       { title: 'Transaction Report', screen: 'TransactionReport' },
       { title: 'Staff Attendance', screen: 'StaffAttendanceReport' },
       { title: 'Clients Attendance', screen: 'ClientsAttendance' },
@@ -476,6 +482,12 @@ const MENU = [
 //   Reports ▸ Client Details Report  (/client-details-report)
 //   Reports ▸ Detailed Cafe Report   (/detailed-cafe-report)
 // 'Social Leads (Sales)' is also on the web menu, deliberately deferred.
+// The whole menu for a blank-role staff record — confirmed live 2026-09-07
+// against the web, which shows this single entry and nothing else.
+const EMPLOYEE_MENU = [
+  { title: 'Employee Dashboard', icon: 'badge-account', screen: 'EmployeeDashboard' },
+];
+
 const SALES_MENU = [
   { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
   {
@@ -521,6 +533,7 @@ const SALES_MENU = [
       { title: 'Clients Available Balance', screen: 'ClientsAvailableBalance' },
       { title: 'Deposits History', screen: 'DepositsHistory' },
       { title: 'Cafe Sales Report', screen: 'CafeSalesReport' },
+      { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
       { title: 'Management Pendings', screen: 'ManagementPendings' },
     ],
   },
@@ -535,6 +548,7 @@ const SALES_MENU = [
       { title: 'Sales By Services', screen: 'SalesByServices' },
       { title: 'Sales By Bootcamp', screen: 'SalesByBootcamp' },
       { title: 'Cafe Sales', screen: 'CafeReports' },
+      { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
       { title: 'Transaction Report', screen: 'TransactionReport' },
       { title: 'Clients Attendance', screen: 'ClientsAttendance' },
       { title: 'Footfall Report', screen: 'FootfallReport' },
@@ -568,6 +582,12 @@ const SALES_MENU = [
 const navigateTo = (navigation: any, screen: string, role?: string | null) => {
   if (screen === 'Dashboard') {
     navigation.navigate('Main', { screen: 'Home' });
+  } else if (screen === 'EmployeeDashboard' && isEmployee(role)) {
+    // For a blank-role account the Home tab already *is* this dashboard, so
+    // switch tab focus rather than pushing the stack route — otherwise the
+    // drawer opens a second copy over the live one, the exact duplicate-mount
+    // problem this function exists to avoid.
+    navigation.navigate('Main', { screen: 'Home' });
   } else if (screen === 'NutritionDashboard' && (isNutritionist(role) || isFitnessManager(role))) {
     navigation.navigate('Main', { screen: 'NutritionTab' });
   } else if (screen === 'GXAttendance' && isNutritionist(role)) {
@@ -588,6 +608,11 @@ const filterMenuForRole = (
   menu: typeof MENU,
   role: string | null | undefined,
 ): typeof MENU => {
+  if (isEmployee(role)) {
+    // A staff record with no role: the web shows exactly one item.
+    return EMPLOYEE_MENU as typeof MENU;
+  }
+
   if (isAdmin(role)) {
     // Admin: hide all trainer-only top-level items
     return menu.filter(item => !ADMIN_HIDDEN_MENUS.includes(item.title));
@@ -894,9 +919,28 @@ const DrawerContent = (props: any) => {
         role={role}
         branch={branch || 'Main Branch'}
         avatar={avatarSource}
-        editIcon={Edit_fill}
-        onEditPress={() => navigation.navigate('Account')}
+        {...(isEmployee(profile?.role)
+          ? {
+              // Opens the Employee Dashboard's "Change Information" modal.
+              // The timestamp makes each tap a distinct param value, so the
+              // modal re-opens rather than being ignored as unchanged state.
+              editIcon: Edit_fill,
+              onEditPress: () => {
+                navigation.navigate('Main', {
+                  screen: 'Home',
+                  params: { screen: 'Dashboard', params: { openEdit: Date.now() } },
+                });
+                setTimeout(() => navigation.closeDrawer?.(), 100);
+              },
+            }
+          : {})}
       />
+      {/* Every other role gets no edit affordance. The icon used to navigate to
+          'Account', which lives inside the bottom tab navigator
+          (Drawer > Main > Tabs > Account) — navigate() from the drawer searches
+          the drawer's own routes then bubbles up, never descending into the
+          tabs, so it was inert. Give a role an editable screen before
+          restoring its icon. */}
 
       <View style={styles.menuSection}>
         {/* {visibleMenu.map(renderMenuItem)} */}

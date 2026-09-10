@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
-import { payLiability } from '../../../api/employeeDashboard';
+import { payLiability, getLiabilities } from '../../../api/employeeDashboard';
 
 const TYPES = ['Credit', 'Debit'];
 const RESOURCES = ['Office Counter', 'Bank', 'Petty Cash', 'Cash In Hand'];
@@ -21,13 +21,15 @@ const display = (iso: string) => {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
 };
+interface LiabilityOption { id: number; label: string; }
+
 const today = () => fmt(new Date());
 
 const PayLiabilities = () => {
   const navigation = useNavigation<any>();
   const {
     needsPicker, options: branchOptions, loadingOptions: loadingBranches,
-    branchId, branchName, select: selectBranch,
+    branchId, branchName, listBranchId, select: selectBranch,
   } = useBranchSelector();
 
   const [amount, setAmount] = useState('');
@@ -35,6 +37,12 @@ const PayLiabilities = () => {
   const [resource, setResource] = useState('Office Counter');
   const [date, setDate] = useState(today());
   const [description, setDescription] = useState('');
+
+  // `liability_id` is required by the API — without it every payment was
+  // rejected, and the screen had no way to choose one.
+  const [liabilities, setLiabilities] = useState<LiabilityOption[]>([]);
+  const [liability, setLiability] = useState<LiabilityOption | null>(null);
+  const [showLiabilityPicker, setShowLiabilityPicker] = useState(false);
 
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showResourcePicker, setShowResourcePicker] = useState(false);
@@ -44,6 +52,19 @@ const PayLiabilities = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  useFocusEffect(useCallback(() => {
+    getLiabilities({ branch_id: listBranchId, limit: 300 })
+      .then(res => {
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setLiabilities(list.map((l: any) => ({
+          id: l.id,
+          label: [l.creditor_name, l.category_name, l.amount_owned && `Rs ${l.amount_owned}`]
+            .filter(Boolean).join(' · ') || `Liability #${l.id}`,
+        })));
+      })
+      .catch(() => setLiabilities([]));
+  }, [listBranchId]));
+
   const flash = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 3000); };
 
   const handleAdd = async () => {
@@ -52,6 +73,7 @@ const PayLiabilities = () => {
       setError('Amount is required and must be a positive number.');
       return;
     }
+    if (!liability) { setError('Please select a Liability.'); return; }
     if (!type) { setError('Please select a Type.'); return; }
     if (!resource) { setError('Please select a Resource.'); return; }
     setError('');
@@ -59,6 +81,7 @@ const PayLiabilities = () => {
     try {
       await payLiability({
         branch_id: branchId,
+        liability_id: liability.id,
         amount: parseFloat(amount),
         type,
         resource,
@@ -66,6 +89,7 @@ const PayLiabilities = () => {
         description: description.trim() || undefined,
       });
       flash('Liability payment recorded successfully.');
+      setLiability(null);
       setAmount('');
       setDescription('');
       setDate(today());
@@ -147,6 +171,22 @@ const PayLiabilities = () => {
             </View>
           </View>
 
+          {/* Liability being paid against — required by the API */}
+          <View style={styles.row2}>
+            <View style={[styles.col2, { flex: 1 }]}>
+              <Text style={styles.label}>Liability *</Text>
+              <TouchableOpacity
+                style={[styles.picker, !liability && styles.pickerError]}
+                onPress={() => setShowLiabilityPicker(true)}
+              >
+                <Text style={liability ? styles.pickerText : styles.placeholder} numberOfLines={1}>
+                  {liability?.label || 'Select Liability'}
+                </Text>
+                <Icon name="chevron-down" size={16} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Row 3: Date | Description */}
           <View style={styles.row2}>
             <View style={styles.col2}>
@@ -192,6 +232,29 @@ const PayLiabilities = () => {
                 <Text style={[styles.dropdownItemText, type === t && styles.dropdownItemActive]}>{t}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Liability Modal */}
+      <Modal visible={showLiabilityPicker} transparent animationType="fade" onRequestClose={() => setShowLiabilityPicker(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowLiabilityPicker(false)}>
+          <View style={styles.dropdownBox}>
+            <Text style={styles.dropdownTitle}>Select Liability</Text>
+            <ScrollView>
+              {liabilities.map(l => (
+                <TouchableOpacity
+                  key={l.id}
+                  style={styles.dropdownItem}
+                  onPress={() => { setLiability(l); setShowLiabilityPicker(false); }}
+                >
+                  <Text style={styles.dropdownItemText}>{l.label}</Text>
+                </TouchableOpacity>
+              ))}
+              {liabilities.length === 0 && (
+                <Text style={styles.dropdownItemText}>No liabilities found for this branch.</Text>
+              )}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>

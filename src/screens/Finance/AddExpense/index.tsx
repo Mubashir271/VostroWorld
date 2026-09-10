@@ -100,9 +100,14 @@ const AddExpense = () => {
   };
 
   const handleSubmit = async () => {
-    const validRows = rows.filter(r => r.category && r.amount && !isNaN(Number(r.amount)));
+    // category, sub-category, transaction type and payment method are all
+    // required per row by /v1/expense/store — a row missing any of them fails
+    // server-side while the request as a whole still answers 201.
+    const validRows = rows.filter(r =>
+      r.category && r.subCategory && r.transactionType && r.paymentMethod &&
+      r.amount && !isNaN(Number(r.amount)));
     if (validRows.length === 0) {
-      setError('Please fill at least one row with Category and Amount.');
+      setError('Each expense needs Category, Subcategory, Transaction, Payment Method and Amount.');
       return;
     }
     setError('');
@@ -113,9 +118,10 @@ const AddExpense = () => {
         occurrence_date: r.date,
         amount: parseFloat(r.amount),
         category_id: r.category!.id,
-        sub_category_id: r.subCategory?.id,
-        transaction_type: r.transactionType || undefined,
-        payment_type_id: r.paymentMethod?.id,
+        sub_category_id: r.subCategory!.id,
+        transaction_type: r.transactionType,
+        payment_type_id: r.paymentMethod!.id,
+        is_liability: 0,
         cheque_number: r.paymentMethod?.name === 'Cheque' ? (r.chequeNumber || undefined) : undefined,
         description: r.description || undefined,
       })));

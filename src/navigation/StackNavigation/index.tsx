@@ -33,6 +33,7 @@ import NewMemberRegistrationScreen from '../../screens/NewMemberRegistration';
 import NotificationScreen from '../../screens/Notification';
 import NewPackage from '../../screens/NewPackage';
 import SellPackage from '../../screens/Sales/SellPackage';
+import PackageSell from '../../screens/Sales/PackageSell';
 import Settings from '../../screens/Settings';
 import SMTP from '../../screens/Settings/smtp';
 import DeleteRole from '../../screens/Settings/DeleteRole';
@@ -59,7 +60,7 @@ import AccessDenied from '../../screens/AccessDenied';
 import LegalScreen from '../../screens/Legal';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
-import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, HR_ALLOWED_SCREENS, SALES_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, HR_ALLOWED_SCREENS, SALES_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS, EMPLOYEE_ALLOWED_SCREENS } from '../../config/permissions';
 import AttendanceScreen from '../../screens/Attendance';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
@@ -186,10 +187,14 @@ import ClientsAvailableBalanceScreen from '../../screens/CafeOperations/ClientsA
 import DepositsHistoryScreen from '../../screens/CafeOperations/DepositsHistory';
 import CafeSalesReportScreen from '../../screens/CafeOperations/CafeSalesReport';
 import ManagementPendingsScreen from '../../screens/CafeOperations/ManagementPendings';
+import EmployeeDashboardScreen from '../../screens/HR/EmployeeDashboard';
+import DetailedCafeReportScreen from '../../screens/CafeOperations/DetailedCafeReport';
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 import TransactionReportScreen from '../../screens/reports/TransactionReport';
-import CafeReportScreen from '../../screens/reports/CafeReports';
+// "Cafe Sales" (Reports) and "Cafe Sales Report" (Cafe) are one page on the
+// web, so both route names render the same screen. The old
+// screens/reports/CafeReports component is no longer mounted.
 import SalesReportScreen from '../../screens/reports/SalesReport';
 import MISReportScreen from '../../screens/reports/MISReport';
 import DetailedSalesReportScreen from '../../screens/reports/DetailedSalesReport';
@@ -256,8 +261,9 @@ const ProtectedScreen = ({
     const salesAllowed = isSales(profile?.role) && !!screenName && SALES_ALLOWED_SCREENS.includes(screenName);
     const nutritionistAllowed = isNutritionist(profile?.role) && !!screenName && NUTRITIONIST_ALLOWED_SCREENS.includes(screenName);
     const fitnessManagerAllowed = isFitnessManager(profile?.role) && !!screenName && FITNESS_MANAGER_ALLOWED_SCREENS.includes(screenName);
+    const employeeAllowed = isEmployee(profile?.role) && !!screenName && EMPLOYEE_ALLOWED_SCREENS.includes(screenName);
 
-    if (!userIsAdmin && !hrAllowed && !salesAllowed && !nutritionistAllowed && !fitnessManagerAllowed) {
+    if (!userIsAdmin && !hrAllowed && !salesAllowed && !nutritionistAllowed && !fitnessManagerAllowed && !employeeAllowed) {
         return <AccessDenied />;
     }
 
@@ -339,6 +345,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="NewMemberRegistration" component={protect(NewMemberRegistrationScreen)} />
                 <Stack.Screen name="NewPackage" component={protect(NewPackage)} />
                 <Stack.Screen name="SellPackage" component={protect(SellPackage)} />
+                <Stack.Screen name="PackageSell" component={protect(PackageSell)} />
                 <Stack.Screen name="Settings" component={protect(Settings)} />
                 <Stack.Screen name="SMTP" component={protect(SMTP)} />
                 <Stack.Screen name="DeleteRole" component={protect(DeleteRole)} />
@@ -409,6 +416,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="DepositsHistory" component={protect(DepositsHistoryScreen)} />
                 <Stack.Screen name="CafeSalesReport" component={protect(CafeSalesReportScreen)} />
                 <Stack.Screen name="ManagementPendings" component={protect(ManagementPendingsScreen)} />
+                <Stack.Screen name="EmployeeDashboard" component={protect(EmployeeDashboardScreen)} />
+                <Stack.Screen name="DetailedCafeReport" component={protect(DetailedCafeReportScreen)} />
 
                 {/* ── Admin: Reports ── */}
                 <Stack.Screen name="ClientsReports" component={protect(ClientsReportScreen)} />
@@ -418,7 +427,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="SalesByServices" component={protect(SalesByServicesScreen)} />
                 <Stack.Screen name="SalesExpenseDaily" component={protect(SalesExpenseDailyScreen)} />
                 <Stack.Screen name="SalesByBootcamp" component={protect(SalesByBootcampScreen)} />
-                <Stack.Screen name="CafeReports" component={protect(CafeReportScreen)} />
+                <Stack.Screen name="CafeReports" component={protect(CafeSalesReportScreen)} />
                 <Stack.Screen name="TransactionReport" component={protect(TransactionReportScreen)} />
                 <Stack.Screen name="StaffAttendanceReport" component={protect(StaffAttendanceReportScreen)} />
                 <Stack.Screen name="ClientsAttendance" component={protect(ClientsAttendanceScreen)} />

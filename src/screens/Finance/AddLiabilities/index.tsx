@@ -1,25 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal,
 } from 'react-native';
 import { useSelector } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
-import { addLiability } from '../../../api/employeeDashboard';
+import {
+  addLiability, getExpenseCategories, getExpenseSubCategories,
+} from '../../../api/employeeDashboard';
 
-const CATEGORIES = ['Credit Card', 'Current Liability', 'General', 'Taxes'];
-
-const SUBCATEGORIES: Record<string, string[]> = {
-  'Credit Card':        ['Visa', 'MasterCard', 'Amex', 'Other'],
-  'Current Liability':  ['Short Term Loan', 'Payable', 'Other'],
-  'General':            ['Other'],
-  'Taxes':              ['Income Tax', 'GST', 'Other'],
-};
+// Categories and sub-categories are real records with ids — the API needs
+// `category_id`/`sub_category_id`, not names. The previous hardcoded name
+// lists were invented and could never satisfy it (every submit 400'd).
+interface Category { id: number; name: string; }
 
 const fmt = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -32,7 +30,9 @@ const today = () => fmt(new Date());
 interface LiabilityRow {
   id: number;
   category: string;
+  categoryId: number | null;
   subCategory: string;
+  subCategoryId: number | null;
   creditorName: string;
   creditorContact: string;
   amount: string;
@@ -41,7 +41,7 @@ interface LiabilityRow {
 }
 
 const emptyRow = (id: number): LiabilityRow => ({
-  id, category: '', subCategory: '', creditorName: '',
+  id, category: '', categoryId: null, subCategory: '', subCategoryId: null, creditorName: '',
   creditorContact: '', amount: '', description: '', dueDate: today(),
 });
 
@@ -50,11 +50,22 @@ const AddLiabilities = () => {
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
 
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<Category[]>([]);
   const [rows, setRows] = useState<LiabilityRow[]>([emptyRow(1), emptyRow(2), emptyRow(3)]);
   const [nextId, setNextId] = useState(4);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  useFocusEffect(useCallback(() => {
+    Promise.all([getExpenseCategories(), getExpenseSubCategories()])
+      .then(([c, sc]) => {
+        setCategories(Array.isArray(c) ? c : []);
+        setSubCategories(Array.isArray(sc) ? sc : []);
+      })
+      .catch(() => {});
+  }, []));
 
   // Dropdown state
   const [activeDropdown, setActiveDropdown] = useState<{ rowId: number; field: 'category' | 'subCategory' } | null>(null);
@@ -63,11 +74,16 @@ const AddLiabilities = () => {
   const flash = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 3000); };
 
   const updateRow = (id: number, field: keyof LiabilityRow, value: string) => {
+    setRows(rs => rs.map(r => (r.id === id ? { ...r, [field]: value } : r)));
+  };
+
+  /** Category / subcategory carry an id as well as the display name. */
+  const selectOption = (rowId: number, field: 'category' | 'subCategory', opt: Category) => {
     setRows(rs => rs.map(r => {
-      if (r.id !== id) return r;
-      const updated = { ...r, [field]: value };
-      if (field === 'category') updated.subCategory = '';
-      return updated;
+      if (r.id !== rowId) return r;
+      return field === 'category'
+        ? { ...r, category: opt.name, categoryId: opt.id }
+        : { ...r, subCategory: opt.name, subCategoryId: opt.id };
     }));
   };
 
@@ -82,9 +98,9 @@ const AddLiabilities = () => {
   };
 
   const handleSubmit = async () => {
-    const validRows = rows.filter(r => r.category && r.amount && !isNaN(Number(r.amount)));
+    const validRows = rows.filter(r => r.categoryId && r.subCategoryId && r.amount && !isNaN(Number(r.amount)));
     if (validRows.length === 0) {
-      setError('Please fill at least one row with Category and Amount.');
+      setError('Please fill at least one row with Category, Subcategory and Amount.');
       return;
     }
     setError('');
@@ -93,13 +109,13 @@ const AddLiabilities = () => {
       await Promise.all(validRows.map(r =>
         addLiability({
           branch_id: branchId,
-          category: r.category,
-          sub_category: r.subCategory || undefined,
+          category_id: r.categoryId!,
+          sub_category_id: r.subCategoryId!,
+          amount_owned: parseFloat(r.amount),
+          maturity_date: r.dueDate,
           creditor_name: r.creditorName || undefined,
           creditor_contact: r.creditorContact || undefined,
-          amount: parseFloat(r.amount),
           description: r.description || undefined,
-          due_date: r.dueDate,
         })
       ));
       flash(`${validRows.length} liabilit${validRows.length === 1 ? 'y' : 'ies'} submitted successfully.`);
@@ -112,9 +128,8 @@ const AddLiabilities = () => {
     }
   };
 
-  const dropdownOptions = activeDropdown?.field === 'category'
-    ? CATEGORIES
-    : SUBCATEGORIES[rows.find(r => r.id === activeDropdown?.rowId)?.category ?? ''] ?? [];
+  const dropdownOptions: Category[] =
+    activeDropdown?.field === 'category' ? categories : subCategories;
 
   return (
     <View style={styles.root}>
@@ -271,14 +286,14 @@ const AddLiabilities = () => {
             <ScrollView>
               {dropdownOptions.map(opt => (
                 <TouchableOpacity
-                  key={opt}
+                  key={opt.id}
                   style={styles.dropdownItem}
                   onPress={() => {
-                    if (activeDropdown) updateRow(activeDropdown.rowId, activeDropdown.field, opt);
+                    if (activeDropdown) selectOption(activeDropdown.rowId, activeDropdown.field, opt);
                     setActiveDropdown(null);
                   }}
                 >
-                  <Text style={styles.dropdownItemText}>{opt}</Text>
+                  <Text style={styles.dropdownItemText}>{opt.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

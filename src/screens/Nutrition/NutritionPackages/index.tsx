@@ -136,11 +136,13 @@ const NutritionPackages = () => {
     try {
       await addNutritionPackage({
         branch_id: branchId,
-        nutritionist_id: selectedNutritionist.id,
-        nutrition_type: selectedType,
+        // Nutrition packages are packages with category 5 — the fields are the
+        // generic package ones (`user_id` is the nutritionist, `session_count`
+        // the session total). `nutrition_type` has no column and is dropped.
+        user_id: selectedNutritionist.id,
         package_name: packageName.trim(),
         price: Number(price),
-        number_of_sessions: Number(sessions),
+        session_count: Number(sessions),
         duration: Number(duration),
       });
       Alert.alert('Success', 'Nutrition package added successfully.');

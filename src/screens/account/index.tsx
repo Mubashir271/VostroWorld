@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
 import FastImage from '@d11/react-native-fast-image'
 import DeviceInfo from 'react-native-device-info'
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
 import { logoutUser } from '../../redux/slices/userSlice';
-import { isNutritionist, ROLE_LABELS } from '../../config/permissions';
+import { isEmployee, isNutritionist, ROLE_LABELS } from '../../config/permissions';
+import { getStaffDetail } from '../../api/employeeDashboard';
 
 
 const AccountScreen = () => {
@@ -37,6 +38,30 @@ const AccountScreen = () => {
     (state: RootState) => state.user
   );
   const userIsNutritionist = isNutritionist(profile?.role);
+  // Settings is not part of either role's surface — the blank/Employee role's
+  // whole app is the Employee Dashboard, matching the web's single menu item.
+  const hideSettings = userIsNutritionist || isEmployee(profile?.role);
+
+  // /v1/auth/app-login carries designation_id (126) but not the label, so the
+  // screen used to read "Designation 126". /v1/auth/get/{id} does carry it
+  // ("Executive Director"), so fetch the record for the text.
+  const [designation, setDesignation] = useState('');
+  useEffect(() => {
+    const id = Number(profile?.id ?? 0);
+    if (!id) return;
+    let cancelled = false;
+    getStaffDetail(id, Number(profile?.branchId) || 0)
+      .then(res => {
+        if (cancelled) return;
+        const rec = Array.isArray(res?.data) ? res.data[0] : res?.data;
+        const label = String(rec?.designation ?? '').trim();
+        if (label && label !== 'null') setDesignation(label);
+      })
+      .catch(() => {
+        // Non-fatal: the id fallback below still renders something.
+      });
+    return () => { cancelled = true; };
+  }, [profile?.id, profile?.branchId]);
   const avatarSource = appImage
     ? { uri: appImage }
     : profile?.image
@@ -78,9 +103,8 @@ const AccountScreen = () => {
       'N/A',
 
     jobTitle:
-      profile?.designationId
-        ? `Designation ${profile.designationId}`
-        : 'Position',
+      designation ||
+      (profile?.designationId ? `Designation ${profile.designationId}` : 'Position'),
   };
 
   const handleLogout = () => {
@@ -125,10 +149,10 @@ const AccountScreen = () => {
         title="My Account"
         // leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
         leftIcon={<BurgerSVG width={24} height={24} />}
-        rightIcon={userIsNutritionist ? undefined : <Icon name="cog-outline" size={24} color="#1A1A1A" />}
+        rightIcon={hideSettings ? undefined : <Icon name="cog-outline" size={24} color="#1A1A1A" />}
         // onLeftPress={() => navigation.goBack()}
         onLeftPress={() => navigation.openDrawer()}
-        onRightPress={userIsNutritionist ? undefined : () => navigation.navigate('Settings')}
+        onRightPress={hideSettings ? undefined : () => navigation.navigate('Settings')}
         backgroundColor="#FFE5E5"
       />
       <View style={styles.container}>
@@ -150,9 +174,6 @@ const AccountScreen = () => {
                 source={avatarSource}
                 style={styles.profileImage}
               />
-              <View style={styles.notificationBadge}>
-                <Icon name="bell" size={14} color="#fff" />
-              </View>
             </View>
             <Text style={styles.profileName}>{profileData.name}</Text>
             <TouchableOpacity style={styles.roleTag}>
@@ -253,19 +274,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     backgroundColor: '#E0E0E0',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#E10600',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
   },
   profileName: {
     fontSize: 18,

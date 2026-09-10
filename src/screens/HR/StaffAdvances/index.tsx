@@ -3,13 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, TextInput, Platform,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
-import { RootState } from '../../../redux/store';
+import BranchField from '../../../components/BranchField';
+import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
   getHRStaffFines,
   addStaffAdvance,
@@ -18,10 +18,10 @@ import {
   getBankingDetailsListing,
 } from '../../../api/employeeDashboard';
 
-// addStaffAdvance's write contract is NOT confirmed — see the function's
-// comment in employeeDashboard.ts. Gated off until a real submit is
-// captured in a HAR, same pattern as AddStaff/StaffPromotion.
-const ADD_ENABLED = false;
+// Confirmed live on dev 2026-09-10 (HTTP 201). `return_month` is required in
+// practice even though validation omits it — see the addStaffAdvance()
+// comment in employeeDashboard.ts.
+const ADD_ENABLED = true;
 
 const PAGE_SIZE = 25;
 
@@ -48,6 +48,22 @@ const TRANSACTION_TYPES = ['Bank Account', 'G13', 'Mr Arif', 'Mr Waqas Credit Ca
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+/**
+ * `users_finance.return_month` is a DATE column, not a "YYYY-MM" or month
+ * name. Confirmed on dev 2026-09-10: anything that is not a full date stores
+ * as `0000-00-00`, silently. The picker shows month names (matching the web
+ * admin), so convert to the 1st of that month — using the advance's own year,
+ * rolling to next year when the chosen month has already passed, since a
+ * repayment month is never in the past.
+ */
+const returnMonthToDate = (monthName: string, advanceDateIso: string): string => {
+  const idx = MONTHS.indexOf(monthName);
+  if (idx < 0) return '';
+  const base = new Date(advanceDateIso || Date.now());
+  const year = idx < base.getMonth() ? base.getFullYear() + 1 : base.getFullYear();
+  return `${year}-${String(idx + 1).padStart(2, '0')}-01`;
+};
+
 const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -68,15 +84,22 @@ const EMPTY_FORM = {
   amount: '',
   returnMonth: '',
   transactionType: '',
-  paymentMethod: '',
+  paymentMethod: '', paymentTypeId: '',
   bankId: '', bankName: '',
   reason: '',
 };
 
 const StaffAdvances = () => {
   const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
+  // HR (role 12) and Super Admin (role 1) both carry `branch_id: 0`, so the
+  // old `profile?.branchId || ''` sent an empty branch and every submit failed
+  // with "The branch id field is required." — confirmed live on dev
+  // 2026-09-10. HR is this screen's primary role, so that broke it outright.
+  // `useBranchSelector` treats 0 as "no branch" and requires an explicit pick.
+  const {
+    needsPicker, options: branchOptions, loadingOptions: loadingBranches,
+    branchId, branchName, listBranchId, select: selectBranch,
+  } = useBranchSelector();
 
   const [records, setRecords] = useState<AdvanceRecord[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -109,7 +132,7 @@ const StaffAdvances = () => {
     setError('');
     try {
       const res = await getHRStaffFines({
-        branch_id: branchId, category: 'Advance',
+        branch_id: listBranchId, category: 'Advance',
         start_date: fromDate, end_date: toDate,
         limit: PAGE_SIZE, page: pageNum,
       });
@@ -123,15 +146,15 @@ const StaffAdvances = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchId, fromDate, toDate]);
+  }, [listBranchId, fromDate, toDate]);
 
   const loadStaff = useCallback(async () => {
     try {
-      const res = await getStaffNamesForBranch({ branch_id: branchId });
+      const res = await getStaffNamesForBranch({ branch_id: listBranchId });
       const list: StaffOption[] = res?.data ?? [];
       setStaffList(Array.isArray(list) ? list : []);
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   const loadPaymentMethods = useCallback(async () => {
     try {
@@ -142,11 +165,11 @@ const StaffAdvances = () => {
 
   const loadBanks = useCallback(async () => {
     try {
-      const res = await getBankingDetailsListing({ branch_id: branchId });
+      const res = await getBankingDetailsListing({ branch_id: listBranchId });
       const list: BankOption[] = res?.data ?? [];
       setBanks(Array.isArray(list) ? list : []);
     } catch {}
-  }, [branchId]);
+  }, [listBranchId]);
 
   useEffect(() => { load(1); }, [load]);
   useEffect(() => { loadStaff(); loadPaymentMethods(); loadBanks(); }, [loadStaff, loadPaymentMethods, loadBanks]);
@@ -156,6 +179,7 @@ const StaffAdvances = () => {
 
   const handleSave = async () => {
     if (!ADD_ENABLED) return;
+    if (branchId == null) { setError('Please select a branch.'); return; }
     if (!form.staffId) { setError('Please select a staff member.'); return; }
     if (!form.amount.trim()) { setError('Amount is required.'); return; }
     if (!form.returnMonth) { setError('Return Month is required.'); return; }
@@ -170,9 +194,10 @@ const StaffAdvances = () => {
         branch_id: branchId,
         user_id: parseInt(form.staffId, 10),
         amount: parseFloat(form.amount),
-        return_month: form.returnMonth,
+        return_month: returnMonthToDate(form.returnMonth, form.advanceDate),
         transaction_type: form.transactionType,
-        payment_method: form.paymentMethod,
+        // The column is `payment_type_id`; a `payment_method` string is dropped.
+        payment_type_id: form.paymentTypeId ? parseInt(form.paymentTypeId, 10) : undefined,
         bank_id: form.bankId ? parseInt(form.bankId, 10) : undefined,
         reason: form.reason.trim(),
         occurrence_date: form.advanceDate,
@@ -228,6 +253,20 @@ const StaffAdvances = () => {
           )}
           {!!error && <Text style={styles.errText}>{error}</Text>}
           {!!successMsg && <Text style={styles.successText}>{successMsg}</Text>}
+
+          <BranchField
+            needsPicker={needsPicker}
+            branchName={branchName}
+            options={branchOptions}
+            loadingOptions={loadingBranches}
+            onSelect={selectBranch}
+            label={<Text style={styles.label}>Branch Name *</Text>}
+            pickerStyle={styles.picker}
+            pickerTextStyle={styles.pickerText}
+            placeholderStyle={styles.placeholder}
+            staticStyle={styles.picker}
+            staticTextStyle={styles.pickerText}
+          />
 
           <View style={styles.row3}>
             <Field label="Advance Date" required>
@@ -451,7 +490,7 @@ const StaffAdvances = () => {
             <ScrollView>
               {paymentMethods.map(p => (
                 <TouchableOpacity key={p.id} style={styles.dropdownItem}
-                  onPress={() => { setForm(f => ({ ...f, paymentMethod: p.name })); setPaymentModal(false); }}>
+                  onPress={() => { setForm(f => ({ ...f, paymentMethod: p.name, paymentTypeId: String(p.id) })); setPaymentModal(false); }}>
                   <Text style={styles.dropdownItemText}>{p.name}</Text>
                 </TouchableOpacity>
               ))}

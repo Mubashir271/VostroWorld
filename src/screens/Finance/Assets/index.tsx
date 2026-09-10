@@ -15,9 +15,10 @@ import {
   getExpenseCategories, getExpenseSubCategories,
 } from '../../../api/employeeDashboard';
 
-// NOT CONFIRMED — no HAR captured for Assets. Endpoints are inferred from
-// codebase pattern. Submit is gated until confirmation.
-const ADD_ENABLED = false;
+// Confirmed live on dev 2026-09-10 (HTTP 201). The write route is
+// POST /v1/finance/asset/add — **singular**, unlike the plural
+// /v1/finance/assets/get used to read.
+const ADD_ENABLED = true;
 
 const R = '#C62828';
 const PAGE_SIZE = 25;
@@ -148,13 +149,18 @@ const Assets = () => {
     if (branchId == null) { setError('Please select a branch.'); return; }
     if (!name.trim()) { setError('Asset Name is required.'); return; }
     if (!purchaseCost || isNaN(parseFloat(purchaseCost))) { setError('Purchase Cost is required.'); return; }
+    // Confirmed live 2026-09-10: the backend rejects a payload missing any of
+    // category_id / sub_category_id / acquisition_date.
+    if (category?.id == null) { setError('Category is required.'); return; }
+    if (subCategory?.id == null) { setError('Sub Category is required.'); return; }
+    if (!acquisitionDate) { setError('Acquisition Date is required.'); return; }
     setError('');
     setSaving(true);
     try {
       await addAsset({
         branch_id: branchId,
-        category_id: category?.id,
-        sub_category_id: subCategory?.id,
+        category_id: category.id,
+        sub_category_id: subCategory.id,
         name: name.trim(),
         purchase_cost: parseFloat(purchaseCost),
         quantity: quantity ? parseInt(quantity, 10) : undefined,

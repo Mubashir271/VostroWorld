@@ -1,28 +1,47 @@
 import api from './service';
 
 // ── Nutritionists ─────────────────────────────────────────────────────────────
-
+// `/v1/nutritionists/get` does NOT exist (404 on dev 2026-09-10). Nutritionists
+// are staff with role 10 — the appointments module already exposes them.
 export const getNutritionists = (params: { branch_id: number | string }) =>
-  api.get('/v1/nutritionists/get', { params });
+  api.get('/v1/nutrition/appointments/nutritionists', { params });
 
 // ── Nutrition Packages ────────────────────────────────────────────────────────
+// There is no `/v1/nutrition-packages/*` namespace — confirmed on dev
+// 2026-09-10 that BOTH `/get` and `/store` 404. Nutrition packages are ordinary
+// packages carrying category 5 (see the Category Code Reference), so they use
+// the same `/v1/packages/*` routes as cafe products (category 10) and GX slots
+// (category 15). The old read 404'd silently, which is why the list was empty.
+
+const NUTRITION_CATEGORY = '5';
 
 export const getNutritionPackages = (params: {
   branch_id: number | string;
   search?: string;
   limit?: number;
   page?: number;
-}) => api.get('/v1/nutrition-packages/get', { params });
+}) => api.get('/v1/packages/get', {
+  params: {
+    branch_id: params.branch_id,
+    key: 'category',
+    value: NUTRITION_CATEGORY,
+    status: 1,
+    limit: params.limit ?? 200,
+    ...(params.page ? { page: params.page } : {}),
+    ...(params.search ? { search: params.search } : {}),
+  },
+});
 
+// Confirmed live on dev 2026-09-10 (201). `user_id` is the nutritionist.
 export const addNutritionPackage = (payload: {
   branch_id: number | string;
-  nutritionist_id: number;
-  nutrition_type: string;
   package_name: string;
   price: number;
-  number_of_sessions: number;
   duration: number;
-}) => api.post('/v1/nutrition-packages/store', payload);
+  user_id?: number;
+  session_count?: number;
+  description?: string;
+}) => api.post('/v1/packages/add', { ...payload, category: NUTRITION_CATEGORY });
 
 // ── Meal Plans ────────────────────────────────────────────────────────────────
 
@@ -33,13 +52,18 @@ export const getMealPlans = (params: {
   page?: number;
 }) => api.get('/v1/fitness/meal-plane/listing', { params });
 
+// `/v1/meal-plans/store` does NOT exist (404 on dev 2026-09-10). The real
+// create route is `/v1/fitness/meal-plane/store` — the same `meal-plane`
+// prefix the listing already uses — and it requires `client_id`, not just a
+// client name.
 export const addMealPlan = (payload: {
   branch_id: number | string;
-  client_name: string;
+  client_id: number;
   start_date: string;
   end_date: string;
-  meals: any;
-}) => api.post('/v1/meal-plans/store', payload);
+  client_name?: string;
+  meals?: any;
+}) => api.post('/v1/fitness/meal-plane/store', payload);
 
 // ── Meal Plan Intake Form (the "View / Edit Diet Plan" 6-page document) ─────
 // HAR-confirmed live 2026-08-06: tapping the eye icon on the web's "View
@@ -141,12 +165,31 @@ export const getAppointmentNutritionists = (params: { branch_id: number | string
 export const getAppointmentTrainers = (params: { branch_id: number | string }) =>
   api.get('/v1/nutrition/appointments/trainers', { params });
 
+/**
+ * Create a nutrition appointment.
+ *
+ * Only `branch_id` and `appointment_date` are required (verified live on dev
+ * 2026-09-10 by dropping each field in turn).
+ *
+ * ⚠️ `appointment_time` must be 24-hour `H:i` — "14:30", not "02:30 PM".
+ *
+ * ⚠️ The referral source is **two different fields**.
+ * `/nutrition/appointments/trainers` returns real trainers *plus* two sentinel
+ * entries — `{id: "special:g13_branch"}` and `{id: "special:outsider"}` — both
+ * flagged `is_special: true`. Those ids are not staff ids: sending one as
+ * `trainer_id` fails with `422 The selected trainer id is invalid`. They belong
+ * in `trainer_label` instead, with `trainer_id` left unset. A real trainer uses
+ * `trainer_id` and leaves `trainer_label` unset.
+ */
 export const addNutritionAppointment = (payload: {
   branch_id: number | string;
   appointment_date: string;
   appointment_time?: string;
   nutritionist_id?: number;
+  /** Real staff id only — never a `special:*` sentinel. */
   trainer_id?: number;
+  /** Free-text referral source, e.g. "G13 Branch" / "Outsider". */
+  trainer_label?: string;
   client_id?: number;
   client_name?: string;
   contact?: string;
@@ -286,7 +329,11 @@ export const uploadNutritionGalleryImage = (payload: {
   const formData = new FormData();
   formData.append('branch_id', String(payload.branch_id));
   formData.append('title', payload.title);
-  formData.append('image', payload.image as any);
+  // Confirmed live on dev 2026-09-10: the field is **`images[]`**, and it must
+  // be an array — a single `image` part fails with "The images field is
+  // required", and `images` (not bracketed) with "The images must be an array".
+  // Response: `{ message: "N image(s) uploaded successfully", data: [{ image_url, ... }] }`.
+  formData.append('images[]', payload.image as any);
   return api.post('/v1/nutrition/gallery', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });

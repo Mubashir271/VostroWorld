@@ -19,11 +19,10 @@ import {
   getDesignationNames,
 } from '../../../api/employeeDashboard';
 
-// registerStaff's write contract is inferred (see the function's comment in
-// employeeDashboard.ts) — the backend previously 500'd on an incomplete
-// payload. Gated off until a real submit is captured in a HAR, same pattern
-// as StaffPromotion/AddBankCash/AddOfficeCash.
-const ADD_ENABLED = false;
+// Confirmed working on dev 2026-09-10 (201 + verified read-back of all
+// submitted fields). The old 500s were caused by omitted keys, not a backend
+// bug — see registerStaff()'s comment in employeeDashboard.ts.
+const ADD_ENABLED = true;
 
 interface Option { id: number; name: string; }
 
@@ -128,6 +127,14 @@ const AddStaff = () => {
     if (!form.cellNumber.trim()) { setError('Cell Number is required.'); return; }
     if (!form.branchId) { setError('Branch is required.'); return; }
     if (!form.salary.trim()) { setError('Salary is required.'); return; }
+    // These four are required by the backend, which reads them without a
+    // default and 500s when the key is absent — see registerStaff()'s comment.
+    // Sending `undefined` drops the key from the JSON body, so they must be
+    // validated here rather than passed through as optional.
+    if (!form.departmentId) { setError('Department is required.'); return; }
+    if (!form.designationId) { setError('Designation is required.'); return; }
+    if (!form.joiningDate) { setError('Joining Date is required.'); return; }
+    if (!form.appointmentDate) { setError('Appointment Date is required.'); return; }
     setError('');
     setSaving(true);
     try {
@@ -147,11 +154,11 @@ const AddStaff = () => {
         gender: form.gender,
         city: form.city.trim() || undefined,
         address: form.address.trim() || undefined,
-        department_id: form.departmentId ? parseInt(form.departmentId, 10) : undefined,
-        designation_id: form.designationId ? parseInt(form.designationId, 10) : undefined,
+        department_id: parseInt(form.departmentId, 10),
+        designation_id: parseInt(form.designationId, 10),
         role: form.role.trim() || undefined,
-        joining: form.joiningDate || undefined,
-        appointment_date: form.appointmentDate || undefined,
+        joining: form.joiningDate,
+        appointment_date: form.appointmentDate,
         probation_duration: form.probationPeriod ? parseInt(form.probationPeriod, 10) : undefined,
         salary: parseFloat(form.salary),
         monthly_medical: form.medical ? parseFloat(form.medical) : undefined,

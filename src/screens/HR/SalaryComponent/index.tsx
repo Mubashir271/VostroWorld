@@ -172,12 +172,14 @@ const SalaryComponent = () => {
     try {
       const payload = {
         branch_id: branchId,
-        user_id: parseInt(form.staffId, 10),
+        // The API field is `staff_id`, not `user_id` — confirmed on dev.
+        staff_id: parseInt(form.staffId, 10),
         component_name: form.componentName.trim(),
         type: TYPE_KEY[form.typeLabel],
         amount: parseFloat(form.amount),
         date: form.date,
-        salary_month: form.salaryMonth,
+        // `return_month` is a full date; `salary_month` was rejected (422).
+        return_month: `${form.salaryMonth}-01`,
         description: form.description.trim(),
       };
       if (editId) {

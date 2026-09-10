@@ -13,8 +13,8 @@ import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { addOfficeCashEntry } from '../../../api/employeeDashboard';
 
 // Submission is intentionally disabled for now — see hint text below.
-// addOfficeCashEntry() is wired and ready; flip ADD_ENABLED once confirmed.
-const ADD_ENABLED = false;
+// Confirmed live on dev 2026-09-10 (HTTP 201): branch_id + amount + type.
+const ADD_ENABLED = true;
 
 const TYPES = ['Credit', 'Debit'];
 const RESOURCES = ['Bank Account', 'Others', 'Office Counter', 'Personal', 'Sales Counter', 'G13'];

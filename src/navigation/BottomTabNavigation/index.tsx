@@ -8,7 +8,7 @@ import {
   AccountTab, HomeTab, MembersTab, PackageTab, ReportsTab,
 } from '../../assets/icons';
 import { RootState } from '../../redux/store';
-import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee } from '../../config/permissions';
 
 // ── Stacks ───────────────────────────────────────────────────────────────────
 import HomeStack from '../stacks/HomeStack';
@@ -72,6 +72,9 @@ const BottomTabNavigation = () => {
   const userIsSales = isSales(profile?.role);
   const userIsNutritionist = isNutritionist(profile?.role);
   const userIsFitnessManager = isFitnessManager(profile?.role);
+  // Blank role: the web gives this account only the Employee Dashboard, so
+  // the trainer tabs (My Clients / Attendance / Roster) must not appear.
+  const userIsEmployee = isEmployee(profile?.role);
 
   // Sales works the same client/package/report surface as admin, so it gets
   // the same tab set rather than the trainer's My Clients/Attendance/Roster.
@@ -87,7 +90,7 @@ const BottomTabNavigation = () => {
         options={{ tabBarIcon: imgIcon(HomeTab) }}
       />
 
-      {useAdminTabs ? (
+      {userIsEmployee ? null : useAdminTabs ? (
         /* ── Admin / Sales tabs ── */
         <>
           <Tab.Screen

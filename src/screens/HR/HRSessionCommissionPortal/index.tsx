@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl, TextInput, Platform, Modal,
+  ActivityIndicator, RefreshControl, Platform, Modal,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -14,7 +14,7 @@ import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import {
   getGXTrainers, getPTRosterAdmin, getHRSessions, createHRSession, updateHRSession,
-  deleteHRSession, getHRPortalCommissions, getHRPortalClients, recordHRCommissionPayment,
+  deleteHRSession, getHRPortalCommissions, getHRPortalClients,
 } from '../../../api/employeeDashboard';
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -37,8 +37,7 @@ interface CommissionDetail {
 }
 interface CommissionRow {
   id: number; name: string; branch: string; department?: string; designation?: string;
-  commission_per: number; gross_commission: number; paid_commission: number;
-  outstanding_commission: number; payout_status: string; payout_date?: string | null;
+  commission_per: number; gross_commission: number;
   total_delivered_sessions: number; total_client_no_show_sessions: number;
   total_remaining_contract_sessions: number; details?: CommissionDetail[];
 }
@@ -169,7 +168,7 @@ const HRSessionCommissionPortal = () => {
         <CommissionsTab
           branch={branch} setBranch={setBranch}
           trainerOptions={trainerOptions}
-          defaultBranch={defaultBranch} dispatch={dispatch}
+          defaultBranch={defaultBranch}
         />
       )}
       {activeTab === 'Session Report' && (
@@ -587,7 +586,7 @@ const EditSessionModal = ({ row, onClose, dispatch, onDone }: any) => {
 
 // ── Commissions tab ───────────────────────────────────────────────────────────
 
-const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, dispatch }: any) => {
+const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch }: any) => {
   const [trainerId, setTrainerId] = useState('');
   const [fromDate, setFromDate] = useState(monthAgo());
   const [toDate, setToDate] = useState(new Date());
@@ -595,7 +594,6 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
   const [loading, setLoading] = useState(false);
   const [calculated, setCalculated] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [payTarget, setPayTarget] = useState<CommissionRow | null>(null);
   const Rs = useCurrencyFormatter();
 
   const bid = branch ? Number(branch) : defaultBranch;
@@ -618,11 +616,8 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
         department: item.department,
         designation: item.designation,
         commission_per: item.commission?.commission_per ?? 0,
-        gross_commission: item.commission?.gross_commission ?? 0,
-        paid_commission: item.commission?.paid_commission ?? 0,
-        outstanding_commission: item.commission?.outstanding_commission ?? 0,
-        payout_status: item.commission?.payout_status ?? 'unpaid',
-        payout_date: item.commission?.payout_date,
+        // The API field is `commission` — there is no `gross_commission`.
+        gross_commission: item.commission?.commission ?? 0,
         total_delivered_sessions: item.commission?.total_delivered_sessions ?? 0,
         total_client_no_show_sessions: item.commission?.total_client_no_show_sessions ?? 0,
         total_remaining_contract_sessions: item.commission?.total_remaining_contract_sessions ?? 0,
@@ -639,7 +634,6 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
   }, [bid, trainerId, fromDate, toDate]);
 
   const totalGross = rows.reduce((s, r) => s + (r.gross_commission || 0), 0);
-  const totalOutstanding = rows.reduce((s, r) => s + (r.outstanding_commission || 0), 0);
 
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
@@ -665,12 +659,8 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
             <Text style={styles.statValue}>{rows.length}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Total Gross Commission</Text>
+            <Text style={styles.statLabel}>Total Commission</Text>
             <Text style={[styles.statValue, { color: '#43A047' }]}>{Rs(totalGross)}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Total Outstanding</Text>
-            <Text style={[styles.statValue, { color: '#E63946' }]}>{Rs(totalOutstanding)}</Text>
           </View>
         </View>
       )}
@@ -685,7 +675,6 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
       ) : (
         rows.map(r => {
           const isOpen = expanded === r.id;
-          const isSettled = r.payout_status?.toLowerCase() === 'settled' || r.payout_status?.toLowerCase() === 'paid';
           return (
             <View key={r.id} style={styles.commCard}>
               <TouchableOpacity style={styles.commCardHeader} onPress={() => setExpanded(isOpen ? null : r.id)}>
@@ -695,7 +684,6 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.commGross}>{Rs(r.gross_commission)}</Text>
-                  <Text style={[styles.commStatus, isSettled ? { color: '#43A047' } : { color: '#E63946' }]}>{r.payout_status}</Text>
                 </View>
                 <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#888" style={{ marginLeft: 8 }} />
               </TouchableOpacity>
@@ -704,15 +692,6 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
                 <View style={[styles.badge, { backgroundColor: '#FFF3E0' }]}><Text style={[styles.badgeTxt, { color: '#E65100' }]}>{r.total_client_no_show_sessions} NS</Text></View>
                 <View style={[styles.badge, { backgroundColor: '#E3F2FD' }]}><Text style={[styles.badgeTxt, { color: '#1565C0' }]}>{r.total_remaining_contract_sessions} remaining</Text></View>
               </View>
-              <View style={styles.commRow2}>
-                <Text style={styles.commRow2Text}>Paid: {Rs(r.paid_commission)}</Text>
-                <Text style={styles.commRow2Text}>Outstanding: {Rs(r.outstanding_commission)}</Text>
-              </View>
-              {!isSettled && (
-                <TouchableOpacity style={styles.recPayBtn} onPress={() => setPayTarget(r)}>
-                  <Text style={styles.recPayText}>Record Payment</Text>
-                </TouchableOpacity>
-              )}
               {isOpen && (
                 <View style={styles.detailBox}>
                   {(r.details ?? []).map((d, i) => (
@@ -729,65 +708,7 @@ const CommissionsTab = ({ branch, setBranch, trainerOptions, defaultBranch, disp
         })
       )}
 
-      <RecordPaymentModal
-        target={payTarget} onClose={() => setPayTarget(null)} dispatch={dispatch}
-        branch={bid} fromDate={fromDate} toDate={toDate}
-        onDone={() => calculate()}
-      />
     </ScrollView>
-  );
-};
-
-const RecordPaymentModal = ({ target, onClose, dispatch, branch, fromDate, toDate, onDone }: any) => {
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => { if (target) { setAmount(String(target.outstanding_commission ?? '')); setNote(''); } }, [target]);
-
-  if (!target) return null;
-
-  const submit = async () => {
-    const amt = Number(amount);
-    if (!amt || amt <= 0) {
-      dispatch(showSnackbar({ message: 'Enter a valid amount', type: 'error' }));
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await recordHRCommissionPayment({
-        trainer_id: target.id, branch_id: branch,
-        start_date: apiDate(fromDate), end_date: apiDate(toDate),
-        amount: amt, note,
-      });
-      dispatch(showSnackbar({ message: 'Payment recorded', type: 'success' }));
-      onDone(); onClose();
-    } catch {
-      dispatch(showSnackbar({ message: 'Could not record payment — this action is pending backend confirmation', type: 'error' }));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalBox}>
-          <Text style={styles.modalTitle}>Record Payment — {target.name}</Text>
-          <Text style={styles.ddLabel}>Amount (PKR)</Text>
-          <TextInput style={styles.textInput} value={amount} onChangeText={setAmount} keyboardType="numeric" />
-          <View style={{ height: 8 }} />
-          <Text style={styles.ddLabel}>Note (optional)</Text>
-          <TextInput style={styles.textInput} value={note} onChangeText={setNote} multiline />
-          <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.modalSubmitBtn} onPress={submit} disabled={submitting}>
-              {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalSubmitText}>Record</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
   );
 };
 
@@ -1002,14 +923,9 @@ const styles = StyleSheet.create({
   commName: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
   commSub: { fontSize: 11, color: '#888', marginTop: 2 },
   commGross: { fontSize: 14, fontWeight: '800', color: '#1B5E20' },
-  commStatus: { fontSize: 11, fontWeight: '700', marginTop: 2, textTransform: 'capitalize' },
   badgeRow: { flexDirection: 'row', gap: 6, marginTop: 10, flexWrap: 'wrap' },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   badgeTxt: { fontSize: 10, fontWeight: '700' },
-  commRow2: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  commRow2Text: { fontSize: 12, color: '#555' },
-  recPayBtn: { marginTop: 10, borderWidth: 1, borderColor: '#E63946', borderRadius: 8, paddingVertical: 8, alignItems: 'center' },
-  recPayText: { color: '#E63946', fontWeight: '700', fontSize: 12 },
   detailBox: { marginTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 8 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
   detailClient: { fontSize: 12, color: '#333', flex: 1 },

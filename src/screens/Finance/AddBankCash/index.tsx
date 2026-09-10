@@ -13,8 +13,8 @@ import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { addBankCashEntry, getBankDetails } from '../../../api/employeeDashboard';
 
 // Submission is intentionally disabled for now — see hint text below.
-// addBankCashEntry() is wired and ready; flip ADD_ENABLED once the endpoint is confirmed.
-const ADD_ENABLED = false;
+// Confirmed live on dev 2026-09-10 (HTTP 201): branch_id + amount + type.
+const ADD_ENABLED = true;
 
 const TYPES = ['Credit', 'Debit'];
 const RESOURCES = ['Bank Account', 'Office Counter', 'Others', 'Personal', 'Sales Counter'];
