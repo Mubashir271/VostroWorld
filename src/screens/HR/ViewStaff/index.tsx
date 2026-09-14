@@ -4,7 +4,9 @@ import {
   ActivityIndicator, TextInput, Modal,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { RootState } from '../../../redux/store';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import {
@@ -55,8 +57,13 @@ const TABLE_W = COLS.reduce((s, c) => s + c.width, 0);
 const ViewStaff = () => {
   const navigation = useNavigation<any>();
 
+  // Branch-scoped logins (F-11 / G-13 admins) are pinned to their own branch;
+  // "All Branches" is only for users with no branch (HR, super admin).
+  const { profile } = useSelector((state: RootState) => state.user);
+  const ownBranchId = profile?.branchId || null;
+
   const [branches, setBranches] = useState<Option[]>([]);
-  const [branchId, setBranchId] = useState<number | null>(null);
+  const [branchId, setBranchId] = useState<number | null>(ownBranchId);
   const [branchModal, setBranchModal] = useState(false);
 
   const [departments, setDepartments] = useState<Option[]>([]);
@@ -101,7 +108,7 @@ const ViewStaff = () => {
         limit: 100,
       });
       const data: StaffRow[] = res?.data?.data ?? [];
-      setRows(data);
+      setRows(branchId ? data.filter((r: any) => r.branch_id == null || Number(r.branch_id) === branchId) : data);
     } catch (e: any) {
       const code = e?.response?.status;
       if (code === 404 || code === 422) setRows([]);
@@ -143,9 +150,11 @@ const ViewStaff = () => {
           <View style={styles.row2}>
             <View style={styles.col2}>
               <Text style={styles.label}>Branch</Text>
-              <TouchableOpacity style={styles.picker} onPress={() => setBranchModal(true)}>
+              <TouchableOpacity style={styles.picker} onPress={() => !ownBranchId && setBranchModal(true)}>
                 <Text style={styles.pickerText}>
-                  {branchId ? branches.find(b => b.id === branchId)?.name ?? 'Branch' : 'All Branches'}
+                  {ownBranchId
+                    ? profile?.branchName ?? 'My Branch'
+                    : branchId ? branches.find(b => b.id === branchId)?.name ?? 'Branch' : 'All Branches'}
                 </Text>
                 <Icon name="chevron-down" size={16} color="#666" />
               </TouchableOpacity>

@@ -197,6 +197,7 @@ const MENU = [
           { title: 'Staff Commissions', screen: 'StaffCommissions' },
           { title: 'Session Portal (HR)', screen: 'SessionPortalHR' },
           { title: 'Staff Duty Hours', screen: 'StaffDutyHours' },
+          { title: 'Staff Attendance', screen: 'StaffAttendanceReport' },
           { title: 'Employee Attendance', screen: 'EmployeeAttendance' },
           { title: 'PT Attendance', screen: 'PTAttendance' },
         ],
@@ -631,27 +632,29 @@ const filterMenuForRole = (
   }
 
   if (isFitnessManager(role)) {
-    // Fitness Manager: Dashboard, Fitness (curated subset + two Human
-    // Resource items appended), Nutrition (curated subset), Notifications —
-    // confirmed live 2026-07-23 against the web admin's Fitness-Manager
-    // login menu.
-    const hrSection = menu.find(item => item.title === 'Human Resource');
-    const staffCommissions = hrSection?.children
-      ?.flatMap(c => (c as any).children ?? [c])
-      .find(c => c.title === 'Staff Commissions');
-    const sessionPortalHR = hrSection?.children
-      ?.flatMap(c => (c as any).children ?? [c])
-      .find(c => c.title === 'Session Portal (HR)');
+    // Fitness Manager: Dashboard, Human Resource › Session Portal, Fitness
+    // (curated subset), Nutrition (curated subset), Notifications — web
+    // Fitness-Manager login menu, re-checked 2026-09-14. No Staff Commissions.
+    // Session Portal sits in its own "Human Resource" section, directly under
+    // Dashboard — matching the web's Fitness-Manager drawer (Employee
+    // Dashboard, Announcements, Human Resource › Session Portal, Fitness,
+    // Nutrition), not appended to Fitness.
+    const hrForFitnessManager = {
+      title: 'Human Resource',
+      icon: 'briefcase-account',
+      children: [{ title: 'Session Portal', screen: 'SessionPortalHR' }],
+    };
 
-    return menu
+    const filtered = menu
       .filter(item => FITNESS_MANAGER_ALLOWED_MENUS.includes(item.title))
       .map(item => {
         if (item.title === 'Fitness' && item.children) {
-          const curated = item.children.filter(c =>
-            FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN.includes(c.title),
-          );
-          const appended = [staffCommissions, sessionPortalHR].filter(Boolean) as typeof item.children;
-          return { ...item, children: [...curated, ...appended] };
+          return {
+            ...item,
+            children: item.children.filter(c =>
+              FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN.includes(c.title),
+            ),
+          };
         }
         if (item.title === 'Nutrition' && item.children) {
           return {
@@ -663,6 +666,13 @@ const filterMenuForRole = (
         }
         return item;
       });
+
+    const dashIdx = filtered.findIndex(item => item.title === 'Dashboard');
+    return [
+      ...filtered.slice(0, dashIdx + 1),
+      hrForFitnessManager as typeof MENU[number],
+      ...filtered.slice(dashIdx + 1),
+    ];
   }
 
   if (isNutritionist(role)) {

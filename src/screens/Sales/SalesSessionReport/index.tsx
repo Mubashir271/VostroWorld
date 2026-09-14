@@ -102,6 +102,13 @@ const SalesSessionReport = () => {
   const [filterPackageId, setFilterPackageId] = useState('');
 
   const [formBranch, setFormBranch] = useState(String(branchId));
+  // Branch-scoped logins may only record against their own branch; only a
+  // user with no branch (super admin) can choose between F-11 and G-13.
+  const branchOptions = !branchId
+    ? BRANCH_OPTIONS
+    : BRANCH_OPTIONS.some(o => o.value === String(branchId))
+      ? BRANCH_OPTIONS.filter(o => o.value === String(branchId))
+      : [{ label: profile?.branchName ?? 'My Branch', value: String(branchId) }];
   const [formTrainerId, setFormTrainerId] = useState('');
   const [formClientId, setFormClientId] = useState('');
   const [formOrderId, setFormOrderId] = useState('');
@@ -352,7 +359,7 @@ const SalesSessionReport = () => {
           <Text style={styles.formTitle}>Add Session Attendance</Text>
 
           <Text style={styles.fieldLabel}>Branch Name *</Text>
-          <Dropdown label="Select Branch" options={BRANCH_OPTIONS} value={formBranch} onChange={setFormBranch} />
+          <Dropdown label="Select Branch" options={branchOptions} value={formBranch} onChange={setFormBranch} />
 
           <Text style={styles.fieldLabel}>Trainer *</Text>
           <Dropdown label="Select Name" options={trainerOptions} value={formTrainerId} onChange={setFormTrainerId} />

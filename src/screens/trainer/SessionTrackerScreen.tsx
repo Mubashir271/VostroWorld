@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, RefreshControl,
+  TextInput, ActivityIndicator, Alert, RefreshControl, Modal, Pressable,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../components/AppHeader';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
-import { getTrainerClients, markTrainerAttendance } from '../../api/trainer';
+import { getTrainerClients, getTakenSlots, markTrainerAttendance } from '../../api/trainer';
 
 interface Client {
   order_id: number;
@@ -18,6 +18,7 @@ interface Client {
   client_phone: string;
   package_id: number;
   package_name: string;
+  package_type: string | null;
   session_count: number;
   total_sessions: number;
   sessions_delivered: number;
@@ -26,11 +27,21 @@ interface Client {
   cancel_count: number;
   end_date: string;
   last_session_date: string;
-  is_client_present: number;
-  today_session_status: string;
-  today_time_slot: string;
+  is_client_present: boolean;
+  today_session_status: string | null;
+  today_time_slot: string | null;
   branch_id: number;
 }
+
+// Same hourly slots the web Session Tracker offers: 06:00-07:00 … 21:00-22:00.
+const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => {
+  const h = i + 6;
+  return `${String(h).padStart(2, '0')}:00-${String(h + 1).padStart(2, '0')}:00`;
+});
+
+const SESSION_TYPES = ['PT', 'SPT', 'GX', 'Befit'];
+const sessionType = (c: Client) =>
+  c.package_type && SESSION_TYPES.includes(c.package_type) ? c.package_type : 'PT';
 
 const today = () => new Date().toISOString().split('T')[0];
 const fmtDate = (d: string) => {
@@ -50,6 +61,9 @@ export default function SessionTrackerScreen() {
   const [checkDate, setCheckDate]       = useState(today());
   const [search, setSearch]             = useState('');
   const [marking, setMarking]           = useState<number | null>(null); // order_id being marked
+  const [slotClient, setSlotClient]     = useState<Client | null>(null); // Present sheet target
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [takenSlots, setTakenSlots]     = useState<string[]>([]);
 
   const fetchClients = useCallback(async (date = checkDate) => {
     try {
@@ -71,35 +85,52 @@ export default function SessionTrackerScreen() {
     fetchClients().finally(() => setRefreshing(false));
   };
 
-  const handleMark = async (client: Client, status: 'Delivered' | 'No Show') => {
-    if (!isTrainerPresent) {
-      Alert.alert('Not Available', 'Session marking is only available when you are marked Present for today.');
-      return;
-    }
-    if (!client.today_time_slot) {
-      Alert.alert('No Time Slot', 'No time slot is assigned for this client today.');
-      return;
-    }
+  // Mirrors the web tracker: the time slot is picked when marking Present, and a
+  // No Show is recorded with no slot (staff Delivered, client No Show).
+  const submitMark = async (client: Client, clientStatus: 'Delivered' | 'No Show', timeSlot: string | null) => {
     try {
       setMarking(client.order_id);
       await markTrainerAttendance({
-        branch_id: branchId!,
+        branch_id: client.branch_id || branchId!,
         client_id: client.client_id,
         order_id: client.order_id,
         package_id: client.package_id,
         date: checkDate,
-        staff_status: status,
-        client_status: status,
-        time_slot: client.today_time_slot,
-        type: 'PT',
+        staff_status: 'Delivered',
+        client_status: clientStatus,
+        time_slot: timeSlot,
+        type: sessionType(client),
       });
-      Alert.alert('Saved', `Session marked as ${status}`);
+      setSlotClient(null);
+      Alert.alert(
+        clientStatus === 'Delivered' ? 'Session Marked' : 'No-Show Recorded',
+        clientStatus === 'Delivered'
+          ? `${client.client_name} — ${timeSlot}, ${fmtDate(checkDate)}`
+          : `${client.client_name} marked as No-Show.`,
+      );
       fetchClients();
-    } catch {
-      Alert.alert('Error', 'Failed to mark session');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      Alert.alert('Error', typeof msg === 'string' ? msg : 'Failed to mark session.');
     } finally {
       setMarking(null);
     }
+  };
+
+  const openPresent = (client: Client) => {
+    setSelectedSlot(null);
+    setTakenSlots([]);
+    setSlotClient(client);
+    getTakenSlots(checkDate)
+      .then(res => setTakenSlots(res?.taken_slots ?? []))
+      .catch(() => {});
+  };
+
+  const confirmNoShow = (client: Client) => {
+    Alert.alert('Mark as No-Show?', `${client.client_name} — ${fmtDate(checkDate)}`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Yes, No-Show', style: 'destructive', onPress: () => submitMark(client, 'No Show', null) },
+    ]);
   };
 
   const filtered = clients.filter(c =>
@@ -110,7 +141,7 @@ export default function SessionTrackerScreen() {
   const totalDone      = clients.reduce((s, c) => s + c.sessions_delivered, 0);
   const totalRemaining = clients.reduce((s, c) => s + c.sessions_remaining, 0);
   const totalNoShows   = clients.reduce((s, c) => s + c.no_show_count, 0);
-  const checkedIn      = clients.filter(c => c.is_client_present === 1).length;
+  const checkedIn      = clients.filter(c => !!c.is_client_present).length;
 
   return (
     <>
@@ -195,6 +226,15 @@ export default function SessionTrackerScreen() {
                   : 0;
                 const isDelivered = client.today_session_status === 'Delivered';
                 const isMarking   = marking === client.order_id;
+                // Marking is allowed only when nothing is recorded yet for this date,
+                // the trainer is present, and the client has checked in.
+                const blockedReason = client.today_session_status
+                  ? `Already marked: ${client.today_session_status}`
+                  : !isTrainerPresent
+                    ? 'Your attendance is not marked for this date'
+                    : !client.is_client_present
+                      ? 'Client has not checked in'
+                      : null;
 
                 const barColor = progress >= 70 ? '#3b82f6' : progress >= 40 ? '#eab308' : '#E63946';
 
@@ -209,7 +249,7 @@ export default function SessionTrackerScreen() {
                         <Text style={s.clientName}>{client.client_name}</Text>
                         <Text style={s.clientPhone}>{client.client_phone}</Text>
                         <View style={s.packageBadge}>
-                          <Text style={s.packageBadgeNum}>2</Text>
+                          <Text style={s.packageBadgeNum}>{sessionType(client)}</Text>
                           <Text style={s.packageName}>{client.package_name}</Text>
                         </View>
                       </View>
@@ -264,23 +304,23 @@ export default function SessionTrackerScreen() {
                         <Text style={s.deliveredTime}>⏰ {client.today_time_slot}</Text>
                         <Text style={s.deliveredSub}>Already recorded for this date</Text>
                       </View>
-                    ) : client.is_client_present === 0 ? (
+                    ) : blockedReason ? (
                       <View style={s.notCheckedIn}>
-                        <Text style={s.notCheckedInText}>Client has not checked in</Text>
+                        <Text style={s.notCheckedInText}>{blockedReason}</Text>
                         <View style={s.actionRow}>
-                          <TouchableOpacity style={[s.actionBtn, s.actionBtnDisabled]}>
+                          <View style={[s.actionBtn, s.actionBtnDisabled]}>
                             <Text style={s.actionBtnDisabledText}>✓ Present</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={[s.actionBtn, s.actionBtnDisabled]}>
+                          </View>
+                          <View style={[s.actionBtn, s.actionBtnDisabled]}>
                             <Text style={s.actionBtnDisabledText}>✗ No-Show</Text>
-                          </TouchableOpacity>
+                          </View>
                         </View>
                       </View>
                     ) : (
                       <View style={s.actionRow}>
                         <TouchableOpacity
                           style={[s.actionBtn, s.presentBtn]}
-                          onPress={() => handleMark(client, 'Delivered')}
+                          onPress={() => openPresent(client)}
                           disabled={isMarking}
                         >
                           {isMarking
@@ -289,7 +329,7 @@ export default function SessionTrackerScreen() {
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[s.actionBtn, s.noShowBtn]}
-                          onPress={() => handleMark(client, 'No Show')}
+                          onPress={() => confirmNoShow(client)}
                           disabled={isMarking}
                         >
                           <Text style={s.noShowBtnText}>✗ No-Show</Text>
@@ -307,6 +347,54 @@ export default function SessionTrackerScreen() {
           <View style={{ height: 40 }} />
         </ScrollView>
       )}
+
+      {/* Present → pick the session's time slot */}
+      <Modal visible={!!slotClient} transparent animationType="slide" onRequestClose={() => setSlotClient(null)}>
+        <Pressable style={s.sheetOverlay} onPress={() => marking === null && setSlotClient(null)}>
+          <Pressable style={s.sheet}>
+            <View style={s.sheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.sheetTitle}>Mark as Present</Text>
+                <Text style={s.sheetSub} numberOfLines={1}>
+                  {slotClient?.client_name} · {slotClient?.package_name}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setSlotClient(null)} disabled={marking !== null}>
+                <Icon name="close" size={22} color="#E63946" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={s.sheetLabel}>Session Date: {fmtDate(checkDate)}</Text>
+            <Text style={s.sheetLabel}>Time Slot *</Text>
+            <View style={s.slotGrid}>
+              {TIME_SLOTS.map(slot => {
+                const taken = takenSlots.includes(slot);
+                const active = selectedSlot === slot;
+                return (
+                  <TouchableOpacity
+                    key={slot}
+                    style={[s.slotBtn, active && s.slotBtnActive, taken && s.slotBtnTaken]}
+                    onPress={() => setSelectedSlot(slot)}
+                    disabled={taken}
+                  >
+                    <Text style={[s.slotText, active && s.slotTextActive, taken && s.slotTextTaken]}>{slot}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              style={[s.confirmBtn, (!selectedSlot || marking !== null) && { opacity: 0.5 }]}
+              disabled={!selectedSlot || marking !== null}
+              onPress={() => slotClient && selectedSlot && submitMark(slotClient, 'Delivered', selectedSlot)}
+            >
+              {marking !== null
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={s.confirmBtnText}>Confirm Session</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -333,7 +421,7 @@ const s = StyleSheet.create({
   clientName:         { fontSize: 15, fontWeight: '700', color: '#1e293b' },
   clientPhone:        { fontSize: 12, color: '#64748b', marginTop: 2 },
   packageBadge:       { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  packageBadgeNum:    { fontSize: 11, backgroundColor: '#3b82f6', color: '#fff', borderRadius: 10, width: 18, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700' },
+  packageBadgeNum:    { fontSize: 11, backgroundColor: '#3b82f6', color: '#fff', borderRadius: 9, paddingHorizontal: 6, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700', overflow: 'hidden' },
   packageName:        { fontSize: 12, color: '#64748b' },
   statsRow:           { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8 },
   statCol:            { alignItems: 'center', flex: 1 },
@@ -361,4 +449,20 @@ const s = StyleSheet.create({
   noShowBtn:          { backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#e2e8f0' },
   noShowBtnText:      { color: '#64748b', fontWeight: '600', fontSize: 13 },
   lastSession:        { fontSize: 11, color: '#94a3b8', textAlign: 'right', marginTop: 4 },
+  // Time slot sheet
+  sheetOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet:              { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 32 },
+  sheetHeader:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  sheetTitle:         { fontSize: 17, fontWeight: '700', color: '#1e293b' },
+  sheetSub:           { fontSize: 12, color: '#64748b', marginTop: 2 },
+  sheetLabel:         { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 },
+  slotGrid:           { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 16 },
+  slotBtn:            { width: '48.5%', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff', alignItems: 'center', marginBottom: 8 },
+  slotBtnActive:      { backgroundColor: '#FFE5E5', borderColor: '#E63946' },
+  slotBtnTaken:       { backgroundColor: '#f1f5f9' },
+  slotText:           { fontSize: 13, fontWeight: '600', color: '#374151' },
+  slotTextActive:     { color: '#E63946' },
+  slotTextTaken:      { color: '#cbd5e1', textDecorationLine: 'line-through' },
+  confirmBtn:         { backgroundColor: '#E63946', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  confirmBtnText:     { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

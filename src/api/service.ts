@@ -5,9 +5,9 @@ import { logoutUser } from '../redux/slices/userSlice';
 import { showSnackbar } from '../redux/slices/snackbarSlice';
 import { resetToLoginFromRef } from '../utils/navigationRef';
 
-// DEV ONLY. Production is live — never point the app at it while testing.
-// Prod (do not use): https://api.vostro-new.com/public/api
-export const BASE_URL = 'https://dev-api.vostro-new.com/public/api';
+// PRODUCTION — this is the live backend. Writes here are real gym/client records.
+// Dev: https://dev-api.vostro-new.com/public/api
+export const BASE_URL = 'https://api.vostro-new.com/public/api';
 
 const api = axios.create({
     baseURL: BASE_URL,

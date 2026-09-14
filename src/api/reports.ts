@@ -186,12 +186,18 @@ export const getSalesDetail = (params: {
   api.get('/v1/detail', { params });
 
 // Detailed Sales Report
+// The endpoint ignores `branch_id` and returns every branch; it filters on
+// `filter_branch_id` (what the web sends). Confirmed on dev 2026-09-14: with
+// only branch_id=15 a Sales F-11 login got 2,934 rows (F 11 + G 13); with
+// filter_branch_id=15 it got the 2,159 F 11 rows. '' still means all branches.
 export const getDetailedSalesReport = (params: {
   branch_id: number | string;
   start_date: string;
   end_date: string;
 }) =>
-  api.get('/v1/orders-detail/detailed-sales-report', { params });
+  api.get('/v1/orders-detail/detailed-sales-report', {
+    params: { ...params, filter_branch_id: params.branch_id },
+  });
 
 // Sales By Services
 export const getSalesByServices = (params: {
@@ -241,14 +247,72 @@ export const getSalesByBootcamp = (params: {
   api.get('/v1/session-detail-report', { params });
 
 // Staff Attendance Report
-export const getStaffAttendanceReport = (params: {
-  branch_id: number | string;
-  start_date: string;
-  end_date: string;
-}) =>
-  api.get('/v1/attendance/get', {
-    params: { ...params, category: '2', type: 'Staff' },
-  });
+// ── Staff Attendance Report (HR › Manage Staff › Staff Attendance) ─────────
+// Same two endpoints as Clients Attendance below, with `category: '2'` and
+// `type: 'Staff'` — taken from the web bundle's getStaffAttendence /
+// getStaffAttendenceSummary, and confirmed read-only on prod 2026-09-14 with
+// the HR login: branch_id '' returns every branch (37 rows that day), and
+// gender (lowercase), HH:mm:ss times and member_id all filter. Rows carry the
+// staff member under `attendee` ({ id, uid, first_name, last_name, image }).
+const staffAttendanceParams = (params: ClientAttendanceQuery) => ({
+  ...attendanceParams(params),
+  type: 'Staff',
+  category: '2',
+});
+
+export const getStaffAttendanceReport = async (
+  params: ClientAttendanceQuery & { limit?: number; page?: number },
+): Promise<AttendancePage> => {
+  const { limit = 25, page = 1 } = params;
+  try {
+    const res = await api.get('/v1/attendance/get', {
+      params: { ...staffAttendanceParams(params), limit, page },
+    });
+    const body = res.data ?? {};
+    return {
+      rows: (body.data?.data ?? []) as AttendanceRecord[],
+      total: Number(body.totalRecord ?? body.data?.total ?? 0),
+      totalPages: Number(body.totalPages ?? body.data?.last_page ?? 1),
+      currentPage: Number(body.data?.current_page ?? page),
+      perPage: Number(body.data?.per_page ?? limit),
+    };
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      return { rows: [], total: 0, totalPages: 1, currentPage: page, perPage: limit };
+    }
+    throw err;
+  }
+};
+
+export const getStaffAttendanceSummary = async (
+  params: ClientAttendanceQuery,
+): Promise<AttendanceSummaryRow[]> => {
+  try {
+    const res = await api.get('/v1/attendance/showSummery', { params: staffAttendanceParams(params) });
+    return (res.data?.data ?? []) as AttendanceSummaryRow[];
+  } catch (err: any) {
+    if (err?.response?.status === 404) return [];
+    throw err;
+  }
+};
+
+/** Staff for the Staff Name filter — `/auth/get-name`, what the web uses. */
+export type StaffNameOption = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  branch_id: number;
+  designation: string | null;
+};
+
+export const getStaffNames = async (branchId: number | string): Promise<StaffNameOption[]> => {
+  try {
+    const res = await api.get('/v1/auth/get-name', { params: { branch_id: branchId } });
+    return (res.data?.data ?? []) as StaffNameOption[];
+  } catch {
+    return [];
+  }
+};
 
 // ── Clients Attendance (the web's "Attendance Report") ──────────────────────
 // HAR-confirmed 2026-09-07 against the Sales login. Every Go fires BOTH calls
@@ -367,6 +431,7 @@ export type AttendanceRecord = {
   checkin_time_24h: string | null;
   checkout_time_24h: string | null;
   verified_by: string | null;
+  card_number?: string | null; // staff rows; '0' when none
   date: string;
   gender: string | null;
   attendance_status: string | null;

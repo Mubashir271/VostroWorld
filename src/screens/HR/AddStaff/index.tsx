@@ -79,11 +79,15 @@ const AddStaff = () => {
   const loadBranches = useCallback(async () => {
     try {
       const res = await getBranchesNameList();
-      const list: Option[] = res?.data ?? [];
-      setBranches(Array.isArray(list) ? list : []);
+      const all: Option[] = Array.isArray(res?.data) ? res.data : [];
       if (profile?.branchId) {
-        const match = list.find((b: Option) => b.id === profile.branchId);
+        // Branch-scoped logins can only add staff to their own branch; only a
+        // user with no branch (HR, super admin) chooses from every branch.
+        const match = all.find((b: Option) => b.id === profile.branchId);
+        setBranches(match ? [match] : []);
         if (match) setForm(f => ({ ...f, branchId: String(match.id), branchName: match.name }));
+      } else {
+        setBranches(all);
       }
     } catch {}
   }, [profile?.branchId]);

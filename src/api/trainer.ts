@@ -12,9 +12,12 @@ export interface TrainerClient {
   sessions_delivered: number;
   sessions_remaining: number;
   no_show_count: number;
-  today_session_status: string;
-  today_time_slot: string;
-  is_client_present: number;
+  // Both null until a session is recorded for check_date — the slot is chosen
+  // at marking time, never pre-assigned.
+  today_session_status: string | null;
+  today_time_slot: string | null;
+  // Live API returns a boolean (confirmed prod 2026-09-14), not 0/1.
+  is_client_present: boolean;
 }
 
 export interface ClientsResponse {
@@ -33,7 +36,7 @@ export interface MarkAttendancePayload {
   date: string; // YYYY-MM-DD
   staff_status: 'Delivered' | 'No Show' | 'Cancel';
   client_status: 'Delivered' | 'No Show' | 'Cancel';
-  time_slot: string; // e.g. "09:00-10:00"
+  time_slot: string | null; // e.g. "09:00-10:00"; null for a No Show
   staff_note?: string;
   client_note?: string;
   type?: string; // default "PT"

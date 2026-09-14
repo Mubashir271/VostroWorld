@@ -196,7 +196,8 @@ const AddGXClass = () => {
               label="Branch Name *"
               value={branchLabel}
               placeholder="Select Branch"
-              onPress={() => setBranchModal(true)}
+              // Branch-scoped logins create classes for their own branch only.
+              onPress={() => !profile?.branchId && setBranchModal(true)}
             />
 
             <SelectionField

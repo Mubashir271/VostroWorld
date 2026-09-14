@@ -35,6 +35,9 @@ const TABS = [
 ] as const;
 type Tab = typeof TABS[number];
 
+// The web's wording, shown when the signed-in employee has no branch.
+const NO_BRANCH_MESSAGE = 'Branch is not assigned on this employee profile.';
+
 const fmtDate = (d: Date) => {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -189,6 +192,13 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
   // Each tab fetches once, on first visit.
   const loadTab = useCallback(async (t: Tab) => {
     if (t === 'Profile' || tabData[t]) return;
+    // The web refuses to load attendance for a profile with no branch (HR,
+    // branch_id 0) and says so, rather than querying and showing "no records".
+    if (t === 'Attendance' && !branchId) {
+      setTabData(d => ({ ...d, Attendance: [] }));
+      setTabError(e => ({ ...e, Attendance: NO_BRANCH_MESSAGE }));
+      return;
+    }
     setTabLoading(true);
     const common = { branch_id: branchId, user_id: userId, limit: 50 };
     try {
@@ -238,6 +248,14 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
   // "Load Attendance" re-runs the range, so it must bypass loadTab's
   // fetch-once-per-tab cache.
   const reloadAttendance = useCallback(async () => {
+    if (!branchId) {
+      setTabError(e => ({ ...e, Attendance: NO_BRANCH_MESSAGE }));
+      return;
+    }
+    if (attEnd < attStart) {
+      setTabError(e => ({ ...e, Attendance: 'End date must be after the start date.' }));
+      return;
+    }
     setTabLoading(true);
     setTabError(e => ({ ...e, Attendance: '' }));
     try {

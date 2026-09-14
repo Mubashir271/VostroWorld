@@ -1840,6 +1840,181 @@ export const getHRSessionsAll = async (params: {
   return rows;
 };
 
+// ── PT Attendance (HR › Manage Staff › Pt Attendance) ──────────────────────
+// Mirrors the web admin's /pt-attendance page, taken from its bundle and
+// checked read-only on prod 2026-09-14 with the HR login. The web does NOT use
+// commission-portal/hr/sessions here: that endpoint ignores `status` (Active
+// and Inactive both return all ~59k rows), which is why the old screen, which
+// downloaded every page of both, never rendered.
+//
+// List:   GET  /fitness/session-attendance/get  (status '1' active / '0'
+//         inactive, trainer_id, order_id, limit, page — server paginated)
+// Add:    GET  exists → POST /fitness/session-attendance/add
+// Update: GET  exists/{id} → POST /fitness/session-attendance/update/{id}
+// Status: PUT  /fitness/session-attendance/actions/{id}/{0 inactive|1 active|2 delete}
+
+export type SessionAttendanceRow = {
+  id: number;
+  client_id: number;
+  branch_id: number;
+  order_id: number;
+  trainer_id: number;
+  trainer_schedule_id: number | null;
+  package_id: number | null;
+  type: string | null;
+  staff_status: string;
+  client_status: string;
+  status: string;
+  date: string;
+  trainer?: { id: number; trainer_name: string } | null;
+  order?: { id: number; name: string; client_id: number; client_name: string } | null;
+};
+
+export const getSessionAttendancePage = async (params: {
+  branch_id: number | string;
+  status?: '1' | '0';
+  trainer_id?: number | string;
+  order_id?: number | string;
+  limit: number;
+  page: number;
+}) => {
+  const { page, ...rest } = params;
+  try {
+    const res = await api.get(`/v1/fitness/session-attendance/get?page=${page}`, {
+      params: { type: '', ...rest },
+    });
+    const body = res.data ?? {};
+    return {
+      rows: (body.data?.data ?? []) as SessionAttendanceRow[],
+      total: Number(body.totalRecord ?? body.data?.total ?? 0),
+      totalPages: Number(body.totalPages ?? body.data?.last_page ?? 1),
+    };
+  } catch (err: any) {
+    if (err?.response?.status === 404) return { rows: [], total: 0, totalPages: 1 };
+    throw err;
+  }
+};
+
+/** Trainer dropdown — `{ id, first_name, last_name }[]`; no branch returns all. */
+export const getTrainerNameList = async (branchId: number | string) => {
+  // Never send a trailing slash: `/fetch-name-list/` 301-redirects, iOS drops
+  // the Authorization header on the redirect, the retry 401s and the response
+  // interceptor logs the user out — which is what happened to HR (branch '')
+  // on opening PT Attendance. Verified on prod 2026-09-14.
+  const path = branchId ? `/v1/auth/fetch-name-list/${branchId}` : '/v1/auth/fetch-name-list';
+  const res = await api.get(path, { params: { category: 'mix' } });
+  return (res.data?.data ?? []) as { id: number; first_name: string; last_name: string }[];
+};
+
+/** A trainer's packages — one entry per client order. */
+export type TrainerPackageOrder = {
+  order_id: number;
+  package_name: string;
+  client_id: number;
+  client_name: string;
+  client_email: string | null;
+};
+
+export const getTrainerPackageOrders = async (trainerId: number | string) => {
+  try {
+    const res = await api.get(`/v1/orders-detail/fetch-trainer-packages/${trainerId}`, { params: { category: '' } });
+    return (res.data?.data ?? []) as TrainerPackageOrder[];
+  } catch (err: any) {
+    if (err?.response?.status === 404) return [];
+    throw err;
+  }
+};
+
+/** false when every session on the order is used (server answers 409). */
+export const isSessionAttendanceOpen = async (orderId: number | string) => {
+  try {
+    await api.get(`/v1/fitness/session-attendance/is-attendance-is-complete/${orderId}`);
+    return true;
+  } catch (err: any) {
+    if (err?.response?.status === 409) return false;
+    throw err;
+  }
+};
+
+/** Schedule times for an order + trainer; 404 (none scheduled) → []. */
+export const getTrainerScheduleForOrder = async (orderId: number | string, trainerId: number | string) => {
+  try {
+    const res = await api.get(`/v1/fitness/session-attendance/get-trainer-schedule/${orderId}/${trainerId}`);
+    return (res.data?.data ?? []).map((s: any) => ({
+      id: String(s.trainer_schedules_id),
+      label: `${s.start_time} To ${s.end_time}`,
+    })) as { id: string; label: string }[];
+  } catch (err: any) {
+    if (err?.response?.status === 404) return [];
+    throw err;
+  }
+};
+
+/**
+ * Duplicate check the web runs before saving. Pass `excludeId` when updating
+ * (the web calls /exists/{id}). Resolves false on 409 "Attendance already exist".
+ */
+export const isSessionAttendanceFree = async (
+  params: { trainer_id: number | string; order_id: number | string; date: string },
+  excludeId?: number,
+) => {
+  try {
+    const path = excludeId
+      ? `/v1/fitness/session-attendance/exists/${excludeId}`
+      : '/v1/fitness/session-attendance/exists';
+    await api.get(path, { params });
+    return true;
+  } catch (err: any) {
+    if (err?.response?.status === 409) return false;
+    throw err;
+  }
+};
+
+export type SessionAttendancePayload = {
+  branch_id: number | string;
+  trainer_id: number | string;
+  order_id: number | string;
+  client_id: number | string;
+  staff_status: string;
+  client_status: string;
+  client_name: string;
+  email: string;
+  date: string;
+  trainer_schedule_id: number | string;
+};
+
+// Body is field-for-field what the web posts (type / package_id left blank —
+// the server derives both from the order).
+const sessionAttendanceBody = (p: SessionAttendancePayload) => ({
+  branch_id: p.branch_id,
+  trainer_id: p.trainer_id,
+  order_id: p.order_id,
+  client_id: p.client_id,
+  staff_status: p.staff_status,
+  client_status: p.client_status,
+  client_name: p.client_name,
+  email: p.email,
+  date: p.date,
+  trainer_schedule_id: p.trainer_schedule_id,
+  type: '',
+  package_id: '',
+});
+
+export const addSessionAttendance = (p: SessionAttendancePayload) =>
+  api.post('/v1/fitness/session-attendance/add', sessionAttendanceBody(p));
+
+export const updateSessionAttendance = (id: number, p: SessionAttendancePayload) =>
+  api.post(`/v1/fitness/session-attendance/update/${id}`, sessionAttendanceBody(p));
+
+export const getSessionAttendanceInfo = async (branchId: number | string, id: number) => {
+  const res = await api.get(`/v1/fitness/session-attendance/get/${id}`, { params: { branch_id: branchId } });
+  return ((res.data?.data?.data ?? [])[0] ?? null) as SessionAttendanceRow | null;
+};
+
+/** 0 = inactive, 1 = active, 2 = delete — the web's three row actions. */
+export const setSessionAttendanceStatus = (id: number, action: 0 | 1 | 2) =>
+  api.put(`/v1/fitness/session-attendance/actions/${id}/${action}`, {});
+
 // ── SPT Attendance ────────────────────────────────────────────────────────────
 // Confirmed live 2026-07-01 via HAR of web admin's "SPT Attendance" page.
 // Main data: GET /v1/packages/gx?category=4 — returns packages with

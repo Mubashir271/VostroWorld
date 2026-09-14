@@ -4,15 +4,18 @@ import {
   ActivityIndicator, RefreshControl, TextInput, Platform,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import StaffNameCell from '../../../components/StaffNameCell';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
 import api from '../../../api/service';
 
 interface Attendee {
+  id?: number; // staff user id — confirmed on prod rows 2026-09-14
   uid: string;
   first_name: string;
   last_name: string;
@@ -92,7 +95,11 @@ const EmployeeAttendance = () => {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState<string>('');
+  // Branch-scoped logins (F-11 / G-13 admins) are pinned to their own branch;
+  // "All Branches" is only for users with no branch (HR, super admin).
+  const { profile } = useSelector((state: RootState) => state.user);
+  const ownBranch = profile?.branchId ? String(profile.branchId) : '';
+  const [selectedBranch, setSelectedBranch] = useState<string>(ownBranch);
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [search, setSearch] = useState('');
   const [depts, setDepts] = useState<Department[]>([ALL_EMPLOYEES]);
@@ -152,13 +159,15 @@ const EmployeeAttendance = () => {
 
     if (firstRes.status === 'fulfilled') {
       const raw = firstRes.value.data?.data ?? firstRes.value.data ?? {};
-      const list: AttendanceRecord[] = raw.data ?? [];
+      // The API does not enforce branch scoping, so narrow rows here too.
+      const inBranch = (r: any) => !bid || r?.branch_id == null || String(r.branch_id) === bid;
+      const list: AttendanceRecord[] = (raw.data ?? []).filter(inBranch);
       const lastPage: number = raw.last_page ?? 1;
       if (lastPage > 1) {
         const rest = await Promise.all(
           Array.from({ length: lastPage - 1 }, (_, i) => api.get('/v1/attendance/index', { params: { ...indexParams, page: i + 2 } })),
         );
-        rest.forEach(r => list.push(...(r.data?.data?.data ?? r.data?.data ?? [])));
+        rest.forEach(r => list.push(...(r.data?.data?.data ?? r.data?.data ?? []).filter(inBranch)));
       }
       setRecords(list);
     } else {
@@ -186,7 +195,8 @@ const EmployeeAttendance = () => {
 
   useEffect(() => { setPage(1); }, [search]);
 
-  const selectedBranchLabel = BRANCH_OPTIONS.find(b => b.value === selectedBranch)?.label ?? 'All Branches';
+  const selectedBranchLabel = BRANCH_OPTIONS.find(b => b.value === selectedBranch)?.label
+    ?? (ownBranch ? profile?.branchName ?? 'My Branch' : 'All Branches');
 
   return (
     <View style={styles.container}>
@@ -225,7 +235,7 @@ const EmployeeAttendance = () => {
 
       {/* Filters Row */}
       <View style={styles.filtersRow}>
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setShowBranchDropdown(v => !v)}>
+        <TouchableOpacity style={styles.filterBtn} onPress={() => !ownBranch && setShowBranchDropdown(v => !v)}>
           <Icon name="office-building" size={14} color="#555" />
           <Text style={styles.filterBtnText}>{selectedBranchLabel}</Text>
           <Icon name="chevron-down" size={14} color="#888" />
@@ -322,7 +332,12 @@ const EmployeeAttendance = () => {
                           </View>
                         )}
                         <View style={styles.colNameText}>
-                          <Text style={styles.tdName}>{fullName || '-'}</Text>
+                          <StaffNameCell
+                            name={fullName}
+                            staffId={rec.attendee?.id}
+                            style={[styles.tdName, styles.tdNameLink]}
+                            fallback="-"
+                          />
                           <Text style={styles.tdDesig}>{rec.designation ?? ''}</Text>
                         </View>
                       </View>
@@ -408,6 +423,7 @@ const styles = StyleSheet.create({
   th: { fontSize: 11, fontWeight: '800', color: '#fff', textAlign: 'center' },
   td: { fontSize: 11, color: '#333', textAlign: 'center', alignSelf: 'center' },
   tdName: { fontSize: 12, color: '#1a1a1a', fontWeight: '700' },
+  tdNameLink: { color: '#E63946' },
   tdDesig: { fontSize: 10, color: '#888', marginTop: 1 },
   colSr: { width: 30 },
   colId: { width: 90 },

@@ -285,20 +285,27 @@ const ALL_BRANCHES_OPTION = { id: '0', label: 'All Branches', branch_id: undefin
 
 const HRDashboard = () => {
   const navigation = useNavigation<any>();
-  useSelector((state: RootState) => state.user);
+  const { profile } = useSelector((state: RootState) => state.user);
 
   const [data, setData] = useState<HRDashData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Branch-scoped logins (e.g. the F-11 / G-13 admins) only get their own
+  // branch; "All Branches" is for users with no branch (HR, super admin).
+  const ownBranchOption = profile?.branchId
+    ? { id: String(profile.branchId), label: profile.branchName ?? 'My Branch', branch_id: profile.branchId as number | undefined }
+    : null;
+
   // Fetched from /v1/branches/branches-name-list — HAR-confirmed real ids are
   // F 11 = 15, G 13 = 1 (not the reverse), so this must stay dynamic rather
   // than hardcoded.
-  const [branchOptions, setBranchOptions] = useState([ALL_BRANCHES_OPTION]);
-  const [selectedBranch, setSelectedBranch] = useState(ALL_BRANCHES_OPTION);
+  const [branchOptions, setBranchOptions] = useState([ownBranchOption ?? ALL_BRANCHES_OPTION]);
+  const [selectedBranch, setSelectedBranch] = useState(ownBranchOption ?? ALL_BRANCHES_OPTION);
   const [branchModalVisible, setBranchModalVisible] = useState(false);
 
   useEffect(() => {
+    if (profile?.branchId) return;
     getBranchesNameList()
       .then(res => {
         const branches = res?.data ?? [];
@@ -308,7 +315,7 @@ const HRDashboard = () => {
         ]);
       })
       .catch(() => {});
-  }, []);
+  }, [profile?.branchId]);
 
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -358,7 +365,10 @@ const HRDashboard = () => {
 
       // ── Staff roster (source of truth for headcount / dept / birthdays / anniversaries) ──
       const staffRaw = ok(staffRes);
-      const staff: any[] = staffRaw?.data?.data ?? [];
+      // The API does not enforce branch scoping (verified 2026-09-14), so rows
+      // are also narrowed here whenever a single branch is selected.
+      const inBranch = (r: any) => bId === undefined || Number(r?.branch_id) === Number(bId);
+      const staff: any[] = (staffRaw?.data?.data ?? []).filter(inBranch);
 
       const totalStaff = staff.length;
       const f11Total = staff.filter((s: any) => s.branch_id === f11Id).length;
@@ -393,7 +403,7 @@ const HRDashboard = () => {
 
       // ── Attendance (one 3-day-range call, split client-side by row.date) ──
       const attRaw = ok(attRes);
-      const attList: any[] = (attRaw as any)?.data?.data?.data ?? [];
+      const attList: any[] = ((attRaw as any)?.data?.data?.data ?? []).filter(inBranch);
 
       const parseAttDay = (dateStr: string) => {
         const list = attList.filter((a: any) => a.date === dateStr);

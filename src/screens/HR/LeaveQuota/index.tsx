@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
 import BranchField from '../../../components/BranchField';
+import StaffNameCell from '../../../components/StaffNameCell';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
@@ -324,7 +325,13 @@ const LeaveQuota = () => {
                       <View key={rec.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                         <Text style={[styles.td, { width: COLS[0].width }]}>{i + 1}</Text>
                         <Text style={[styles.td, { width: COLS[1].width }]}>{rec.branch_info?.name ?? rec.branch_name ?? '-'}</Text>
-                        <Text style={[styles.td, { width: COLS[2].width }]}>{rec.user_info?.name ?? rec.staff_name ?? rec.name ?? '-'}</Text>
+                        <StaffNameCell
+                          name={rec.user_info?.name ?? rec.staff_name ?? rec.name}
+                          staffId={rec.user_info?.id ?? rec.user_id}
+                          style={[styles.td, styles.staffLink, { width: COLS[2].width }]}
+                          numberOfLines={2}
+                          fallback="-"
+                        />
                         <Text style={[styles.td, { width: COLS[3].width }]}>{rec.leave_type}</Text>
                         <Text style={[styles.td, { width: COLS[4].width }]}>{rec.number_of_leaves}</Text>
                         <View style={[styles.td, { width: COLS[5].width }]}>
@@ -526,6 +533,7 @@ const styles = StyleSheet.create({
   tr: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   trAlt: { backgroundColor: '#FAFAFA' },
   td: { fontSize: 12, color: '#333', paddingHorizontal: 4, textAlign: 'center', alignSelf: 'center' },
+  staffLink: { color: '#E63946', fontWeight: '600' },
   actionCell: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, flexWrap: 'nowrap' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 5, paddingVertical: 4 },
   actionBtnText: { fontSize: 11, fontWeight: '600' },

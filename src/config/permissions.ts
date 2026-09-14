@@ -179,7 +179,12 @@ export const HR_ALLOWED_SCREENS = [
   'HRDashboard', 'DetailedHRReport',
   'ViewStaff', 'AddStaff', 'StaffPromotion', 'StaffFinance', 'StaffAdvances',
   'SalaryComponent', 'StaffLoans', 'SalaryManagement', 'StaffCommissions',
-  'SessionPortalHR', 'StaffDutyHours', 'EmployeeAttendance', 'PTAttendance',
+  // 'StaffAttendanceReport' is the web HR menu's "Staff Attendance" — it was
+  // only reachable from the admin Reports section, so HR could not open it.
+  'SessionPortalHR', 'StaffDutyHours', 'StaffAttendanceReport', 'EmployeeAttendance', 'PTAttendance',
+  // Client names in PT Attendance / Session Portal open the client's profile;
+  // staff names in Staff / Employee Attendance open the staff profile.
+  'ClientProfile', 'StaffProfile',
   'LeaveQuota', 'LeaveApplications',
   'LetterManagement',
   'ResourceManager',
@@ -262,8 +267,11 @@ export const FITNESS_MANAGER_ALLOWED_SCREENS = [
   'SPTList', 'SPTBookings', 'SPTAppointments', 'SPTAttendance', 'SPTAttendanceReport',
   'ViewFitnessPlans', 'AddFitnessPlan', 'ManageExercises',
   'TimeSlots', 'ManageAvailability',
-  // Appended from Human Resource
-  'StaffCommissions', 'SessionPortalHR',
+  // Human Resource › Session Portal (no Staff Commissions for this role)
+  'SessionPortalHR',
+  // Client names in the Session Portal open the client's profile (the web
+  // allows Fitness Manager on /trainer-client/:id).
+  'ClientProfile',
   // Nutrition
   'AddMealsPlan', 'ViewMealsPlan', 'MealPlanDetail', 'AddNutritionAssessments', 'ViewNutritionAssessments',
   'ClientsDetails', 'NutritionDashboard', 'NutritionAppointments', 'AddNutritionAppointment',

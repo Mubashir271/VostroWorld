@@ -20,7 +20,9 @@ import {
   Modal, Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { RootState } from '../../../redux/store';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import Svg, { Circle, G, Rect, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import AppHeader from '../../../components/AppHeader';
@@ -240,13 +242,14 @@ type Filters = {
   limit: string; startTime: string; endTime: string;
 };
 
-const newFilters = (): Filters => ({
-  startDate: today(), endDate: today(), branchId: '', gender: '',
+// `branchId` is '' (all branches) only for users without a branch of their own.
+const newFilters = (branchId: string) => (): Filters => ({
+  startDate: today(), endDate: today(), branchId, gender: '',
   limit: '25', startTime: '', endTime: '',
 });
 
-const newQuery = (): Query => ({
-  start_date: today(), end_date: today(), branch_id: '', gender: '',
+const newQuery = (branchId: string) => (): Query => ({
+  start_date: today(), end_date: today(), branch_id: branchId, gender: '',
   start_time: '', end_time: '', limit: 25,
 });
 
@@ -259,11 +262,16 @@ const FootfallReportScreen = () => {
 
   const [tab, setTab] = useState<TabKey>('gender');
 
+  // Branch-scoped logins (F-11, G-13, Sales…) are pinned to their own branch;
+  // only users with no branch (super admin, branch_id 0) may pick or see "All".
+  const { profile } = useSelector((state: RootState) => state.user);
+  const ownBranch = profile?.branchId ? String(profile.branchId) : '';
+
   // Every tab keeps its own filters, page and committed query — the web mounts
   // each tab as its own component, so a gender picked on Gender or a time set
   // on Combined does not leak into the others.
-  const [drafts, setDrafts] = useState<Record<TabKey, Filters>>(() => byTab(newFilters));
-  const [queries, setQueries] = useState<Record<TabKey, Query>>(() => byTab(newQuery));
+  const [drafts, setDrafts] = useState<Record<TabKey, Filters>>(() => byTab(newFilters(ownBranch)));
+  const [queries, setQueries] = useState<Record<TabKey, Query>>(() => byTab(newQuery(ownBranch)));
   const [pages, setPages] = useState<Record<TabKey, number>>(() => byTab(() => 1));
   const [picker, setPicker] = useState<null | 'start' | 'end' | 'from' | 'to'>(null);
 
@@ -279,7 +287,11 @@ const FootfallReportScreen = () => {
     setPages(x => ({ ...x, [tab]: p }));
   }, [tab]);
 
-  const [branches, setBranches] = useState<Option[]>([{ value: '', label: 'All' }]);
+  const [branches, setBranches] = useState<Option[]>(
+    ownBranch
+      ? [{ value: ownBranch, label: profile?.branchName ?? 'My Branch' }]
+      : [{ value: '', label: 'All' }],
+  );
   const [loadingBranches, setLoadingBranches] = useState(false);
 
   const [rows, setRows] = useState<AttendanceRecord[]>([]);
@@ -292,6 +304,7 @@ const FootfallReportScreen = () => {
   const isCombined = tab === 'combined';
 
   useEffect(() => {
+    if (ownBranch) return; // single fixed option, nothing to fetch
     let cancelled = false;
     setLoadingBranches(true);
     getBranchesNameList()
@@ -303,7 +316,7 @@ const FootfallReportScreen = () => {
       .catch(() => { if (!cancelled) setBranches([{ value: '', label: 'All' }]); })
       .finally(() => { if (!cancelled) setLoadingBranches(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [ownBranch]);
 
   useEffect(() => {
     let cancelled = false;

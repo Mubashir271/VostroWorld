@@ -217,7 +217,7 @@ const MyClientsScreen = () => {
 
         const matchTab =
             activeTab === 'All'       ? true :
-            activeTab === 'Present'   ? c.is_client_present === 1 :
+            activeTab === 'Present'   ? !!c.is_client_present :
             activeTab === 'Delivered' ? c.today_session_status === 'Delivered' :
             activeTab === 'No Show'   ? c.today_session_status === 'No Show' :
             true;

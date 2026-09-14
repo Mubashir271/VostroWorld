@@ -118,6 +118,9 @@ const DateButton = ({
     </TouchableOpacity>
 );
 
+// The web's wording, shown when the signed-in employee has no branch.
+const NO_BRANCH_MESSAGE = 'Branch is not assigned on this employee profile.';
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 const AttendanceScreen = () => {
@@ -166,6 +169,22 @@ const AttendanceScreen = () => {
     // ── Fetch records ──────────────────────────────────────────────────────────
     const fetchRecords = useCallback(async () => {
         if (!userId) return;
+        // Same guards, in the same order and wording, as the web's Employee
+        // Dashboard › Attendance "Load Attendance". Staff with no branch on
+        // their profile (e.g. HR, branch_id 0) are stopped here instead of
+        // querying and silently getting "no records".
+        if (!branchId) {
+            dispatch(showSnackbar({ message: NO_BRANCH_MESSAGE, type: 'error' }));
+            return;
+        }
+        if (!startDate || !endDate) {
+            dispatch(showSnackbar({ message: 'Please select both attendance dates.', type: 'error' }));
+            return;
+        }
+        if (endDate < startDate) {
+            dispatch(showSnackbar({ message: 'End date must be after the start date.', type: 'error' }));
+            return;
+        }
         try {
             setLoadingRecords(true);
             const data = await getAttendanceList({
@@ -361,7 +380,9 @@ const AttendanceScreen = () => {
                             <View style={styles.emptyState}>
                                 <Text style={styles.emptyIcon}>📋</Text>
                                 <Text style={styles.emptyText}>
-                                    No attendance records found.{'\n'}Select a date range and tap Load Attendance.
+                                    {branchId
+                                        ? 'No attendance records found.\nSelect a date range and tap Load Attendance.'
+                                        : NO_BRANCH_MESSAGE}
                                 </Text>
                             </View>
                         )

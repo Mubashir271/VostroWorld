@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
+import ClientNameCell from '../../../components/ClientNameCell';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
@@ -300,7 +301,7 @@ const SessionsTab = ({ branch, setBranch, trainerOptions, trainers, defaultBranc
                 <Text style={[styles.td, w.sr]}>{idx + 1}</Text>
                 <Text style={[styles.td, w.date]}>{r.date}</Text>
                 <Text style={[styles.td, w.name]}>{r.trainer_name}</Text>
-                <Text style={[styles.td, w.name]}>{r.client_name}</Text>
+                <ClientNameCell name={r.client_name} clientId={r.client_id} style={[styles.td, w.name, styles.clientLink]} numberOfLines={2} />
                 <Text style={[styles.td, w.pkg]} numberOfLines={2}>{r.package_name}</Text>
                 <Text style={[styles.td, w.status, statusColor(r.staff_status)]}>{r.staff_status}</Text>
                 <Text style={[styles.td, w.status, statusColor(r.client_status)]}>{r.client_status}</Text>
@@ -831,7 +832,7 @@ const SessionReportTab = ({ branch, setBranch, trainerOptions, defaultBranch }: 
                 <Text style={[styles.td, w.sr]}>{(page - 1) * Number(perPage) + idx + 1}</Text>
                 <Text style={[styles.td, w.date]}>{r.date}</Text>
                 <Text style={[styles.td, w.name]}>{r.trainer_name}</Text>
-                <Text style={[styles.td, w.name]}>{r.client_name}</Text>
+                <ClientNameCell name={r.client_name} clientId={r.client_id} style={[styles.td, w.name, styles.clientLink]} numberOfLines={2} />
                 <Text style={[styles.td, w.pkg]} numberOfLines={2}>{r.package_name}</Text>
                 <Text style={[styles.td, w.date]}>{r.package_start_date ?? '-'}</Text>
                 <Text style={[styles.td, w.date]}>{r.package_end_date ?? '-'}</Text>
@@ -907,6 +908,7 @@ const styles = StyleSheet.create({
   tableRowAlt: { backgroundColor: '#FAFAFA' },
   th: { fontSize: 10, fontWeight: '800', color: '#fff', textAlign: 'center' },
   td: { fontSize: 11, color: '#333', textAlign: 'center' },
+  clientLink: { color: '#E63946', fontWeight: '600' },
 
   iconBtn: { backgroundColor: '#E3F2FD', padding: 6, borderRadius: 6 },
 

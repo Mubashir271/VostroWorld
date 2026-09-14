@@ -210,7 +210,8 @@ const AddGXSlots = () => {
               label="Branch Name *"
               value={branchLabel}
               placeholder="Select Branch"
-              onPress={() => ADD_ENABLED && setBranchModal(true)}
+              // Branch-scoped logins create slots for their own branch only.
+              onPress={() => ADD_ENABLED && !profile?.branchId && setBranchModal(true)}
             />
 
             <SelectionField

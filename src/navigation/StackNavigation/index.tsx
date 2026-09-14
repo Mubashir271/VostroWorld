@@ -204,6 +204,7 @@ import SalesByServicesScreen from '../../screens/reports/SalesByServices';
 import SalesExpenseDailyScreen from '../../screens/reports/SalesExpenseDaily';
 import SalesByBootcampScreen from '../../screens/reports/SalesByBootcamp';
 import StaffAttendanceReportScreen from '../../screens/reports/StaffAttendanceReport';
+import StaffProfileScreen from '../../screens/HR/StaffProfile';
 import ClientsAttendanceScreen from '../../screens/reports/ClientsAttendance';
 import FootfallReportScreen from '../../screens/reports/FootfallReport';
 
@@ -430,6 +431,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="CafeReports" component={protect(CafeSalesReportScreen)} />
                 <Stack.Screen name="TransactionReport" component={protect(TransactionReportScreen)} />
                 <Stack.Screen name="StaffAttendanceReport" component={protect(StaffAttendanceReportScreen)} />
+                <Stack.Screen name="StaffProfile" component={protect(StaffProfileScreen)} />
                 <Stack.Screen name="ClientsAttendance" component={protect(ClientsAttendanceScreen)} />
                 <Stack.Screen name="FootfallReport" component={protect(FootfallReportScreen)} />
 

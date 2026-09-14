@@ -9,7 +9,6 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
-import { isAdmin } from '../../../config/permissions';
 import { getDailySalesSummary, getTransactionSummary } from '../../../api/reports';
 import { getExpensesList, getBranchesNameList } from '../../../api/employeeDashboard';
 
@@ -95,10 +94,11 @@ const SalesExpenseDailyScreen = () => {
   const load = async () => {
     setLoading(true);
     try {
-      // Super admins/admins see every branch side by side, as the web does;
-      // everyone else sees only their own.
+      // Users with no branch of their own (super admin) see every branch side
+      // by side, as the web does. Branch-scoped logins — including the F-11 /
+      // G-13 admins, who share the admin role — see only their own branch.
       let branches: Branch[];
-      if (isAdmin(profile?.role)) {
+      if (!profile?.branchId) {
         const res = await safe(() => getBranchesNameList());
         branches = (res?.data ?? []).map((b: any) => ({ id: b.id, name: b.name }));
         if (!branches.length) branches = [{ id: profile?.branchId ?? '', name: profile?.branchName ?? 'Branch' }];
