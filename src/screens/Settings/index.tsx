@@ -15,7 +15,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native'
 import TimeFormatModal from './TimeFormatModal'
 import DateFormatModal from './DateFormatModal'
 import CurrencyModal from './CurrencyModal'
-import { ROLE_LABELS } from '../../config/permissions'
+import { roleLabelOf } from '../../config/permissions'
 
 type RootStackParamList = {
   DeleteBranch: undefined
@@ -48,7 +48,7 @@ const Settings = () => {
   const lastName  = profile?.lastName  ?? ''
   const email     = profile?.email     ?? 'support@vostro.com'
   const branch    = profile?.branchName ?? 'Main Branch'
-  const role      = ROLE_LABELS[profile?.role ?? ''] ?? profile?.type ?? 'Staff'
+  const role      = roleLabelOf(profile?.role, profile?.type)
   const initials  = `${firstName[0] ?? 'U'}${lastName[0] ?? 'S'}`.toUpperCase()
   // ───────────────────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppHeader from '../../components/AppHeader';
+import StaffNameCell from '../../components/StaffNameCell';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
 import { getStaffLoansList } from '../../api/employeeDashboard';
@@ -85,7 +86,7 @@ const StaffLoans = () => {
             <Text style={styles.avatarText}>{item.staff_name?.[0] ?? '?'}</Text>
           </View>
           <View style={styles.info}>
-            <Text style={styles.staffName}>{item.staff_name}</Text>
+            <StaffNameCell name={item.staff_name} staffId={item.staff_id} style={styles.staffName} />
             <Text style={styles.meta}>{item.transaction_type} · {item.payment_method}</Text>
             <Text style={styles.date}>Since {item.return_start_date}</Text>
           </View>
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
   avatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E63946', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   avatarText: { color: '#fff', fontWeight: '700', fontSize: 18 },
   info:       { flex: 1 },
-  staffName:  { fontSize: 15, fontWeight: '700', color: '#1A1A1A' },
+  staffName:  { fontSize: 15, fontWeight: '700', color: '#E63946' },
   meta:       { fontSize: 12, color: '#666', marginTop: 2 },
   date:       { fontSize: 11, color: '#999', marginTop: 2 },
   badge:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },

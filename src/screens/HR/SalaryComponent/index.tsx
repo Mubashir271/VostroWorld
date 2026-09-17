@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
+import StaffNameCell from '../../../components/StaffNameCell';
 import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
@@ -385,7 +386,12 @@ const SalaryComponent = () => {
                       <View key={rec.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                         <Text style={[styles.td, { width: COLS[0].width }]}>{i + 1}</Text>
                         <Text style={[styles.td, { width: COLS[1].width }]}>{rec.branch_name ?? '-'}</Text>
-                        <Text style={[styles.td, { width: COLS[2].width }]}>{rec.staff_name ?? rec.user_name ?? '-'}</Text>
+                        <StaffNameCell
+                          name={rec.staff_name ?? rec.user_name}
+                          staffId={(rec as any).user_id}
+                          style={[styles.td, styles.staffLink, { width: COLS[2].width }]}
+                          fallback="-"
+                        />
                         <Text style={[styles.td, { width: COLS[3].width }]}>{rec.component_name ?? rec.name ?? '-'}</Text>
                         <View style={[styles.td, { width: COLS[4].width }]}>
                           <View style={[styles.badge, { backgroundColor: TYPE_BG[rec.type] ?? '#EEE' }]}>
@@ -539,6 +545,7 @@ const styles = StyleSheet.create({
   tr: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   trAlt: { backgroundColor: '#FAFAFA' },
   td: { fontSize: 12, color: '#333', paddingHorizontal: 6, textAlign: 'center', alignSelf: 'center' },
+  staffLink: { color: '#E63946', fontWeight: '600' },
   actionCell: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
   iconBtn: { padding: 4 },
 

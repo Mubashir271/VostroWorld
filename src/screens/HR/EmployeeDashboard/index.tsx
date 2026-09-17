@@ -66,6 +66,11 @@ const dash = (v: any) => {
   return s && s !== 'null' && s !== '0000-00-00' ? s : 'N/A';
 };
 
+// The API answers oldest first; the web lists the newest date on top. Stable
+// sort keeps same-day rows in the API's order, as on the web.
+const newestFirst = (rows: any[]) =>
+  [...rows].sort((a, b) => String(b?.date ?? '').localeCompare(String(a?.date ?? '')));
+
 const list = (res: any): any[] => {
   const d = res?.data ?? res;
   if (Array.isArray(d)) return d;
@@ -204,10 +209,10 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
     try {
       let rows: any[] = [];
       if (t === 'Attendance') {
-        rows = list(await getAttendanceList({
+        rows = newestFirst(list(await getAttendanceList({
           branch_id: branchId, member_id: userId,
           start_date: attStart, end_date: attEnd, limit: 500,
-        }));
+        })));
       } else if (t === 'Duty Hours') {
         rows = list(await getDutyHours({ branch_id: branchId, staff_id: userId, limit: 50 }));
       } else if (t === 'Salary') {
@@ -263,7 +268,7 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
         branch_id: branchId, member_id: userId,
         start_date: attStart, end_date: attEnd, limit: 500,
       });
-      setTabData(d => ({ ...d, Attendance: list(res) }));
+      setTabData(d => ({ ...d, Attendance: newestFirst(list(res)) }));
     } catch (err: any) {
       setTabData(d => ({ ...d, Attendance: [] }));
       if (err?.response?.status === 403) {

@@ -7,6 +7,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import StaffNameCell from '../../../components/StaffNameCell';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { RootState } from '../../../redux/store';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
@@ -319,7 +320,11 @@ const StaffDutyHours = () => {
                   <Text style={[styles.td, styles.colSr]}>{idx + 1}</Text>
                   <Text style={[styles.td, styles.colBranch]}>{g.branch_name}</Text>
                   <Text style={[styles.td, styles.colId]}>{String(g.staff_id)}</Text>
-                  <Text style={[styles.td, { flex: 1 }]}>{g.staff_name}</Text>
+                  <StaffNameCell
+                    name={g.staff_name}
+                    staffId={g.staff_id}
+                    style={[styles.td, styles.staffLink, { flex: 1 }]}
+                  />
                   <Text style={[styles.td, styles.colSlots]}>{g.slots.length}</Text>
                   <Icon name={expandedStaff.has(g.staff_id) ? 'chevron-up' : 'chevron-down'} size={16} color="#888" style={styles.colExpand} />
                 </TouchableOpacity>
@@ -381,6 +386,7 @@ const styles = StyleSheet.create({
   tableRowAlt: { backgroundColor: '#FAFAFA' },
   th: { fontSize: 11, fontWeight: '800', color: '#fff', textAlign: 'center' },
   td: { fontSize: 12, color: '#333', textAlign: 'center' },
+  staffLink: { color: '#E63946', fontWeight: '600' },
   colSr: { width: 30 },
   colBranch: { width: 50 },
   colId: { width: 80 },

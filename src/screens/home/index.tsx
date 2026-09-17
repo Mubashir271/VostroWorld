@@ -23,7 +23,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../redux/store';
 import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin, isSales, isEmployee, ROLE_LABELS } from '../../config/permissions';
+import { isAdmin, isSales, isEmployee, ROLE_LABELS, headerTitleOf } from '../../config/permissions';
 import EmployeeDashboardScreen from '../HR/EmployeeDashboard';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
@@ -212,7 +212,9 @@ export default function DashboardScreen() {
                 ? { uri: profile.image }
                 : require('../../assets/img/userIcon.png');
 
-    const headerTitle = userIsAdmin ? 'Vostro Admin' : userIsSales ? 'Vostro Sales' : 'Vostro Employee';
+    // Was hardcoded to three cases, so trainer / HR / nutritionist / fitness
+    // manager all read "Vostro Employee". Now resolved per role.
+    const headerTitle = headerTitleOf(profile?.role, profile?.type);
 
     // Placed after every hook above so hook order stays constant.
     // `openEdit` is set by the drawer's edit icon and carries a timestamp, so

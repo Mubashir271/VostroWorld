@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -9,27 +10,45 @@ import AppHeader from '../../components/AppHeader';
 import BranchField from '../../components/BranchField';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { useBranchSelector } from '../../hooks/useBranchSelector';
+import {
+  getExercises, addExercise, updateExercise, deleteExercise,
+  getExerciseCategories, getExerciseSubCategories, ExerciseRow,
+} from '../../api/exercises';
 
-const TRAINING_TYPES = ['Cardio', 'Weight Training'];
-const EXERCISE_TYPES: Record<string, string[]> = {
-  'Cardio': ['Running', 'Cycling', 'Rowing', 'Stair Climber'],
-  'Weight Training': ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'],
-};
+// The training/exercise taxonomies used to be hardcoded string lists here, but
+// the API stores them as ids (115 "Weight Training", 204 "Chest"), so the
+// strings could never have been submitted. Both dropdowns now load live.
+interface Option { id: number; name: string }
 
+// Row as rendered. The API's list shape names these training_type_id /
+// exercise_type_id, while its write shape calls the same two values
+// category_id / sub_category_id — mapped in one place, below.
 interface Exercise {
   id: number;
   name: string;
   trainingType: string;
+  trainingTypeId?: number;
   exerciseType: string;
+  exerciseTypeId?: number;
   description: string;
 }
 
-const SAMPLE_EXERCISES: Exercise[] = [
-  { id: 1, name: 'Flat Bench Press',    trainingType: 'Weight Training', exerciseType: 'Chest', description: 'N/A' },
-  { id: 2, name: 'Incline Bench Press', trainingType: 'Weight Training', exerciseType: 'Chest', description: 'N/A' },
-  { id: 3, name: 'Lat Pull Down',       trainingType: 'Weight Training', exerciseType: 'Back',  description: 'N/A' },
-  { id: 4, name: 'Treadmill Run',       trainingType: 'Cardio',          exerciseType: 'Running', description: 'N/A' },
-];
+const toExercise = (r: ExerciseRow): Exercise => ({
+  id: r.id,
+  name: r.name ?? '',
+  trainingType: r.training_type ?? '—',
+  trainingTypeId: r.training_type_id,
+  exerciseType: r.exercise_type ?? '—',
+  exerciseTypeId: r.exercise_type_id,
+  description: (r.description ?? '').trim() || 'N/A',
+});
+
+const listOf = (res: any): any[] => {
+  const d = res?.data ?? res;
+  if (Array.isArray(d)) return d;
+  if (Array.isArray(d?.data)) return d.data;
+  return [];
+};
 
 const COL = { sr: 36, name: 130, training: 110, type: 100, desc: 90, action: 110 };
 
@@ -37,63 +56,123 @@ const ManageExercises = () => {
   const navigation = useNavigation<any>();
   const {
     needsPicker, options: branchOptions, loadingOptions: loadingBranches,
-    branchName, select: selectBranch,
+    branchName, listBranchId, select: selectBranch,
   } = useBranchSelector();
 
-  const [exercises, setExercises] = useState<Exercise[]>(SAMPLE_EXERCISES);
-  const [trainingType, setTrainingType] = useState('Weight Training');
-  const [exerciseType, setExerciseType] = useState('');
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [categories, setCategories] = useState<Option[]>([]);
+  const [subCategories, setSubCategories] = useState<Option[]>([]);
+  const [trainingType, setTrainingType] = useState<Option | null>(null);
+  const [exerciseType, setExerciseType] = useState<Option | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [exerciseName, setExerciseName] = useState('');
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [typeError, setTypeError] = useState(false);
   const [nameError, setNameError] = useState(false);
 
-  const availableTypes = useMemo(() => EXERCISE_TYPES[trainingType] ?? [], [trainingType]);
+  const availableTypes = useMemo(() => subCategories, [subCategories]);
+
+  const loadList = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const res = await getExercises({ branch_id: listBranchId, limit: 200, page: 1 });
+      setExercises(listOf(res).map(toExercise));
+    } catch (e: any) {
+      // 404 is this API's "no rows", not a failure.
+      if (e?.response?.status === 404) setExercises([]);
+      else setLoadError('Failed to load exercises.');
+    } finally {
+      setLoading(false);
+    }
+  }, [listBranchId]);
+
+  const loadCategories = useCallback(async () => {
+    try {
+      const res = await getExerciseCategories(listBranchId);
+      setCategories(listOf(res).map((c: any) => ({ id: c.id, name: c.name })));
+    } catch {
+      setCategories([]);
+    }
+  }, [listBranchId]);
+
+  useEffect(() => { loadList(); loadCategories(); }, [loadList, loadCategories]);
+
+  // Dependent dropdown: exercise types belong to the chosen training type.
+  useEffect(() => {
+    if (!trainingType) { setSubCategories([]); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const res = await getExerciseSubCategories(trainingType.id, listBranchId);
+        if (alive) setSubCategories(listOf(res).map((c: any) => ({ id: c.id, name: c.name })));
+      } catch {
+        // 404 here means this category simply has no sub-categories.
+        if (alive) setSubCategories([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, [trainingType, listBranchId]);
 
   const resetForm = () => {
     setExerciseName('');
     setDescription('');
-    setExerciseType('');
+    setExerciseType(null);
     setEditingId(null);
     setTypeError(false);
     setNameError(false);
   };
 
-  const handleTrainingTypeChange = (type: string) => {
+  const handleTrainingTypeChange = (type: Option) => {
     setTrainingType(type);
-    setExerciseType('');
+    setExerciseType(null);
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     let hasError = false;
     if (!exerciseType) { setTypeError(true); hasError = true; }
     if (!exerciseName.trim()) { setNameError(true); hasError = true; }
     if (hasError) return;
+    if (!trainingType) { setTypeError(true); return; }
 
-    if (editingId !== null) {
-      setExercises(prev => prev.map(ex => ex.id === editingId
-        ? { ...ex, name: exerciseName.trim(), trainingType, exerciseType, description: description.trim() || 'N/A' }
-        : ex));
-      Alert.alert('Updated', 'Exercise updated successfully!');
-    } else {
-      const newExercise: Exercise = {
-        id: Date.now(),
-        name: exerciseName.trim(),
-        trainingType,
-        exerciseType,
-        description: description.trim() || 'N/A',
-      };
-      setExercises(prev => [newExercise, ...prev]);
-      Alert.alert('Added', 'Exercise added successfully!');
+    // `category_id` is the TRAINING type and `sub_category_id` the EXERCISE
+    // type — the web maps them this way round; swapping them files the
+    // exercise under the wrong taxonomy.
+    const payload = {
+      branch_id: listBranchId,
+      name: exerciseName.trim(),
+      // Description is required on the web form and every existing row stores
+      // the literal string "N/A" when blank — match that rather than sending "".
+      description: description.trim() || 'N/A',
+      category_id: trainingType.id,
+      sub_category_id: exerciseType!.id,
+    };
+
+    setSaving(true);
+    try {
+      if (editingId !== null) {
+        await updateExercise(editingId, payload);
+        Alert.alert('Updated', 'Exercise updated successfully!');
+      } else {
+        await addExercise(payload);
+        Alert.alert('Added', 'Exercise added successfully!');
+      }
+      resetForm();
+      await loadList();
+    } catch (e: any) {
+      Alert.alert('Failed', e?.response?.data?.message ?? 'Could not save this exercise.');
+    } finally {
+      setSaving(false);
     }
-    resetForm();
   };
 
   const handleEdit = (ex: Exercise) => {
     setEditingId(ex.id);
-    setTrainingType(ex.trainingType);
-    setExerciseType(ex.exerciseType);
+    setTrainingType(ex.trainingTypeId ? { id: ex.trainingTypeId, name: ex.trainingType } : null);
+    setExerciseType(ex.exerciseTypeId ? { id: ex.exerciseTypeId, name: ex.exerciseType } : null);
     setExerciseName(ex.name);
     setDescription(ex.description === 'N/A' ? '' : ex.description);
     setTypeError(false);
@@ -103,7 +182,18 @@ const ManageExercises = () => {
   const handleDelete = (id: number) => {
     Alert.alert('Delete Exercise', 'Are you sure you want to delete this exercise?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => setExercises(prev => prev.filter(ex => ex.id !== id)) },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteExercise(id);
+            await loadList();
+          } catch (e: any) {
+            Alert.alert('Failed', e?.response?.data?.message ?? 'Could not delete this exercise.');
+          }
+        },
+      },
     ]);
   };
 
@@ -144,30 +234,36 @@ const ManageExercises = () => {
             <View style={s.formGroup}>
               <Text style={s.label}>Select Training Type <Text style={s.required}>*</Text></Text>
               <View style={s.chipRow}>
-                {TRAINING_TYPES.map(type => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[s.chip, trainingType === type && s.chipActive]}
-                    onPress={() => handleTrainingTypeChange(type)}
-                  >
-                    <Text style={[s.chipText, trainingType === type && s.chipTextActive]}>{type}</Text>
-                  </TouchableOpacity>
-                ))}
+                {categories.length === 0
+                  ? <Text style={s.hintText}>No training types configured for this branch.</Text>
+                  : categories.map(type => (
+                    <TouchableOpacity
+                      key={type.id}
+                      style={[s.chip, trainingType?.id === type.id && s.chipActive]}
+                      onPress={() => handleTrainingTypeChange(type)}
+                    >
+                      <Text style={[s.chipText, trainingType?.id === type.id && s.chipTextActive]}>{type.name}</Text>
+                    </TouchableOpacity>
+                  ))}
               </View>
             </View>
 
             <View style={s.formGroup}>
               <Text style={s.label}>Select Exercise Type <Text style={s.required}>*</Text></Text>
               <View style={[s.chipRow, typeError && s.chipRowError]}>
-                {availableTypes.map(type => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[s.chip, exerciseType === type && s.chipActive]}
-                    onPress={() => { setExerciseType(type); setTypeError(false); }}
-                  >
-                    <Text style={[s.chipText, exerciseType === type && s.chipTextActive]}>{type}</Text>
-                  </TouchableOpacity>
-                ))}
+                {availableTypes.length === 0
+                  ? <Text style={s.hintText}>
+                      {trainingType ? 'This training type has no exercise types.' : 'Pick a training type first.'}
+                    </Text>
+                  : availableTypes.map(type => (
+                    <TouchableOpacity
+                      key={type.id}
+                      style={[s.chip, exerciseType?.id === type.id && s.chipActive]}
+                      onPress={() => { setExerciseType(type); setTypeError(false); }}
+                    >
+                      <Text style={[s.chipText, exerciseType?.id === type.id && s.chipTextActive]}>{type.name}</Text>
+                    </TouchableOpacity>
+                  ))}
               </View>
               {typeError && <Text style={s.errorText}>Exercise type is required</Text>}
             </View>
@@ -196,8 +292,14 @@ const ManageExercises = () => {
             </View>
 
             <View style={s.formActions}>
-              <TouchableOpacity style={s.addBtn} onPress={handleAdd}>
-                <Text style={s.addBtnText}>{editingId !== null ? 'Update' : 'Add'}</Text>
+              <TouchableOpacity
+                style={[s.addBtn, saving && s.addBtnDisabled]}
+                onPress={handleAdd}
+                disabled={saving}
+              >
+                {saving
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : <Text style={s.addBtnText}>{editingId !== null ? 'Update' : 'Add'}</Text>}
               </TouchableOpacity>
               {editingId !== null && (
                 <TouchableOpacity style={s.cancelBtn} onPress={resetForm}>
@@ -212,7 +314,16 @@ const ManageExercises = () => {
             <Text style={s.cardTitle}>View Exercises</Text>
             <View style={s.divider} />
 
-            {exercises.length === 0 ? (
+            {loading ? (
+              <ActivityIndicator size="large" color="#E63946" style={s.listLoader} />
+            ) : loadError ? (
+              <View style={s.listErrorBox}>
+                <Text style={s.listErrorText}>{loadError}</Text>
+                <TouchableOpacity style={s.retryBtn} onPress={loadList}>
+                  <Text style={s.retryText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : exercises.length === 0 ? (
               <View style={s.empty}>
                 <Icon name="dumbbell" size={40} color="#ddd" />
                 <Text style={s.emptyText}>No exercises found</Text>
@@ -280,6 +391,13 @@ const s = StyleSheet.create({
   errorText: { fontSize: 11, color: '#E63946', marginTop: 6 },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  hintText: { fontSize: 12, color: '#999', paddingVertical: 4 },
+  addBtnDisabled: { opacity: 0.6 },
+  listLoader: { paddingVertical: 34 },
+  listErrorBox: { alignItems: 'center', gap: 10, paddingVertical: 26 },
+  listErrorText: { fontSize: 13, color: '#999' },
+  retryBtn: { borderWidth: 1, borderColor: '#E63946', borderRadius: 6, paddingHorizontal: 18, paddingVertical: 7 },
+  retryText: { color: '#E63946', fontSize: 13, fontWeight: '700' },
   chipRowError: { borderWidth: 1, borderColor: '#E63946', borderRadius: 10, padding: 6 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E0E0E0', backgroundColor: '#FAFAFA' },
   chipActive: { backgroundColor: '#E10600', borderColor: '#E10600' },

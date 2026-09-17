@@ -26,7 +26,7 @@ import {
   FITNESS_MANAGER_ALLOWED_MENUS,
   FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN,
   FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN,
-  ROLE_LABELS,
+  roleLabelOf,
   isEmployee,
 } from '../../config/permissions';
 
@@ -738,7 +738,7 @@ const DrawerContent = (props: any) => {
 
   const firstName = profile?.firstName || 'User';
   const lastName = profile?.lastName || '';
-  const role = ROLE_LABELS[profile?.role ?? ''] || profile?.type || 'Staff';
+  const role = roleLabelOf(profile?.role, profile?.type);
   const branch = profile?.branchName || `Branch ${profile?.branchId}`;
   const avatarSource = appImage
     ? { uri: appImage }

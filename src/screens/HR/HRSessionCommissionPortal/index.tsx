@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
 import ClientNameCell from '../../../components/ClientNameCell';
+import StaffNameCell from '../../../components/StaffNameCell';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import { showSnackbar } from '../../../redux/slices/snackbarSlice';
@@ -300,7 +301,7 @@ const SessionsTab = ({ branch, setBranch, trainerOptions, trainers, defaultBranc
               <View key={r.id} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
                 <Text style={[styles.td, w.sr]}>{idx + 1}</Text>
                 <Text style={[styles.td, w.date]}>{r.date}</Text>
-                <Text style={[styles.td, w.name]}>{r.trainer_name}</Text>
+                <StaffNameCell name={r.trainer_name} staffId={r.trainer_id} style={[styles.td, w.name, styles.clientLink]} numberOfLines={2} />
                 <ClientNameCell name={r.client_name} clientId={r.client_id} style={[styles.td, w.name, styles.clientLink]} numberOfLines={2} />
                 <Text style={[styles.td, w.pkg]} numberOfLines={2}>{r.package_name}</Text>
                 <Text style={[styles.td, w.status, statusColor(r.staff_status)]}>{r.staff_status}</Text>
@@ -831,7 +832,7 @@ const SessionReportTab = ({ branch, setBranch, trainerOptions, defaultBranch }: 
               <View key={r.id} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
                 <Text style={[styles.td, w.sr]}>{(page - 1) * Number(perPage) + idx + 1}</Text>
                 <Text style={[styles.td, w.date]}>{r.date}</Text>
-                <Text style={[styles.td, w.name]}>{r.trainer_name}</Text>
+                <StaffNameCell name={r.trainer_name} staffId={r.trainer_id} style={[styles.td, w.name, styles.clientLink]} numberOfLines={2} />
                 <ClientNameCell name={r.client_name} clientId={r.client_id} style={[styles.td, w.name, styles.clientLink]} numberOfLines={2} />
                 <Text style={[styles.td, w.pkg]} numberOfLines={2}>{r.package_name}</Text>
                 <Text style={[styles.td, w.date]}>{r.package_start_date ?? '-'}</Text>

@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
+import StaffNameCell from '../../../components/StaffNameCell';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
 import { getHRCommissions } from '../../../api/employeeDashboard';
@@ -19,6 +20,10 @@ const MONTHS = [
 
 interface CommRecord {
   id: number;
+  // The commissions endpoint returns staff rows with a nested `commission`
+  // object, so the row id is the staff id — kept separately so the name can
+  // link to /staff-profile/{id} the way the web admin does.
+  staff_id?: number;
   staff_name: string;
   department: string;
   designation: string;
@@ -108,6 +113,7 @@ const StaffCommissions = () => {
       const rawData = res?.data?.data ?? res?.data ?? [];
       const data: CommRecord[] = rawData.map((item: any) => ({
         id: item.id,
+        staff_id: item.staff_id ?? item.user_id ?? item.id,
         staff_name: item.name || item.staff_name || '-',
         department: item.department || 'Fitness',
         designation: item.designation || 'Personal Trainer',
@@ -312,12 +318,23 @@ const StaffCommissions = () => {
                           </View>
                         );
                       }
+                      if (c.key === 'name') {
+                        return (
+                          <View key={c.key} style={[s.cell, { width: c.width }]}>
+                            <StaffNameCell
+                              name={r.staff_name}
+                              staffId={r.staff_id}
+                              style={[s.cellText, s.nameText]}
+                              fallback="-"
+                            />
+                          </View>
+                        );
+                      }
                       return (
                         <View key={c.key} style={[s.cell, { width: c.width }]}>
                           <Text
                             style={[
                               s.cellText,
-                              c.key === 'name'  && s.nameText,
                               c.key === 'gross' && s.grossText,
                             ]}
                             numberOfLines={1}

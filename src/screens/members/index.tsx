@@ -105,10 +105,6 @@ const MemberCard = React.memo(
             >
               <Icon name="whatsapp" size={15} color="#FFFFFF" />
             </TouchableOpacity>
-
-            <TouchableOpacity style={[cardStyles.iconBtn, { backgroundColor: '#555' }]}>
-              <Icon name="eye-outline" size={15} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -209,21 +205,36 @@ const MembersScreen = () => {
     });
   }, [members, search, status, membership]);
 
+  // Open the dialler directly. canOpenURL('tel:') is not a reliable gate — it
+  // is false on the iOS simulator and on Android 11+ without a <queries>
+  // entry — so the attempt itself decides, and only a real failure alerts.
   const callPhone = (phone: string) => {
-    const url = `tel:${phone}`;
-    Linking.canOpenURL(url).then(supported => {
-      if (supported) Linking.openURL(url);
-      else Alert.alert('Error', 'Phone calls are not supported on this device.');
-    });
+    const number = phone.replace(/[^\d+]/g, '');
+    Linking.openURL(`tel:${number}`).catch(() =>
+      Alert.alert('Error', 'Phone calls are not supported on this device.'),
+    );
   };
 
-  const openWhatsApp = (phone: string) => {
-    const cleaned = phone.replace(/\D/g, '');
-    const url = `whatsapp://send?phone=${cleaned}`;
-    Linking.canOpenURL(url).then(supported => {
-      if (supported) Linking.openURL(url);
-      else Alert.alert('WhatsApp Not Found', 'WhatsApp is not installed on this device.');
-    });
+  // WhatsApp needs the international number without "+" (client phones are
+  // stored as +92…; a local 03… number is converted to 923…). Opens the app
+  // when installed, otherwise the wa.me link, which hands off to WhatsApp or
+  // the browser.
+  const openWhatsApp = async (phone: string) => {
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    else if (digits.startsWith('0')) digits = `92${digits.slice(1)}`;
+    if (!digits) return;
+
+    const appUrl = `whatsapp://send?phone=${digits}`;
+    try {
+      if (await Linking.canOpenURL(appUrl)) {
+        await Linking.openURL(appUrl);
+        return;
+      }
+    } catch {}
+    Linking.openURL(`https://wa.me/${digits}`).catch(() =>
+      Alert.alert('WhatsApp Not Found', 'WhatsApp is not installed on this device.'),
+    );
   };
 
   const renderItem = useCallback(

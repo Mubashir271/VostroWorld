@@ -160,7 +160,19 @@ const TrainerRoster = () => {
                               key={appt.id ?? idx}
                               style={[styles.tableRow, idx % 2 === 0 && styles.tableRowAlt]}
                             >
-                              <Text style={[styles.cell, styles.clientCell, { width: COL.client }]} numberOfLines={1}>
+                              {/* Mirrors the web's /trainer-client/{id} link on
+                                  the red client name in this table. */}
+                              <Text
+                                style={[styles.cell, styles.clientCell, { width: COL.client }]}
+                                numberOfLines={1}
+                                onPress={appt.client_id
+                                  ? () => (navigation as any).navigate('TrainerClientProfile', {
+                                      clientId: Number(appt.client_id),
+                                      clientName: appt.client_name,
+                                    })
+                                  : undefined}
+                                suppressHighlighting={!appt.client_id}
+                              >
                                 {appt.client_name ?? '—'}
                               </Text>
                               <Text style={[styles.cell, { width: COL.pkg }]}>

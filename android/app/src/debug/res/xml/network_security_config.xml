@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY. The debug source set overrides the strict copy in
+  src/main/res/xml, so nothing here reaches a release APK.
+
+  Two things debug needs that production must not have:
+
+  1. Cleartext. Metro serves the JS bundle over plain HTTP (10.0.2.2:8081 on
+     the emulator), so `npm run android` cannot load a bundle without it.
+  2. `user` trust anchors, so Charles / mitmproxy can read HTTPS while
+     debugging.
+
+  src/main/res/xml/network_security_config.xml denies both, which is what a
+  release build ships.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

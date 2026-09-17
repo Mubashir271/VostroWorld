@@ -10,6 +10,7 @@ import AppHeader from '../../components/AppHeader'
 import { BackSVG } from '../../assets/svg'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../redux/store'
+import { isEmployee, isNutritionist, isTrainer } from '../../config/permissions'
 import { getAnnouncements } from '../../api/employeeDashboard'
 
 type RootStackParamList = {
@@ -68,6 +69,10 @@ const mapAnnouncement = (a: {
 const NotificationScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp<RootStackParamList>>()
     const { profile } = useSelector((state: RootState) => state.user)
+    // Same gate as the Account screen's cog: Settings is not part of the
+    // trainer / nutritionist / Employee surface, so don't offer a way in.
+    const hideSettings =
+        isNutritionist(profile?.role) || isEmployee(profile?.role) || isTrainer(profile?.role)
     const branchId = profile?.branchId ?? 1
 
     // ── Local state ────────────────────────────────────────────────────────
@@ -197,10 +202,10 @@ const NotificationScreen: React.FC = () => {
                 title="Notifications"
                 leftIcon={<BackSVG width={24} height={24} />}
                 rightIcon={<Icon name="magnify" size={24} color="#1A1A1A" />}
-                dotIcon={<Icon name="cog" size={24} color="#1A1A1A" />}
+                dotIcon={hideSettings ? undefined : <Icon name="cog" size={24} color="#1A1A1A" />}
                 onLeftPress={() => navigation.goBack()}
                 onRightPress={() => console.log('Search pressed')}
-                onDotPress={() => navigation.navigate('Settings')}
+                onDotPress={hideSettings ? undefined : () => navigation.navigate('Settings')}
                 backgroundColor="#FFE5E5"
             />
 

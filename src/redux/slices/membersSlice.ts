@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { getClientsList } from '../../api/employeeDashboard';
+import api from '../../api/service';
 
 interface Membership {
   client_id?: number;
@@ -57,12 +57,26 @@ export const fetchMembers = createAsyncThunk(
     { rejectWithValue },
   ) => {
     try {
-      const page = params.page ?? 1;
-      const res = await getClientsList({ branch_id: params.branchId, limit: 30, page });
+      // One request for the whole branch, sorted A–Z here. Paging can't be
+      // used: /clients/get ignores every sort param, and its totalPages is
+      // always 1 (verified on prod 2026-09-14), so the old 30-per-page fetch
+      // stopped after the first 30 of ~3,300 clients and search only ever saw
+      // those 30. The full F-11 list is ~2 MB.
+      // Took ~9 s from a desktop connection, so this call gets a longer
+      // timeout than the client-wide 15 s.
+      const res = (await api.get('/v1/clients/get', {
+        params: { branch_id: params.branchId, limit: 10000, page: 1 },
+        timeout: 60000,
+      })).data;
+      const rows = (res?.data?.data ?? []) as Member[];
+      const nameOf = (m: Member) => `${m.first_name ?? ''} ${m.last_name ?? ''}`.trim();
+      const sorted = [...rows].sort((a, b) =>
+        nameOf(a).localeCompare(nameOf(b), undefined, { sensitivity: 'base' }),
+      );
       return {
-        data: (res?.data?.data ?? []) as Member[],
-        totalPages: res?.totalPages ?? 1,
-        page,
+        data: sorted,
+        totalPages: 1,
+        page: 1,
         branchId: params.branchId,
       };
     } catch (err: any) {

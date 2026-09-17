@@ -1,13 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
-    <domain-config>
+<!--
+  Production posture (2026-09-17).
+
+  Previously this file carried a <domain-config> for dev-api.vostro-new.com
+  that added `user` trust anchors, so a user-installed CA (Charles, mitmproxy)
+  could read and rewrite HTTPS traffic. That is a debugging affordance and must
+  not ship: on a release build it lets anyone who can get a certificate onto the
+  device intercept live gym and client data.
+
+  base-config now also refuses cleartext, so a plain-HTTP URL fails loudly
+  instead of silently sending data unencrypted. The app talks only to
+  api.vostro-new.com over TLS, which needs no domain entry — system trust
+  anchors cover it.
+
+  To debug through a proxy again, temporarily re-add:
+      <domain-config>
         <domain includeSubdomains="true">dev-api.vostro-new.com</domain>
         <trust-anchors>
-            <certificates src="system" />
-            <certificates src="user" />
+          <certificates src="system" />
+          <certificates src="user" />
         </trust-anchors>
-    </domain-config>
-    <base-config cleartextTrafficPermitted="true">
+      </domain-config>
+  and remember to remove it before building a release.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

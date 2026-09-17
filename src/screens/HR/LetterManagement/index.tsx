@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
+import StaffNameCell from '../../../components/StaffNameCell';
 import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
@@ -20,6 +21,11 @@ interface Staff { id: number; name: string; }
 interface DocRecord {
   id: number;
   branch_name?: string;
+  // The web links this row's name to /staff-profile/{user_id} and reads the
+  // label off employee.name (main.dcb585c0.js) — the app's staff_name /
+  // user_name fallbacks are kept for older shapes.
+  user_id?: number;
+  employee?: { name?: string };
   staff_name?: string;
   user_name?: string;
   document_category?: string;
@@ -305,7 +311,12 @@ const LetterManagement = () => {
                     {records.map((rec, i) => (
                       <View key={rec.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                         <Text style={[styles.td, { width: COLS[0].width }]}>{i + 1}</Text>
-                        <Text style={[styles.td, { width: COLS[1].width }]}>{rec.staff_name ?? rec.user_name ?? '-'}</Text>
+                        <StaffNameCell
+                          name={rec.employee?.name ?? rec.staff_name ?? rec.user_name}
+                          staffId={rec.user_id}
+                          style={[styles.td, styles.staffLink, { width: COLS[1].width }]}
+                          fallback="-"
+                        />
                         <Text style={[styles.td, { width: COLS[2].width }]}>{rec.document_category ?? '-'}</Text>
                         <Text style={[styles.td, { width: COLS[3].width }]}>{rec.document_type ?? '-'}</Text>
                         <Text style={[styles.td, { width: COLS[4].width }]}>{fmtDate(rec.issue_date)}</Text>
@@ -445,6 +456,7 @@ const styles = StyleSheet.create({
   tr: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   trAlt: { backgroundColor: '#FAFAFA' },
   td: { fontSize: 12, color: '#333', paddingHorizontal: 6, textAlign: 'center', alignSelf: 'center' },
+  staffLink: { color: '#E63946', fontWeight: '600' },
 
   emptyText: { textAlign: 'center', color: '#999', marginVertical: 20, fontSize: 13 },
 

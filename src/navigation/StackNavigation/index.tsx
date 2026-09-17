@@ -66,6 +66,9 @@ import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
 import TrainerHistory from '../../screens/trainer/TrainerHistory';
 import TrainerRoster from '../../screens/trainer/TrainerRoster';
+import TrainerClientProfile from '../../screens/trainer/TrainerClientProfile';
+import AddPreAssessment from '../../screens/trainer/AddPreAssessment';
+import ViewAssessment from '../../screens/trainer/ViewAssessment';
 import SessionAttendanceReport from '../../screens/trainer/SessionAttendanceReport';
 import SalaryManagement from '../../screens/SalaryManagement';
 import MySalarySlip from '../../screens/MySalarySlip';
@@ -322,6 +325,15 @@ const AppNavigator = () => {
                 <Stack.Screen name="SOPs" component={SOPsScreen} />
                 <Stack.Screen name="SessionTracker" component={SessionTrackerScreen} />
                 <Stack.Screen name="PersonalTrainerDiary" component={TrainerRoster} />
+                {/* Trainer's own client surface, reached from a red client name
+                    in the Personal Training Roster — the app's counterpart of
+                    the web's /trainer-client/{id} and its Tools menu. Kept out
+                    of protect() with the other trainer screens: the guard has
+                    no trainer branch, so wrapping these would render
+                    <AccessDenied/> for the only role that uses them. */}
+                <Stack.Screen name="TrainerClientProfile" component={TrainerClientProfile} />
+                <Stack.Screen name="AddPreAssessment" component={AddPreAssessment} />
+                <Stack.Screen name="ViewAssessment" component={ViewAssessment} />
                 <Stack.Screen name="ViewFitnessPlans" component={ViewFitnessPlans} />
                 <Stack.Screen name="AddFitnessPlan" component={AddFitnessPlan} />
                 <Stack.Screen name="ManageExercises" component={ManageExercises} />

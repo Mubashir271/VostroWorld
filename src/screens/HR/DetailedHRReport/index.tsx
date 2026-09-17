@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Modal,
+  ActivityIndicator, Modal, Share, Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
+import StaffNameCell from '../../../components/StaffNameCell';
 import BranchField from '../../../components/BranchField';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
@@ -21,11 +22,17 @@ import {
   getHRStaffPromotions,
   getDepartmentNames,
   getDesignationNames,
+  getHREmployeeProfileEntries,
+  getHRStaffDocuments,
 } from '../../../api/employeeDashboard';
 
-// Confirmed live 2026-07-01 via HAR — all endpoints verified.
-// staff-loans (422 when staff_id empty) and hr/promotion (500) are broken
-// server-side (web admin also shows the warning for those sections).
+// Confirmed live 2026-07-01 via HAR, re-confirmed 2026-09-17.
+//
+// staff-loans and hr/promotion are NOT broken server-side. They validate
+// branch_id/staff_id as integers and 422 on an empty string; the web admin
+// sends `branch_id=` for "All Branches" and therefore shows a permanent
+// "Loans, Promotions could not be loaded" banner on its own report. The API
+// layer now drops blank keys (see `intParams`), so those sections load here.
 
 const R = '#C62828';
 const LIMIT = 1000;
@@ -44,6 +51,13 @@ const display = (iso?: string) => {
 const today = () => fmt(new Date());
 const fmtRs = (val: any) => `Rs ${(parseFloat(val ?? 0) || 0).toLocaleString()}`;
 const fullName = (s: any) => `${s?.first_name ?? ''} ${s?.last_name ?? ''}`.trim() || s?.name || '—';
+const dash = (v: any) => {
+  const t = String(v ?? '').trim();
+  return t && t !== 'null' && t !== '0000-00-00' ? t : '—';
+};
+// Rows nest the staff record under user_info/staff_info/attendee; that object
+// carries the id the web admin links to at /staff-profile/{id}.
+const staffIdOf = (s: any) => s?.id ?? s?.user_id ?? s?.staff_id ?? null;
 
 interface DropdownItem { id: number | string; name: string; }
 
@@ -81,6 +95,12 @@ const DetailedHRReport = () => {
   const [advanceRows, setAdvanceRows] = useState<any[]>([]);
   const [loanRows, setLoanRows] = useState<any[]>([]);
   const [promotionRows, setPromotionRows] = useState<any[]>([]);
+  // Qualifications / Experience / Education all come from one endpoint,
+  // split on `entry_type`.
+  const [profileEntries, setProfileEntries] = useState<any[]>([]);
+  const [disciplinaryRows, setDisciplinaryRows] = useState<any[]>([]);
+  // Sections whose request failed, so the report can say so the way the web does.
+  const [failedSections, setFailedSections] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
@@ -111,7 +131,8 @@ const DetailedHRReport = () => {
     const desigId = designation ? designation.id : '';
 
     try {
-      const [staffRes, attRes, leaveRes, salRes, commRes, fineRes, advRes, loanRes, promRes] =
+      const [staffRes, attRes, leaveRes, salRes, commRes, fineRes, advRes, loanRes, promRes,
+             entriesRes, docsRes] =
         await Promise.allSettled([
           getStaffList({
             branch_id: listBranchId, status: 1, limit: LIMIT,
@@ -160,9 +181,21 @@ const DetailedHRReport = () => {
             status: 1, limit: LIMIT,
           }),
           getHRStaffPromotions({ branch_id: listBranchId, status: 1, limit: LIMIT }),
+          getHREmployeeProfileEntries({
+            branch_id: listBranchId,
+            user_id: userId || undefined,
+            status: 1, limit: LIMIT,
+          }),
+          getHRStaffDocuments({
+            branch_id: listBranchId,
+            user_id: userId || undefined,
+            document_type: 'Warning Letter',
+            start_date: fromDate, end_date: toDate,
+            status: 1, limit: LIMIT,
+          }),
         ]);
 
-      const safeArr = (r: PromiseSettledResult<any>, path?: string): any[] => {
+      const safeArr = (r: PromiseSettledResult<any>): any[] => {
         if (r.status === 'rejected') return [];
         const val = r.value;
         if (!val) return [];
@@ -182,6 +215,20 @@ const DetailedHRReport = () => {
       setAdvanceRows(safeArr(advRes));
       setLoanRows(safeArr(loanRes));
       setPromotionRows(safeArr(promRes));
+      setProfileEntries(safeArr(entriesRes));
+      setDisciplinaryRows(safeArr(docsRes));
+
+      // A 404 here means "no rows", not a failure — only surface real errors,
+      // the way the web's yellow banner does.
+      const failed: string[] = [];
+      const note = (r: PromiseSettledResult<any>, label: string) => {
+        if (r.status === 'rejected' && r.reason?.response?.status !== 404) failed.push(label);
+      };
+      note(staffRes, 'Employees'); note(attRes, 'Attendance'); note(leaveRes, 'Leave');
+      note(salRes, 'Payroll'); note(commRes, 'Commissions'); note(fineRes, 'Fines');
+      note(advRes, 'Advances'); note(loanRes, 'Loans'); note(promRes, 'Promotions');
+      note(entriesRes, 'Profile Entries'); note(docsRes, 'Disciplinary');
+      setFailedSections(failed);
       setFetched(true);
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Failed to generate report.');
@@ -197,6 +244,7 @@ const DetailedHRReport = () => {
     setStaffRows([]); setAttendanceRows([]); setLeaveRows([]);
     setSalaryRows([]); setCommissionRows([]); setFineRows([]);
     setAdvanceRows([]); setLoanRows([]); setPromotionRows([]);
+    setProfileEntries([]); setDisciplinaryRows([]); setFailedSections([]);
   };
 
   // ── summary computations
@@ -220,6 +268,70 @@ const DetailedHRReport = () => {
   const totalAdvances = advanceRows.reduce((s, r) => s + (parseFloat(r.amount ?? 0) || 0), 0);
   const totalLoans = loanRows.reduce((s, r) => s + (parseFloat(r.amount ?? r.remaining_amount ?? 0) || 0), 0);
 
+  // One endpoint, three tables — split on entry_type (values confirmed in the
+  // 2026-09-17 HAR: Qualification / Experience / Education).
+  const entriesOf = (type: string) =>
+    profileEntries.filter(e => String(e?.entry_type ?? '').toLowerCase() === type);
+  const qualificationRows = entriesOf('qualification');
+  const experienceRows = entriesOf('experience');
+  const educationRows = entriesOf('education');
+
+  // The snapshot + 360 summary only make sense for a single employee, which is
+  // also when the web shows them.
+  const selectedStaff = employee
+    ? staffRows.find(r => Number(staffIdOf(r)) === Number(employee.id)) ?? null
+    : null;
+
+  const csvCell = (v: any) => {
+    const t = String(v ?? '').replace(/"/g, '""');
+    return /[",\n]/.test(t) ? `"${t}"` : t;
+  };
+  const csvBlock = (title: string, head: string[], rows: any[][]) =>
+    [title, head.join(','), ...rows.map(r => r.map(csvCell).join(','))].join('\n');
+
+  const handleExportCsv = async () => {
+    if (!fetched) { Alert.alert('Nothing to export', 'Generate the report first.'); return; }
+    try {
+      const csv = [
+        `Detailed HR Report,${display(fromDate)} to ${display(toDate)}`,
+        `Branch,${branchName || 'All Branches'}`,
+        `Department,${department?.name ?? 'All Departments'}`,
+        `Designation,${designation?.name ?? 'All Designations'}`,
+        `Employee,${employee?.name ?? 'All Employees'}`,
+        '',
+        csvBlock('Employee Scope Register',
+          ['Employee', 'Employee ID', 'Branch', 'Department', 'Designation', 'Salary', 'Commission %', 'Joining', 'Phone'],
+          staffRows.map(r => [fullName(r), r.uid, r.branches_name ?? r.branch_name, r.department, r.designation, r.salary, r.commission, r.joining, r.phone])),
+        '',
+        csvBlock('Attendance Register',
+          ['Employee', 'Date', 'Duty Hours', 'Check In', 'Check Out', 'Working Hours', 'Status', 'Late By'],
+          attendanceRows.map(a => [fullName(a.attendee ?? {}), a.date, a.duty_hours, a.checkin_time_12h, a.checkout_time_12h, a.working_hours, Number(a.is_late) ? 'Late' : a.attendance_status, a.late_by])),
+        '',
+        csvBlock('Payroll Register',
+          ['Employee', 'Base Salary', 'Commission', 'Reward', 'Advance', 'Fine', 'Loan', 'Deduction'],
+          salaryRows.map(r => [fullName(r.user_info ?? {}), r.salary, r.commission, r.reward, r.advance, r.fine, r.loan, r.detections])),
+        '',
+        csvBlock('Qualifications / Certifications',
+          ['Employee', 'Title', 'Organization', 'Location', 'Start', 'End', 'Description'],
+          qualificationRows.map(r => [fullName(r.employee ?? {}), r.title, r.organization, r.location, r.start_date, r.end_date, r.description])),
+        '',
+        csvBlock('Experience',
+          ['Employee', 'Title', 'Company', 'Location', 'Start', 'End', 'Description'],
+          experienceRows.map(r => [fullName(r.employee ?? {}), r.title, r.organization, r.location, r.start_date, r.end_date, r.description])),
+        '',
+        csvBlock('Education',
+          ['Employee', 'Title', 'Institute', 'Location', 'Start', 'End', 'Description'],
+          educationRows.map(r => [fullName(r.employee ?? {}), r.title, r.organization, r.location, r.start_date, r.end_date, r.description])),
+      ].join('\n');
+
+      // Shares the CSV as text — the app has no filesystem/share-file
+      // dependency, so there is no .csv attachment to hand over yet.
+      await Share.share({ message: csv, title: 'Detailed HR Report' });
+    } catch (e: any) {
+      Alert.alert('Export failed', e?.message ?? 'Could not export this report.');
+    }
+  };
+
   const SectionCard = ({ title, count, children }: { title: string; count: number; children: React.ReactNode }) => (
     <View style={styles.card}>
       <View style={styles.sectionHeader}>
@@ -234,6 +346,48 @@ const DetailedHRReport = () => {
 
   const EmptyRow = ({ msg }: { msg: string }) => (
     <Text style={styles.emptyText}>{msg}</Text>
+  );
+
+  // Qualifications / Experience / Education share a row shape; only the
+  // organization column is labelled differently on the web.
+  const EntryTable = ({ title, rows, orgLabel, empty }: {
+    title: string; rows: any[]; orgLabel: string; empty: string;
+  }) => (
+    <SectionCard title={title} count={rows.length}>
+      {rows.length === 0 ? <EmptyRow msg={empty} /> : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View>
+            <View style={styles.tr}>
+              <Text style={[styles.th, styles.colSr]}>S.No</Text>
+              <Text style={[styles.th, styles.colWide]}>Employee</Text>
+              <Text style={[styles.th, styles.colMed]}>Title</Text>
+              <Text style={[styles.th, styles.colMed]}>{orgLabel}</Text>
+              <Text style={[styles.th, styles.colMed]}>Location</Text>
+              <Text style={[styles.th, styles.colMed]}>Start Date</Text>
+              <Text style={[styles.th, styles.colMed]}>End Date</Text>
+              <Text style={[styles.th, styles.colMed]}>Description</Text>
+            </View>
+            {rows.map((r, i) => (
+              <View key={r.id ?? i} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
+                <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
+                <StaffNameCell
+                  name={fullName(r.employee ?? {})}
+                  staffId={r.user_id ?? staffIdOf(r.employee ?? {})}
+                  style={[styles.td, styles.colWide, styles.staffLink]}
+                  fallback="—"
+                />
+                <Text style={[styles.td, styles.colMed]} numberOfLines={2}>{dash(r.title)}</Text>
+                <Text style={[styles.td, styles.colMed]} numberOfLines={2}>{dash(r.organization)}</Text>
+                <Text style={[styles.td, styles.colMed]}>{dash(r.location)}</Text>
+                <Text style={[styles.td, styles.colMed]}>{r.start_date ? display(r.start_date) : '—'}</Text>
+                <Text style={[styles.td, styles.colMed]}>{r.end_date ? display(r.end_date) : '—'}</Text>
+                <Text style={[styles.td, styles.colMed]} numberOfLines={2}>{dash(r.description)}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+    </SectionCard>
   );
 
   return (
@@ -319,18 +473,107 @@ const DetailedHRReport = () => {
 
           {!!error && <Text style={styles.errText}>{error}</Text>}
 
-          <View style={styles.btnRow}>
+          {/* Primary action gets its own row — at phone width "Generate Report"
+              cannot share a third of the row without wrapping to two lines. */}
+          <View style={styles.btnStack}>
             <TouchableOpacity style={[styles.genBtn, loading && styles.btnDisabled]} onPress={handleGenerate} disabled={loading}>
               {loading
                 ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.genBtnText}>Generate Report</Text>
+                : <Text style={styles.genBtnText} numberOfLines={1}>Generate Report</Text>
               }
             </TouchableOpacity>
-            <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
-              <Text style={styles.resetBtnText}>Reset</Text>
-            </TouchableOpacity>
+            <View style={styles.btnRow}>
+              <TouchableOpacity
+                style={[styles.resetBtn, !fetched && styles.btnDisabled]}
+                onPress={handleExportCsv}
+                disabled={!fetched}
+              >
+                <Icon name="file-delimited-outline" size={15} color="#444" />
+                <Text style={styles.resetBtnText} numberOfLines={1}>Export CSV</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
+                <Icon name="refresh" size={15} color="#444" />
+                <Text style={styles.resetBtnText} numberOfLines={1}>Reset</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+
+        {/* Sections whose request failed — the web shows the same warning */}
+        {fetched && failedSections.length > 0 && (
+          <View style={styles.warnBox}>
+            <Icon name="alert-outline" size={16} color="#8A6D00" />
+            <Text style={styles.warnText}>
+              Some HR sections could not be loaded for this report: {failedSections.join(', ')}. The remaining data is still shown below.
+            </Text>
+          </View>
+        )}
+
+        {/* Employee Profile Snapshot — only when a single employee is in scope */}
+        {fetched && selectedStaff && (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Employee Profile Snapshot</Text>
+              <View style={styles.empBadge}><Text style={styles.empBadgeText}>{fullName(selectedStaff)}</Text></View>
+            </View>
+            <View style={styles.snapGrid}>
+              {([
+                ['Employee ID', selectedStaff.uid],
+                ['Full Name', fullName(selectedStaff)],
+                ['Branch', selectedStaff.branches_name ?? selectedStaff.branch_name],
+                ['Department', selectedStaff.department],
+                ['Designation', selectedStaff.designation],
+                ['Salary', selectedStaff.salary ? fmtRs(selectedStaff.salary) : null],
+                ['Commission %', selectedStaff.commission],
+                ['Joining Date', selectedStaff.joining && display(selectedStaff.joining)],
+                ['Date of Birth', selectedStaff.dob && display(selectedStaff.dob)],
+                ['Father Name', selectedStaff.father_name],
+                ['Phone', selectedStaff.phone],
+                ['Email', selectedStaff.email],
+                ['Official Email', selectedStaff.official_email],
+                ['CNIC', selectedStaff.identification_number],
+                ['Employment Status', selectedStaff.employment_status],
+                ['Appointment Date', selectedStaff.appointment_date && display(selectedStaff.appointment_date)],
+                ['Probation Duration', selectedStaff.probation_duration],
+                ['Confirmation Date', selectedStaff.confirmation_date && display(selectedStaff.confirmation_date)],
+                ['Emergency Contact', selectedStaff.emergency_contact_no],
+                ['Blood Group', selectedStaff.blood_group],
+                ['Address', selectedStaff.address],
+                ['City', selectedStaff.city],
+                ['Country', selectedStaff.country],
+              ] as [string, any][]).map(([label, value]) => (
+                <View key={label} style={styles.snapCell}>
+                  <Text style={styles.snapLabel}>{label}</Text>
+                  <Text style={styles.snapValue}>{dash(value)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Report Scope */}
+        {fetched && (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Report Scope</Text>
+              <Text style={styles.periodText}>Period: {display(fromDate)} to {display(toDate)}</Text>
+            </View>
+            <View style={styles.chipWrap}>
+              {([
+                ['Branch', branchName || 'All Branches'],
+                ['Department', department?.name ?? 'All Departments'],
+                ['Designation', designation?.name ?? 'All Designations'],
+                ['Employee', employee?.name ?? 'All Employees'],
+              ] as [string, string][]).map(([label, value]) => (
+                <View key={label} style={styles.scopeItem}>
+                  <Text style={styles.scopeLabel}>{label}</Text>
+                  <View style={styles.scopeChip}><Text style={styles.scopeChipText}>{value}</Text></View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Summary Cards */}
         {fetched && (
@@ -345,6 +588,7 @@ const DetailedHRReport = () => {
                 { label: 'Net Salary', value: fmtRs(netSalary), color: '#1A1A1A' },
                 { label: 'Gross Commission', value: fmtRs(grossComm), color: '#1A1A1A' },
                 { label: 'Fines', value: fmtRs(totalFines), color: R },
+                { label: 'Disciplinary Actions', value: disciplinaryRows.length, color: R },
                 { label: 'Advances', value: fmtRs(totalAdvances), color: R },
                 { label: 'Loan Outstanding', value: fmtRs(totalLoans), color: R },
               ].map(item => (
@@ -354,6 +598,41 @@ const DetailedHRReport = () => {
                 </View>
               ))}
             </View>
+
+            {/* Employee 360 HR Summary — single-employee view, as on the web */}
+            {selectedStaff && (
+              <View style={styles.card}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Employee 360 HR Summary</Text>
+                </View>
+                <View style={styles.summaryGrid}>
+                  {[
+                    { label: 'Present Marks', value: presentCount, color: '#2E7D32' },
+                    { label: 'Late Marks', value: lateCount, color: '#E65100' },
+                    { label: 'Approved Leaves', value: approvedLeaves, color: '#6A1B9A' },
+                    { label: 'Net Salary', value: fmtRs(netSalary), color: '#1A1A1A' },
+                    { label: 'Gross Commission', value: fmtRs(grossComm), color: '#1A1A1A' },
+                    { label: 'Outstanding Loan', value: fmtRs(totalLoans), color: '#1565C0' },
+                    { label: 'Fines', value: fmtRs(totalFines), color: R },
+                    { label: 'Disciplinary Actions', value: disciplinaryRows.length, color: R },
+                    { label: 'Advances', value: fmtRs(totalAdvances), color: R },
+                  ].map(item => (
+                    <View key={item.label} style={styles.summaryCard}>
+                      <Text style={styles.summaryLabel}>{item.label}</Text>
+                      <Text style={[styles.summaryValue, { color: item.color }]}>{item.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Qualifications / Experience / Education — one endpoint, three tables */}
+            <EntryTable title="Qualifications / Certifications" rows={qualificationRows} orgLabel="Institute"
+              empty="No qualifications or certifications found for the selected employee." />
+            <EntryTable title="Experience" rows={experienceRows} orgLabel="Company"
+              empty="No experience records were found for the selected scope." />
+            <EntryTable title="Education" rows={educationRows} orgLabel="Institute"
+              empty="No education records were found for the selected scope." />
 
             {/* Employee Scope Register */}
             <SectionCard title="Employee Scope Register" count={staffRows.length}>
@@ -370,7 +649,12 @@ const DetailedHRReport = () => {
                       {staffRows.map((s, i) => (
                         <View key={s.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                           <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                          <Text style={[styles.td, styles.colWide]}>{fullName(s)}</Text>
+                          <StaffNameCell
+                            name={fullName(s)}
+                            staffId={staffIdOf(s)}
+                            style={[styles.td, styles.colWide, styles.staffLink]}
+                            fallback="—"
+                          />
                           <Text style={[styles.td, styles.colMed]}>{s.uid ?? '—'}</Text>
                           <Text style={[styles.td, styles.colMed]}>{s.branch_name ?? '—'}</Text>
                           <Text style={[styles.td, styles.colMed]}>{s.department ?? '—'}</Text>
@@ -408,7 +692,12 @@ const DetailedHRReport = () => {
                         return (
                           <View key={a.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                             <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                            <Text style={[styles.td, styles.colWide]}>{name}</Text>
+                            <StaffNameCell
+                              name={name}
+                              staffId={staffIdOf(att) ?? a.attendee_id}
+                              style={[styles.td, styles.colWide, styles.staffLink]}
+                              fallback="—"
+                            />
                             <Text style={[styles.td, styles.colMed]}>{display(a.date)}</Text>
                             <Text style={[styles.td, styles.colMed]}>{att.department ?? a.designation ?? '—'}</Text>
                             <Text style={[styles.td, styles.colMed]}>{a.designation ?? '—'}</Text>
@@ -444,7 +733,12 @@ const DetailedHRReport = () => {
                       {leaveRows.map((l, i) => (
                         <View key={l.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                           <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                          <Text style={[styles.td, styles.colWide]}>{fullName(l.user_info)}</Text>
+                          <StaffNameCell
+                            name={fullName(l.user_info)}
+                            staffId={staffIdOf(l.user_info)}
+                            style={[styles.td, styles.colWide, styles.staffLink]}
+                            fallback="—"
+                          />
                           <Text style={[styles.td, styles.colMed]}>{l.leave_type ?? '—'}</Text>
                           <Text style={[styles.td, styles.colMed]}>{display(l.from)}</Text>
                           <Text style={[styles.td, styles.colMed]}>{display(l.to)}</Text>
@@ -563,7 +857,12 @@ const DetailedHRReport = () => {
                       {fineRows.map((f, i) => (
                         <View key={f.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                           <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                          <Text style={[styles.td, styles.colWide]}>{fullName(f.user_info ?? {})}</Text>
+                          <StaffNameCell
+                            name={fullName(f.user_info ?? {})}
+                            staffId={staffIdOf(f.user_info ?? {})}
+                            style={[styles.td, styles.colWide, styles.staffLink]}
+                            fallback="—"
+                          />
                           <Text style={[styles.td, styles.colMed]}>{fmtRs(f.amount)}</Text>
                           <Text style={[styles.td, styles.colMed]}>{display(f.date)}</Text>
                           <Text style={[styles.td, styles.colDesc]}>{f.description ?? '—'}</Text>
@@ -576,6 +875,40 @@ const DetailedHRReport = () => {
             </SectionCard>
 
             {/* Advance Register */}
+            <SectionCard title="Disciplinary Action Register" count={disciplinaryRows.length}>
+              {disciplinaryRows.length === 0
+                ? <EmptyRow msg="No disciplinary actions / warning letters were found for the selected scope." />
+                : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View>
+                      <View style={styles.tr}>
+                        <Text style={[styles.th, styles.colSr]}>S.No</Text>
+                        <Text style={[styles.th, styles.colWide]}>Employee</Text>
+                        <Text style={[styles.th, styles.colMed]}>Document Type</Text>
+                        <Text style={[styles.th, styles.colMed]}>Subject</Text>
+                        <Text style={[styles.th, styles.colMed]}>Issue Date</Text>
+                        <Text style={[styles.th, styles.colMed]}>Status</Text>
+                      </View>
+                      {disciplinaryRows.map((d, i) => (
+                        <View key={d.id ?? i} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
+                          <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
+                          <StaffNameCell
+                            name={fullName(d.employee ?? d.user_info ?? {})}
+                            staffId={d.user_id ?? staffIdOf(d.employee ?? d.user_info ?? {})}
+                            style={[styles.td, styles.colWide, styles.staffLink]}
+                            fallback="—"
+                          />
+                          <Text style={[styles.td, styles.colMed]}>{dash(d.document_type)}</Text>
+                          <Text style={[styles.td, styles.colMed]} numberOfLines={2}>{dash(d.subject)}</Text>
+                          <Text style={[styles.td, styles.colMed]}>{d.issue_date ? display(d.issue_date) : '—'}</Text>
+                          <Text style={[styles.td, styles.colMed]}>{dash(d.approval_status ?? d.status)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
+            </SectionCard>
+
             <SectionCard title="Advance Register" count={advanceRows.length}>
               {advanceRows.length === 0
                 ? <EmptyRow msg="No advances were found for the selected scope." />
@@ -590,7 +923,12 @@ const DetailedHRReport = () => {
                       {advanceRows.map((a, i) => (
                         <View key={a.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                           <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                          <Text style={[styles.td, styles.colWide]}>{fullName(a.user_info ?? {})}</Text>
+                          <StaffNameCell
+                            name={fullName(a.user_info ?? {})}
+                            staffId={staffIdOf(a.user_info ?? {})}
+                            style={[styles.td, styles.colWide, styles.staffLink]}
+                            fallback="—"
+                          />
                           <Text style={[styles.td, styles.colMed]}>{fmtRs(a.amount)}</Text>
                           <Text style={[styles.td, styles.colMed]}>{display(a.date)}</Text>
                           <Text style={[styles.td, styles.colDesc]}>{a.description ?? '—'}</Text>
@@ -617,7 +955,12 @@ const DetailedHRReport = () => {
                       {loanRows.map((l, i) => (
                         <View key={l.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                           <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                          <Text style={[styles.td, styles.colWide]}>{fullName(l.staff_info ?? l.user_info ?? {})}</Text>
+                          <StaffNameCell
+                            name={fullName(l.staff_info ?? l.user_info ?? {})}
+                            staffId={staffIdOf(l.staff_info ?? l.user_info ?? {})}
+                            style={[styles.td, styles.colWide, styles.staffLink]}
+                            fallback="—"
+                          />
                           <Text style={[styles.td, styles.colMed]}>{fmtRs(l.amount)}</Text>
                           <Text style={[styles.td, styles.colMed]}>{fmtRs(l.remaining_amount)}</Text>
                           <Text style={[styles.td, styles.colMed]}>{display(l.return_start_date ?? l.date)}</Text>
@@ -645,7 +988,12 @@ const DetailedHRReport = () => {
                       {promotionRows.map((p, i) => (
                         <View key={p.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                           <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                          <Text style={[styles.td, styles.colWide]}>{fullName(p.user_info ?? {})}</Text>
+                          <StaffNameCell
+                            name={fullName(p.user_info ?? {})}
+                            staffId={staffIdOf(p.user_info ?? {})}
+                            style={[styles.td, styles.colWide, styles.staffLink]}
+                            fallback="—"
+                          />
                           <Text style={[styles.td, styles.colMed]}>{p.old_designation ?? '—'}</Text>
                           <Text style={[styles.td, styles.colMed]}>{p.new_designation ?? '—'}</Text>
                           <Text style={[styles.td, styles.colMed]}>{display(p.date ?? p.created_at)}</Text>
@@ -768,18 +1116,47 @@ const styles = StyleSheet.create({
   },
   dateText: { fontSize: 13, color: '#222' },
   errText: { color: '#C62828', fontSize: 13, marginTop: 8, fontWeight: '500' },
-  btnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  // Generate on its own full-width row, the two secondary actions split the
+  // row beneath it. All three share a minHeight so the row can't go ragged.
+  btnStack: { gap: 10, marginTop: 14 },
+  btnRow:   { flexDirection: 'row', gap: 10 },
   genBtn: {
-    flex: 1, backgroundColor: '#C62828', borderRadius: 6,
-    alignItems: 'center', paddingVertical: 12,
+    backgroundColor: '#C62828', borderRadius: 8, minHeight: 46,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
   },
-  btnDisabled: { opacity: 0.6 },
-  genBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  btnDisabled: { opacity: 0.5 },
+  genBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   resetBtn: {
-    flex: 1, borderWidth: 1, borderColor: '#555', borderRadius: 6,
-    alignItems: 'center', paddingVertical: 12,
+    flex: 1, flexDirection: 'row', gap: 6,
+    borderWidth: 1, borderColor: '#DDD', backgroundColor: '#FAFAFA',
+    borderRadius: 8, minHeight: 44,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12,
   },
-  resetBtnText: { color: '#444', fontWeight: '600', fontSize: 14 },
+  resetBtnText: { color: '#444', fontWeight: '600', fontSize: 13 },
+
+  // Failed-section warning, mirroring the web's yellow banner
+  warnBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE0A3',
+    borderRadius: 10, padding: 12, marginBottom: 14,
+  },
+  warnText: { flex: 1, fontSize: 12, color: '#8A6D00', lineHeight: 17 },
+
+  // Employee Profile Snapshot
+  empBadge:     { backgroundColor: '#1565C0', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  empBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  snapGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 10 },
+  snapCell:  { minWidth: '47%', flexGrow: 1, backgroundColor: '#FAFAFA', borderRadius: 8, padding: 10, gap: 3 },
+  snapLabel: { fontSize: 10, color: '#888', fontWeight: '600' },
+  snapValue: { fontSize: 13, color: '#1A1A1A', fontWeight: '600' },
+
+  // Report Scope
+  periodText:    { fontSize: 11, color: '#888' },
+  chipWrap:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 10 },
+  scopeItem:     { gap: 4 },
+  scopeLabel:    { fontSize: 10, color: '#888', fontWeight: '600' },
+  scopeChip:     { backgroundColor: '#1A1A1A', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 },
+  scopeChipText: { color: '#FFF', fontSize: 11, fontWeight: '600' },
 
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   summaryCard: {
@@ -811,6 +1188,7 @@ const styles = StyleSheet.create({
   colSm: { width: 80 },
   colMed: { width: 100 },
   colWide: { width: 140 },
+  staffLink: { color: '#E63946', fontWeight: '600' },
   colDate: { width: 88 },
   colPhone: { width: 130 },
   colDesc: { width: 160 },

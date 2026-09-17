@@ -82,7 +82,7 @@ android {
         applicationId "com.vostroworld"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
+        versionCode 7
         versionName "1.1"
     }
     aaptOptions {
@@ -95,22 +95,24 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-            release {
-      storeFile file('your_key_name.keystore')
-      storePassword 'admin123'
-      keyAlias 'your_key_alias'
-      keyPassword 'admin123'
-    }
+        release {
+            storeFile file('your_key_name.keystore')
+            storePassword 'admin123'
+            keyAlias 'your_key_alias'
+            keyPassword 'admin123'
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-                  signingConfig signingConfigs.release
+            // Signs with the real upload keystore (your_key_name.keystore),
+            // which is gitignored and must stay that way. The stray
+            // `signingConfig signingConfigs.debug` that used to sit on the line
+            // above was dead — Groovy takes the last assignment — but it read
+            // as though release shipped debug-signed, so it is gone.
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { RootState } from '../../../redux/store';
 import AppHeader from '../../../components/AppHeader';
+import StaffNameCell from '../../../components/StaffNameCell';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import {
   getStaffList, getBranchesNameList, getDepartmentNames, getDesignationNames,
@@ -234,7 +235,12 @@ const ViewStaff = () => {
                     {pagedRows.map((r, i) => (
                       <View key={r.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                         <Text style={[styles.td, { width: COLS[0].width }]}>{(page - 1) * PAGE_SIZE + i + 1}</Text>
-                        <Text style={[styles.td, { width: COLS[1].width, textAlign: 'left' }]} numberOfLines={1}>{r.name ?? '-'}</Text>
+                        <StaffNameCell
+                          name={r.name}
+                          staffId={r.id}
+                          style={[styles.td, styles.staffLink, { width: COLS[1].width, textAlign: 'left' }]}
+                          fallback="-"
+                        />
                         <Text style={[styles.td, { width: COLS[2].width, textAlign: 'left' }]} numberOfLines={1}>{r.father_name ?? '-'}</Text>
                         <Text style={[styles.td, { width: COLS[3].width }]}>{r.branch_name ?? '-'}</Text>
                         <Text style={[styles.td, { width: COLS[4].width, textAlign: 'left' }]} numberOfLines={1}>{r.designation ?? '-'}</Text>
@@ -396,6 +402,7 @@ const styles = StyleSheet.create({
   tr: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   trAlt: { backgroundColor: '#FAFAFA' },
   td: { fontSize: 12, color: '#333', paddingHorizontal: 5, textAlign: 'center', alignSelf: 'center' },
+  staffLink: { color: '#E63946', fontWeight: '600' },
 
   pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' },
   pageEdgeText: { fontSize: 12, fontWeight: '700', color: R },

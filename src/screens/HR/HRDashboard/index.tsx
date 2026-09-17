@@ -144,6 +144,43 @@ const getBranchBreakdown = (day: AttendanceDay, branch: 'f11' | 'g13'): BranchBr
   return (day as any)[branch] ?? (day as any)[branch === 'f11' ? 'f-11' : 'g-13'] ?? {};
 };
 
+// ── Attendance row helpers, ported from the web's own dashboard logic ────────
+// (main.1010f2c7.js, captured 2026-09-17).
+
+/** Duty window: `duty_hours` is "HH:MM - HH:MM" when set, else start/end_time. */
+const dutyWindowOf = (a: any): { start: string | null; end: string | null } => {
+  const dh = a?.duty_hours;
+  if (dh && typeof dh === 'string' && dh.includes('-')) {
+    const [s1, e1] = dh.split('-').map((x: string) => x.trim());
+    return { start: s1 || null, end: e1 || null };
+  }
+  return { start: a?.start_time || null, end: a?.end_time || null };
+};
+
+const toMinutes = (t?: string | null): number | null => {
+  if (!t) return null;
+  const [h, m] = String(t).split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+
+/**
+ * "Late By" text. The API's `is_late` flag wins when present; the 15-minute
+ * grace period is only the fallback for rows where it is null — same
+ * precedence the web uses.
+ */
+const lateInfo = (a: any, dutyStart: string | null): { isLate: boolean; text: string } => {
+  const start = toMinutes(dutyStart);
+  const checkin = toMinutes(a?.checkin_time_24h);
+  if (start == null || checkin == null) {
+    return { isLate: Number(a?.is_late) === 1, text: Number(a?.is_late) === 1 ? 'Late' : 'On Time' };
+  }
+  const diff = checkin > start ? checkin - start : 0;
+  const isLate = a?.is_late != null ? Number(a.is_late) === 1 : checkin > start + 15;
+  if (!isLate) return { isLate: false, text: 'On Time' };
+  const h = Math.floor(diff / 60);
+  return { isLate: true, text: `${h > 0 ? `${h}h ` : ''}${diff % 60}m`.trim() };
+};
+
 const DEPT_COLORS = ['#E63946', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1', '#D81B60', '#F57F17'];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -252,6 +289,83 @@ const ApprovalCard = ({ label, value, color }: { label: string; value: any; colo
     </Text>
   </View>
 );
+
+// Column sets for the attendance detail tables, matching the web's HR
+// dashboard exactly (confirmed against the 2026-09-17 capture).
+type AttCol = { label: string; key: string; w: number; badge?: 'status' | 'late' };
+
+const PRESENT_COLS: AttCol[] = [
+  { label: 'Employee', key: 'name', w: 150 },
+  { label: 'Date', key: 'date', w: 100 },
+  { label: 'Duty Hours', key: 'duty_hours', w: 150 },
+  { label: 'Check In', key: 'checkin_time', w: 90 },
+  { label: 'Check Out', key: 'checkout_time', w: 90 },
+  { label: 'Working Hours', key: 'working_hours', w: 100 },
+  { label: 'Branch', key: 'branch', w: 70 },
+  { label: 'Designation', key: 'designation', w: 140 },
+  { label: 'Department', key: 'department', w: 140 },
+  { label: 'Status', key: 'status', w: 90, badge: 'status' },
+];
+
+const LATE_COLS: AttCol[] = [
+  { label: 'Employee', key: 'name', w: 150 },
+  { label: 'Date', key: 'date', w: 100 },
+  { label: 'Duty Hours', key: 'duty_hours', w: 150 },
+  { label: 'Check In', key: 'checkin_time', w: 90 },
+  { label: 'Late By', key: 'late_time', w: 90, badge: 'late' },
+  { label: 'Branch', key: 'branch', w: 70 },
+  { label: 'Designation', key: 'designation', w: 140 },
+  { label: 'Department', key: 'department', w: 140 },
+];
+
+const ABSENT_COLS: AttCol[] = [
+  { label: 'Employee', key: 'name', w: 150 },
+  { label: 'Date', key: 'date', w: 100 },
+  { label: 'Reason', key: 'reason', w: 140 },
+  { label: 'Remarks', key: 'remarks', w: 140 },
+  { label: 'Branch', key: 'branch', w: 70 },
+  { label: 'Designation', key: 'designation', w: 140 },
+  { label: 'Department', key: 'department', w: 140 },
+];
+
+const AttTable = ({ rows, cols, empty }: { rows: any[]; cols: AttCol[]; empty: string }) => {
+  if (!rows || rows.length === 0) return <Text style={styles.attEmpty}>{empty}</Text>;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View>
+        <View style={styles.attHeadRow}>
+          <Text style={[styles.attTh, styles.attSr]}>S.No</Text>
+          {cols.map(c => (
+            <Text key={c.key} style={[styles.attTh, { width: c.w }]}>{c.label}</Text>
+          ))}
+        </View>
+        {rows.map((r, i) => (
+          <View key={r.id ?? i} style={[styles.attRow, i % 2 === 1 && styles.attRowAlt]}>
+            <Text style={[styles.attTd, styles.attSr]}>{i + 1}</Text>
+            {cols.map(c => {
+              const v = r[c.key];
+              if (c.badge) {
+                const amber = c.badge === 'late' || String(v) === 'Late';
+                return (
+                  <View key={c.key} style={{ width: c.w }}>
+                    <View style={[styles.attBadge, amber ? styles.attBadgeLate : styles.attBadgeOk]}>
+                      <Text style={styles.attBadgeText}>{v ?? '—'}</Text>
+                    </View>
+                  </View>
+                );
+              }
+              return (
+                <Text key={c.key} style={[styles.attTd, { width: c.w }]} numberOfLines={2}>
+                  {v == null || v === '' ? 'N/A' : String(v)}
+                </Text>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+};
 
 const CollapsibleSection = ({
   title,
@@ -433,6 +547,38 @@ const HRDashboard = () => {
       const todayDay = parseAttDay(todayStr);
       const nextDay  = parseAttDay(nextStr);
 
+      const branchLabel = (id: any) =>
+        Number(id) === Number(f11Id) ? 'F 11' : Number(id) === Number(g13Id) ? 'G 13' : 'N/A';
+
+      // Normalised rows for the Present / Late / Absent tables, matching the
+      // web's columns. Built once over the whole window and sorted by date
+      // then name, the way the web's own list is.
+      const attDetail = [...prevDay._list, ...todayDay._list, ...nextDay._list]
+        .map((a: any) => {
+          const d = dutyWindowOf(a);
+          const late = lateInfo(a, d.start);
+          return {
+            id: `${a.id ?? a.attendee_id}-${a.date}`,
+            name: `${a.attendee?.first_name ?? ''} ${a.attendee?.last_name ?? ''}`.trim() || a.user_name || 'N/A',
+            date: a.date,
+            duty_hours: d.start && d.end ? `${d.start} - ${d.end}` : 'N/A',
+            checkin_time: a.checkin_time_12h ?? 'N/A',
+            checkout_time: a.checkout_time_12h ?? 'N/A',
+            working_hours: a.working_hours ?? 'N/A',
+            branch: branchLabel(a.branch_id),
+            designation: a.designation ?? 'N/A',
+            department: a.attendee?.department_name ?? a.attendee?.department ?? 'N/A',
+            reason: a.reason ?? 'N/A',
+            remarks: a.remarks ?? 'N/A',
+            late_time: late.text,
+            status: late.isLate ? 'Late' : 'Present',
+            _present: a.attendance_status === 'Present',
+            _late: a.attendance_status === 'Present' && late.isLate,
+            _absent: a.attendance_status === 'Absent',
+          };
+        })
+        .sort((x, y) => String(x.date).localeCompare(String(y.date)) || x.name.localeCompare(y.name));
+
       // Pending approvals
       const dutyRaw = ok(dutyReqRes);
       const docRaw  = ok(docReqRes);
@@ -465,10 +611,15 @@ const HRDashboard = () => {
           pending_duty_hour_requests: pendingDuty,
           pending_document_reviews:   pendingDocs,
         },
+        // The web's Present/Late/Absent tables span the whole loaded window
+        // (previous + today + next), not just today — confirmed 2026-09-17,
+        // where "Present Details 116" carried both Sep 16 and Sep 17 rows.
+        // Late staff are a SUBSET of Present: a late person is counted in both
+        // and shows a "Late" badge in the Present table.
         details: {
-          present_details: todayDay._list.filter((a: any) => a.attendance_status === 'Present'),
-          late_details:    todayDay._list.filter((a: any) => a.is_late === 1),
-          absent_details:  todayDay._list.filter((a: any) => a.attendance_status === 'Absent'),
+          present_details: attDetail.filter(r => r._present),
+          late_details:    attDetail.filter(r => r._late),
+          absent_details:  attDetail.filter(r => r._absent),
         },
       });
     } catch {
@@ -782,31 +933,31 @@ const HRDashboard = () => {
             <View style={styles.divider} />
 
             <CollapsibleSection title="Present Details" count={presentDetails.length || (today.present ?? 0)} color="#43A047">
-              {presentDetails.map((p: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{p.name ?? p.employee_name ?? JSON.stringify(p)}</Text>
-                </View>
-              ))}
+              <AttTable
+                rows={presentDetails}
+                cols={PRESENT_COLS}
+                empty="No present staff found for this day."
+              />
             </CollapsibleSection>
 
             <View style={styles.divider} />
 
             <CollapsibleSection title="Late Details" count={lateDetails.length || (lateS?.today ?? 0)} color="#FB8C00">
-              {lateDetails.map((l: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{l.name ?? l.employee_name ?? JSON.stringify(l)}</Text>
-                </View>
-              ))}
+              <AttTable
+                rows={lateDetails}
+                cols={LATE_COLS}
+                empty="No late staff found for this day."
+              />
             </CollapsibleSection>
 
             <View style={styles.divider} />
 
             <CollapsibleSection title="Absent Details" count={absentDetails.length || (absentS?.today ?? 0)} color="#E63946">
-              {absentDetails.map((a: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{a.name ?? a.employee_name ?? JSON.stringify(a)}</Text>
-                </View>
-              ))}
+              <AttTable
+                rows={absentDetails}
+                cols={ABSENT_COLS}
+                empty="No absent staff found for this day."
+              />
             </CollapsibleSection>
 
             <View style={styles.divider} />
@@ -991,6 +1142,19 @@ const styles = StyleSheet.create({
   tableCellTagText: { fontSize: 11, color: '#fff', fontWeight: '600', textAlign: 'center' },
 
   // Details
+  // Attendance detail tables
+  attHeadRow:  { flexDirection: 'row', backgroundColor: '#F3F6FA', paddingVertical: 9, paddingHorizontal: 4, borderRadius: 6 },
+  attTh:       { fontSize: 11, fontWeight: '700', color: '#44506A', paddingHorizontal: 6 },
+  attRow:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
+  attRowAlt:   { backgroundColor: '#FAFBFD' },
+  attTd:       { fontSize: 11, color: '#333', paddingHorizontal: 6 },
+  attSr:       { width: 42 },
+  attEmpty:    { fontSize: 12, color: '#999', paddingVertical: 14, textAlign: 'center' },
+  attBadge:    { alignSelf: 'flex-start', marginHorizontal: 6, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+  attBadgeOk:   { backgroundColor: '#2E7D32' },
+  attBadgeLate: { backgroundColor: '#F0AD2B' },
+  attBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+
   detailsNote: { fontSize: 12, color: '#aaa', marginBottom: 10 },
   detailsCard: {
     backgroundColor: '#fff', borderRadius: 12,

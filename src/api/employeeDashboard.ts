@@ -1,5 +1,33 @@
 import api from './service';
 
+/**
+ * Drops params that are empty/null and coerces the numeric-validated ones to
+ * integers.
+ *
+ * Several HR endpoints validate `branch_id`/`staff_id`/`user_id` as integers
+ * and answer 422 ("The branch id must be an integer.") for an empty string.
+ * The web admin sends `branch_id=` for its "All Branches" option and therefore
+ * shows a permanent "Loans, Promotions could not be loaded" warning on its own
+ * HR report — confirmed in the 2026-09-17 HAR. Omitting the key entirely means
+ * "no filter", which is what All Branches actually means.
+ */
+const INT_KEYS = ['branch_id', 'staff_id', 'user_id', 'member_id', 'department_id', 'designation_id'];
+
+export const intParams = <T extends Record<string, any>>(params: T): Partial<T> => {
+  const out: Record<string, any> = {};
+  Object.entries(params ?? {}).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    if (INT_KEYS.includes(k)) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return;
+      out[k] = n;
+      return;
+    }
+    out[k] = v;
+  });
+  return out as Partial<T>;
+};
+
 // ── 6.2 Attendance ────────────────────────────────────────────────────────────
 
 export const getAttendanceList = async (params: {
@@ -696,7 +724,8 @@ export const getPromotions = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/hr/promotion/index', { params });
+  // Same integer validation as staff-loans — see the note there.
+  const res = await api.get('/v1/hr/promotion/index', { params: intParams(params) });
   return res.data;
 };
 
@@ -2366,7 +2395,12 @@ export const getHRStaffLoans = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/staff-loans/get', { params });
+  // `branch_id`/`staff_id` are validated as integers, so an empty string is a
+  // 422 ("The branch id must be an integer."). The web admin sends `branch_id=`
+  // for "All Branches" and so permanently shows "Loans could not be loaded" on
+  // its HR report — confirmed in the 2026-09-17 HAR. Dropping blank keys instead
+  // makes the all-branches case work.
+  const res = await api.get('/v1/staff-loans/get', { params: intParams(params) });
   return res.data;
 };
 
@@ -2376,7 +2410,8 @@ export const getHRStaffPromotions = async (params: {
   limit?: number;
   page?: number;
 }) => {
-  const res = await api.get('/v1/hr/promotion/index', { params });
+  // Same integer validation as staff-loans — see the note there.
+  const res = await api.get('/v1/hr/promotion/index', { params: intParams(params) });
   return res.data;
 };
 
@@ -2507,5 +2542,42 @@ export const registerStaff = async (payload: {
   [key: string]: any;
 }) => {
   const res = await api.post('/v1/auth/register', payload);
+  return res.data;
+};
+
+// ── HR: Employee Profile Entries ─────────────────────────────────────────────
+// Backs the web HR report's Qualifications / Certifications, Experience and
+// Education tables — one endpoint for all three, discriminated by `entry_type`
+// ("Qualification" | "Experience" | "Education"). Confirmed live in the
+// 2026-09-17 HAR: 213 rows for the all-staff call, each carrying `title`,
+// `organization`, `location`, `start_date`, `end_date`, `description`, plus a
+// nested `employee` ({id, uid, first_name, last_name, image}) and `branch`.
+// Response uses the Nutrition-style envelope: { message, data[], pagination }.
+export const getHREmployeeProfileEntries = async (params: {
+  branch_id?: number | string;
+  user_id?: number | string;
+  status?: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/hr/employee-profile-entries/index', { params: intParams(params) });
+  return res.data;
+};
+
+// ── HR: Staff Documents (warning letters) ────────────────────────────────────
+// Backs the web HR report's Disciplinary Action Register. Answered 404
+// "No record found" for every call in the 2026-09-17 HAR, so the section
+// renders empty until warning-letter data exists — that is not a client bug.
+export const getHRStaffDocuments = async (params: {
+  branch_id?: number | string;
+  user_id?: number | string;
+  document_type?: string;
+  start_date?: string;
+  end_date?: string;
+  status?: number;
+  limit?: number;
+  page?: number;
+}) => {
+  const res = await api.get('/v1/hr/staff-documents/index', { params: intParams(params) });
   return res.data;
 };

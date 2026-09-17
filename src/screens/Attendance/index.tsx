@@ -29,16 +29,46 @@ interface AttendanceSummary {
     leave: number;
 }
 
+// Row shape of /v1/attendance/index — confirmed on prod 2026-09-14 (nutritionist
+// login). Times are checkin_time_12h / checkout_time_12h; there is no
+// check_in / check_out field, which is why those columns showed N/A.
 interface AttendanceRecord {
     id: number;
     date: string;
     attendance_status: string;
-    check_in?: string;
-    check_out?: string;
-    working_hours?: string;
-    duty_hours?: string;
-    remarks?: string;
+    is_late?: number;
+    checkin_time_12h?: string | null;
+    checkout_time_12h?: string | null;
+    working_hours?: string | null;
+    duty_hours?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+    remarks?: string | null;
 }
+
+// "Late" is derived: rows come back "Present" with is_late 1, and the web's
+// Status column reads LATE.
+const statusOf = (r: AttendanceRecord) =>
+    Number(r.is_late) ? 'Late' : (String(r.attendance_status ?? '').trim() || 'N/A');
+
+// duty_hours is null on absent rows; the slot is then in start_time/end_time.
+const dutyWindow = (r: AttendanceRecord) => {
+    const dh = String(r.duty_hours ?? '').trim();
+    if (dh && dh !== 'null') return dh;
+    const a = String(r.start_time ?? '').trim();
+    const b = String(r.end_time ?? '').trim();
+    return a && b ? `${a} - ${b}` : 'N/A';
+};
+
+const orNA = (v: any) => {
+    const s = String(v ?? '').trim();
+    return s && s !== 'null' ? s : 'N/A';
+};
+
+// The API answers oldest first; the web lists the newest date on top. Sort is
+// stable, so same-day rows keep the API's order, as on the web.
+const newestFirst = (rows: AttendanceRecord[]) =>
+    [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -142,6 +172,15 @@ const AttendanceScreen = () => {
 
     const todayRecord = records.find(r => r.date === formatDate(new Date()));
 
+    // The web's cards count the loaded range: Present includes late days,
+    // Late is the is_late flag, Absent is the absent rows.
+    const rangeCounts = {
+        present: records.filter(r => String(r.attendance_status) === 'Present').length,
+        late:    records.filter(r => Number(r.is_late) === 1).length,
+        absent:  records.filter(r => String(r.attendance_status) === 'Absent').length,
+    };
+    const hasRecords = records.length > 0;
+
     const handleDateConfirm = (date: Date) => {
         const iso = formatDate(date);
         if (pickerFor === 'start') setStartDate(iso);
@@ -199,7 +238,7 @@ const AttendanceScreen = () => {
             const rows: AttendanceRecord[] =
                 data?.data?.data ?? data?.data ?? [];
 
-            setRecords(rows);
+            setRecords(newestFirst(rows));
             setTotalRecords(data?.total ?? data?.totalRecord ?? rows.length);
 
             if (rows.length === 0) {
@@ -233,22 +272,22 @@ const AttendanceScreen = () => {
         <View style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}>
             <Text style={[styles.cell, styles.cellDate]}>{displayDate(item.date)}</Text>
             <View style={styles.cellStatus}>
-                <StatusBadge status={item.attendance_status} />
+                <StatusBadge status={statusOf(item)} />
             </View>
             <Text style={[styles.cell, styles.cellDuty]} numberOfLines={1}>
-                {item.duty_hours ?? 'N/A'}
+                {dutyWindow(item)}
             </Text>
             <Text style={[styles.cell, styles.cellTime]}>
-                {item.check_in ?? 'N/A'}
+                {orNA(item.checkin_time_12h)}
             </Text>
             <Text style={[styles.cell, styles.cellTime]}>
-                {item.check_out ?? 'N/A'}
+                {orNA(item.checkout_time_12h)}
             </Text>
             <Text style={[styles.cell, styles.cellTime]}>
-                {item.working_hours ?? 'N/A'}
+                {orNA(item.working_hours)}
             </Text>
             <Text style={[styles.cell, styles.cellRemarks]} numberOfLines={1}>
-                {item.remarks ?? 'N/A'}
+                {orNA(item.remarks)}
             </Text>
         </View>
     );
@@ -292,25 +331,25 @@ const AttendanceScreen = () => {
                             />
                             <SummaryCard
                                 label="Present"
-                                value={summary?.on_time ?? 0}
+                                value={hasRecords ? rangeCounts.present : summary?.on_time ?? 0}
                                 sub="Marked present"
                             />
                             <SummaryCard
                                 label="Late"
-                                value={summary?.late ?? 0}
+                                value={hasRecords ? rangeCounts.late : summary?.late ?? 0}
                                 sub="Late arrivals"
                             />
                             <SummaryCard
                                 label="Absent"
-                                value={summary?.absent ?? 0}
+                                value={hasRecords ? rangeCounts.absent : summary?.absent ?? 0}
                                 sub="Marked absent"
                             />
                             <SummaryCard
                                 label="Today Status"
-                                value={todayRecord ? todayRecord.attendance_status : 'N/A'}
+                                value={todayRecord ? statusOf(todayRecord) : 'N/A'}
                                 sub={
-                                    todayRecord?.check_in
-                                        ? `Check in ${todayRecord.check_in}`
+                                    todayRecord?.checkin_time_12h
+                                        ? `Check in ${todayRecord.checkin_time_12h}`
                                         : undefined
                                 }
                                 highlight

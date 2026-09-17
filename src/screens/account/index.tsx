@@ -9,7 +9,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
 import { logoutUser } from '../../redux/slices/userSlice';
-import { isEmployee, isNutritionist, ROLE_LABELS } from '../../config/permissions';
+import { isEmployee, isNutritionist, isTrainer, roleLabelOf } from '../../config/permissions';
 import { getStaffDetail } from '../../api/employeeDashboard';
 
 
@@ -38,9 +38,11 @@ const AccountScreen = () => {
     (state: RootState) => state.user
   );
   const userIsNutritionist = isNutritionist(profile?.role);
-  // Settings is not part of either role's surface — the blank/Employee role's
-  // whole app is the Employee Dashboard, matching the web's single menu item.
-  const hideSettings = userIsNutritionist || isEmployee(profile?.role);
+  // Settings is not part of these roles' surface — the blank/Employee role's
+  // whole app is the Employee Dashboard, matching the web's single menu item,
+  // and Settings is not enabled for the trainer account either.
+  const hideSettings =
+    userIsNutritionist || isEmployee(profile?.role) || isTrainer(profile?.role);
 
   // /v1/auth/app-login carries designation_id (126) but not the label, so the
   // screen used to read "Designation 126". /v1/auth/get/{id} does carry it
@@ -73,13 +75,19 @@ const AccountScreen = () => {
   const profileName =
     `${firstName} ${lastName}`.trim() || 'User';
 
+  // Resolves what sits under the name. `role`/`type` from app-login are ids
+  // ("9"), not labels — a digits-only value must never reach the screen.
+  const roleLabel = designation || roleLabelOf(profile?.role, profile?.type);
+
   const profileData = {
     name: profileName,
 
-    role:
-      profile?.type ||
-      ROLE_LABELS[profile?.role ?? ''] ||
-      'Staff',
+    // /v1/auth/app-login returns `type` as a role id ("9"), not a label, so
+    // rendering it first put a bare number under the name for every role that
+    // has one. Prefer the real job title (fetched above), then a mapped role
+    // label, and only accept `type`/`role` verbatim when they are actually
+    // text rather than digits.
+    role: roleLabel,
 
     verified: true,
 
@@ -102,9 +110,9 @@ const AccountScreen = () => {
       profile?.appointmentDate ||
       'N/A',
 
-    jobTitle:
-      designation ||
-      (profile?.designationId ? `Designation ${profile.designationId}` : 'Position'),
+    // Never render "Designation 126": when /v1/auth/get/{id} hasn't answered
+    // with the label, fall back to the role label rather than the raw id.
+    jobTitle: designation || roleLabel,
   };
 
   const handleLogout = () => {

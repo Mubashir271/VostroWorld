@@ -29,6 +29,53 @@ export const ROLE_LABELS: Record<string, string> = {
 };
 
 
+/**
+ * Home-screen header title per role.
+ *
+ * Kept short and separate from ROLE_LABELS: the header follows a "Vostro X"
+ * convention and has little width, so "Vostro HR" reads better there than
+ * ROLE_LABELS' fuller "HR Department". Before this existed the header was
+ * hardcoded to three cases and every other role — trainer, HR, nutritionist,
+ * fitness manager — fell through to "Vostro Employee".
+ */
+export const HEADER_TITLES: Record<string, string> = {
+  [ROLES.SUPER_ADMIN]: 'Vostro Admin',
+  [ROLES.ADMIN]: 'Vostro Admin',
+  [ROLES.SALES]: 'Vostro Sales',
+  [ROLES.TRAINER]: 'Vostro Trainer',
+  [ROLES.NUTRITIONIST]: 'Vostro Nutritionist',
+  [ROLES.FITNESS_MANAGER]: 'Vostro Fitness',
+  [ROLES.HR]: 'Vostro HR',
+  [ROLES.EMPLOYEE]: 'Vostro Employee',
+};
+
+export const headerTitleOf = (role?: string | null, type?: string | null): string =>
+  HEADER_TITLES[String(role ?? '').trim()] ||
+  HEADER_TITLES[String(type ?? '').trim()] ||
+  'Vostro Employee';
+
+/**
+ * The label to show for a user's role.
+ *
+ * `role` and `type` from /v1/auth/app-login are both role **ids** ("9"), not
+ * labels. Falling back to `type` verbatim is what printed a bare number under
+ * the user's name on the Account, Drawer and Settings screens — a digits-only
+ * value must never reach the UI, so it is mapped or dropped.
+ */
+export const roleLabelOf = (role?: string | null, type?: string | null): string => {
+  const text = (v: any) => {
+    const t = String(v ?? '').trim();
+    return t && t !== 'null' && !/^\d+$/.test(t) ? t : '';
+  };
+  return (
+    ROLE_LABELS[String(role ?? '').trim()] ||
+    ROLE_LABELS[String(type ?? '').trim()] ||
+    text(type) ||
+    text(role) ||
+    'Staff'
+  );
+};
+
 // Drawer menu sections allowed per role
 // Admin (role === '3') gets everything.
 // Anyone else (trainer, staff, etc.) gets only these sections + children.
