@@ -76,3 +76,6 @@ yarn-error.log
 
 # Local tracking notes
 *.md
+
+# Local-only notes: holds real logins, must never be pushed (public repo)
+API_REFERENCE.md
