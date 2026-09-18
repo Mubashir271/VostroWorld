@@ -200,6 +200,8 @@ import TransactionReportScreen from '../../screens/reports/TransactionReport';
 // screens/reports/CafeReports component is no longer mounted.
 import SalesReportScreen from '../../screens/reports/SalesReport';
 import MISReportScreen from '../../screens/reports/MISReport';
+import AdminDashboardScreen from '../../screens/reports/AdminDashboard';
+import FitnessDashboardScreen from '../../screens/reports/FitnessDashboard';
 import DetailedSalesReportScreen from '../../screens/reports/DetailedSalesReport';
 import ClientsReportScreen from '../../screens/reports/ClientsReport';
 import SalesClientsReportScreen from '../../screens/Sales/ClientsReport';
@@ -437,6 +439,12 @@ const AppNavigator = () => {
                 <Stack.Screen name="SalesReport" component={protect(SalesReportScreen)} />
                 <Stack.Screen name="DetailedSalesReport" component={protect(DetailedSalesReportScreen)} />
                 <Stack.Screen name="MISReport" component={protect(MISReportScreen)} />
+                {/* Registered without `protect`: that helper admits role '3'
+                    (F-11 / G-13 admins) too, and this screen is Super Admin
+                    only — it self-guards with isSuperAdmin. Same for
+                    FitnessDashboard. */}
+                <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+                <Stack.Screen name="FitnessDashboard" component={FitnessDashboardScreen} />
                 <Stack.Screen name="SalesByServices" component={protect(SalesByServicesScreen)} />
                 <Stack.Screen name="SalesExpenseDaily" component={protect(SalesExpenseDailyScreen)} />
                 <Stack.Screen name="SalesByBootcamp" component={protect(SalesByBootcampScreen)} />

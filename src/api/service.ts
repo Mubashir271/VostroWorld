@@ -64,7 +64,9 @@ api.interceptors.response.use(
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
 
-    if (error.response?.status === 401) {
+    // `skipAuthRedirect`: requests that expect a dead session (the logout-time
+    // push-token unregister) must not bounce the user to the login screen.
+    if (error.response?.status === 401 && !(error.config as any)?.skipAuthRedirect) {
       store.dispatch(logoutUser());
       store.dispatch(showSnackbar({ message: 'Session expired. Please login again.', type: 'error' }));
       resetToLoginFromRef();

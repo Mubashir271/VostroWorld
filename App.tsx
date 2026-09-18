@@ -58,6 +58,7 @@ import AppNavigator from './src/navigation/StackNavigation';
 import GlobalSnackbar from './src/redux/GlobalSnackbar';
 import CurrencyRatesLoader from './src/redux/CurrencyRatesLoader';
 import {navigationRef} from './src/utils/navigationRef';
+import PushTokenSync from './src/services/push/PushTokenSync';
 LogBox.ignoreAllLogs();
 export default function App() {
   return (
@@ -67,6 +68,7 @@ export default function App() {
           <NavigationContainer ref={navigationRef}>
             <GlobalSnackbar />
             <CurrencyRatesLoader />
+            <PushTokenSync />
             {/* <StatusBar barStyle="dark-content" backgroundColor="#fff" /> */}
             <AppNavigator />
           </NavigationContainer>

@@ -439,3 +439,118 @@ export const getCafeReportUsers = async (
 export const cafeSalesRowGst = cafeOrderGst;          // item-level, for columns
 export const cafeSalesTotalGst = (o: any) => Number(o.tax) || 0;        // order-level, for totals
 export const cafeSalesTotalNet = (o: any) => Number(o.net_price) || 0;  // order-level, for totals
+
+// ── Membership packages (CRM / Clients › Memberships) ────────────────────────
+// Same `packages` table, category 6. List confirmed from the web's Membership
+// Packages page (HAR 2026-09-18): /packages/get?key=category&value=6 with
+// status 1 (Active) / 0 (Inactive) as separate requests; rows carry
+// `branches_name`, `package_name`, `price`, `status`.
+// The writes reuse the package routes confirmed for cafe packages (category
+// 13 above). No membership add/update was captured in a HAR, so these are the
+// same routes with category '6' — not yet submitted for this category.
+export type MembershipPackageRow = {
+  id: number;
+  branch_id: number;
+  branches_name: string;
+  package_name: string;
+  price: number;
+  status: string;
+};
+
+export const getMembershipPackages = async (branchId: number | string, status: 1 | 0) => {
+  try {
+    const res = await api.get('/v1/packages/get', {
+      params: { page: 1, branch_id: branchId, status, limit: 999, value: 6, key: 'category' },
+    });
+    const d = res.data?.data;
+    return (Array.isArray(d) ? d : d?.data ?? []) as MembershipPackageRow[];
+  } catch (err: any) {
+    if (err?.response?.status === 404) return [] as MembershipPackageRow[];
+    throw err;
+  }
+};
+
+export const addMembershipPackage = (payload: {
+  branch_id: number | string;
+  package_name: string;
+  price: number;
+}) => api.post('/v1/packages/add', { ...payload, category: '6', duration: '0' });
+
+export const updateMembershipPackage = (id: number, payload: {
+  branch_id: number | string;
+  package_name: string;
+  price: number;
+}) => api.post(`/v1/packages/update-cafe/${id}`, { ...payload, category: '6' });
+
+export const setMembershipPackageStatus = (id: number, status: 'active' | 'inactive') =>
+  api.put(`/v1/packages/${status}/${id}`, {});
+
+// ── Access cards (CRM / Clients › Access Control — View Cards) ───────────────
+// GET /v1/cards/show — HAR 2026-09-18 of the web's Manage Cards page. `type`
+// is the member type: 1 Client, 2 Staff, 3 Visitor; server paginated.
+// `name` on a row is the BRANCH name; the member's own name is
+// first_name/last_name (null on most older cards). `number` is the card
+// number (0 = none), `membership_category` the Description column, `date`
+// the assigning date, `status` '1' active / '0' blocked.
+export type AccessCardRow = {
+  id: number;
+  branch_id: number;
+  name: string;
+  zkid: number;
+  number: number;
+  member_type: string;
+  membership_category: string;
+  status: string;
+  date: string;
+  member_id: number | null;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+export const getAccessCards = async (params: {
+  branch_id: number | string;
+  type: 1 | 2 | 3;
+  page: number;
+  limit: number;
+}) => {
+  try {
+    const res = await api.get('/v1/cards/show', { params });
+    const body = res.data ?? {};
+    return {
+      rows: (body.data?.data ?? []) as AccessCardRow[],
+      total: Number(body.totalRecord ?? body.data?.total ?? 0),
+      totalPages: Number(body.totalPages ?? body.data?.last_page ?? 1),
+    };
+  } catch (err: any) {
+    if (err?.response?.status === 404) return { rows: [] as AccessCardRow[], total: 0, totalPages: 1 };
+    throw err;
+  }
+};
+
+// A member's own cards — the Assign Cards page loads this when a search result
+// is opened (HAR 2026-09-18): /cards/get?key=member_id&value={id}&member_type=
+// 1 (client). Rows carry `number`, `description`, `status`, `date`,
+// `branch_info.name`. The web also calls /auth/search/{id} (staff lookup,
+// 404 for a client) alongside it; not needed for clients.
+export type MemberCardRow = {
+  id: number;
+  branch_id: number;
+  number: number;
+  member_type: string;
+  description: string | null;
+  status: string;
+  date: string;
+  branch_info?: { id: number; name: string } | null;
+};
+
+export const getMemberCards = async (memberId: number, memberType: 1 | 2 | 3) => {
+  try {
+    const res = await api.get('/v1/cards/get', {
+      params: { page: 1, member_type: memberType, value: memberId, branch_id: '', limit: 50, key: 'member_id' },
+    });
+    return (res.data?.data?.data ?? []) as MemberCardRow[];
+  } catch (err: any) {
+    if (err?.response?.status === 404) return [] as MemberCardRow[];
+    throw err;
+  }
+};

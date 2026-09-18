@@ -1,10 +1,160 @@
 import api from './service';
 
-export const getMISDashboard = async (branchId: number | string) => {
-    const response = await api.get(
-        `/v1/MISReport/get?bId=${branchId}`
-    );
+export const getMISDashboard = async (branchId: number | string, date?: string) => {
+    const response = await api.get('/v1/MISReport/get', {
+        // `date` is ISO (YYYY-MM-DD), what the web sends. Omitted, the server
+        // falls back to today — which is all the app could ever show before.
+        params: date ? { bId: branchId, date } : { bId: branchId },
+    });
     return response.data;
+};
+
+// ── Admin Dashboard ──────────────────────────────────────────────────────────
+// GET /v1/admin-dashboard/summary?bId={all|<branch id>}&date=YYYY-MM-DD
+// Confirmed live 2026-09-18 from a HAR of the web admin's Admin Dashboard.
+// It backs that whole page in one call; `/v1/MISReport/get` is fetched
+// alongside it only for the per-service `breakup` (Sales by service).
+//
+// Response is `{ data: {...} }` — note MISReport/get is flat, this one is not.
+
+export interface AdminDashboardBranchRow {
+    branch_id: string;
+    branch_label: string;
+    total_sales_today: number;
+    profit_today: number;
+    totalCheckins: number;
+    presentStaff: number;
+}
+
+export interface AdminDashboardTrendPoint {
+    date: string;
+    label: string;
+    sales: number;
+    expenses: number;
+    profit: number;
+}
+
+export interface AdminDashboardStaffRow {
+    id: number;
+    name: string;
+    department: string;
+    /** 'Present' | 'Absent' | 'Late' — server-computed, not derived here. */
+    status: string;
+    checkin: string;
+    branch: string;
+    branch_id: string;
+}
+
+export interface AdminDashboardSummary {
+    branch_id: string;
+    branch_label: string;
+    is_all_branches: boolean;
+    date: string;
+    display_date: string;
+
+    by_branch: AdminDashboardBranchRow[];
+    trend: AdminDashboardTrendPoint[];
+    staffRoster: AdminDashboardStaffRow[];
+
+    totalStaff: number;
+    presentStaff: number;
+    absentStaff: number;
+    lateStaff: number;
+    leaveCount: number;
+    ptStaffPresent: number;
+
+    totalCheckins: number;
+    totalMales: number;
+    totalFemales: number;
+    morning: number;
+    afternoon: number;
+    evening: number;
+    busiestTimeSlot: string;
+    slowestTimeSlot: string;
+    activePaidClients: number;
+    absentPaidClients: number;
+    visitorsWalkIns: number;
+    totalStudioAttendance: number;
+    studioAttendanceSession1: number;
+    studioAttendanceSession2: number;
+    studioAttendanceSession3: number;
+    studioAttendanceSession4: number;
+
+    salenet_today: number;
+    salem_qty: number;
+    salem_net: number;
+    today_expense: number;
+    t_expense_date: number;
+    pending_expense_approvals: number;
+    csalenet_today: number;
+    csalem_net: number;
+    csaleqty_today: number;
+    cafe_meals: number;
+    cafe_drinks: number;
+    cafe_sides: number;
+    cafe_staff_orders: number;
+    total_sales_today: number;
+    total_sales_mtd: number;
+    profit_today: number;
+    profit_mtd: number;
+}
+
+export const getAdminDashboardSummary = async (
+    branchId: number | 'all',
+    date: string,
+): Promise<AdminDashboardSummary> => {
+    const res = await api.get('/v1/admin-dashboard/summary', {
+        params: { bId: branchId, date },
+    });
+    return res.data?.data ?? res.data;
+};
+
+// ── Fitness Dashboard ────────────────────────────────────────────────────────
+// GET /v1/fitness-manager-dashboard/summary?bId={all|<branch id>}&date=YYYY-MM-DD
+// Confirmed live 2026-09-18 from a HAR of the web's Fitness Dashboard (super
+// admin login): this one call backs the whole page. Shape `{ data: {...} }`.
+
+export interface FitnessQtyNet { qty: number; net: number; }
+
+export interface FitnessDashboardSummary {
+    branch_id: string;
+    branch_label: string;
+    is_all_branches: boolean;
+    date: string;
+    display_date: string;
+    month_label: string;
+    footfall: { total: number; males: number; females: number };
+    trainers: { total: number; present: number; absent: number; late: number };
+    sessions: {
+        pt_total: number; pt_delivered: number;
+        gx_total: number; gx_delivered: number;
+        befit_total: number; spt_total: number;
+    };
+    sales: {
+        pt_today: FitnessQtyNet; pt_new_today: FitnessQtyNet; pt_renew_today: FitnessQtyNet;
+        pt_mtd: FitnessQtyNet; gx_today: FitnessQtyNet; gx_mtd: FitnessQtyNet;
+    };
+    active_pt_clients: number;
+    trend: { date: string; label: string; pt: number; gx: number }[];
+    recent_sessions: {
+        id: number; type: string; time_slot: string; status: string;
+        client: string; trainer: string; branch: string;
+    }[];
+    present_trainers: { id: number; name: string; department: string; branch: string; checkin: string }[];
+    trainer_wise_sales: {
+        trainer_id: number; trainer: string; sales: number; clients: number;
+        total_price: number; discount: number; tax: number; net_price: number;
+    }[];
+}
+
+export const getFitnessDashboardSummary = async (
+    branchId: number | 'all',
+    date: string,
+): Promise<FitnessDashboardSummary> => {
+    const res = await api.get('/v1/fitness-manager-dashboard/summary', {
+        params: { bId: branchId, date },
+    });
+    return res.data?.data ?? res.data;
 };
 
 // Returns { all_clients, active_clients, inactive_clients, dormant_clients }

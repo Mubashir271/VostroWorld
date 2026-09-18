@@ -1401,23 +1401,40 @@ export const getFreezingList = async (params: {
   return res.data;
 };
 
+// Web admin's Approvals page (HAR 2026-09-18, super admin): GET
+// /v1/approval/get — singular; the old `/approvals/get` guess does not exist.
+// It returns every matching row in one response (no pagination) and the web
+// sends one filter at a time: `status` (Pending | Approved | Denied) or `type`
+// (Date | PaymentMethod | DeleteRecode | Package), never both.
+export type ApprovalRow = {
+  id: number;
+  order_id: number;
+  branch_id: number;
+  branches_name: string;
+  client_name: string | null;
+  package_name: string | null;
+  type: string;
+  old_date: string | null;
+  new_date: string | null;
+  old_payment_method_name: string | null;
+  new_payment_method_name: string | null;
+  old_value_text: string | null;
+  new_value_text: string | null;
+  status: string;
+};
+
 export const getApprovalsList = async (params: {
   branch_id: number | string;
   status?: string;
   type?: string;
-  limit?: number;
-  page?: number;
 }) => {
-  const res = await api.get('/v1/approvals/get', { params });
-  return res.data;
-};
-
-export const updateApproval = async (id: number, payload: {
-  status: 'Approved' | 'Rejected';
-  note?: string;
-}) => {
-  const res = await api.put(`/v1/approvals/update/${id}`, payload);
-  return res.data;
+  try {
+    const res = await api.get('/v1/approval/get', { params });
+    return (res.data?.data ?? []) as ApprovalRow[];
+  } catch (err: any) {
+    if (err?.response?.status === 404) return [] as ApprovalRow[];
+    throw err;
+  }
 };
 
 // ── Fitness / GX ─────────────────────────────────────────────────────────────
@@ -1895,6 +1912,11 @@ export type SessionAttendanceRow = {
   client_status: string;
   status: string;
   date: string;
+  // Present on the GX report rows (2026-09-18 HAR).
+  day?: string;
+  validate_status?: string; // '1' Verify, '0' Unverify
+  time_slot?: { id: number; start_time: string; end_time: string } | null;
+  branch?: { id: number; name: string } | null;
   trainer?: { id: number; trainer_name: string } | null;
   order?: { id: number; name: string; client_id: number; client_name: string } | null;
 };
@@ -1922,6 +1944,57 @@ export const getSessionAttendancePage = async (params: {
     if (err?.response?.status === 404) return { rows: [], total: 0, totalPages: 1 };
     throw err;
   }
+};
+
+// GX Attendance Report — the web page's exact request, from the 2026-09-18 HAR
+// of the nutritionist login: session-attendance/get with type=GX, the date
+// range and every filter sent (blank when unset), server paginated. Same row
+// shape as the PT list above; 404 is this API's "no records".
+export const getGXAttendanceReportPage = async (params: {
+  branch_id: number | string;
+  start_date: string;
+  end_date: string;
+  trainer_id?: number | string;
+  client_status?: string;
+  staff_status?: string;
+  limit: number;
+  page: number;
+}) => {
+  try {
+    const res = await api.get('/v1/fitness/session-attendance/get', {
+      params: {
+        branch_id: params.branch_id,
+        start_date: params.start_date,
+        end_date: params.end_date,
+        trainer_id: params.trainer_id ?? '',
+        order_id: '',
+        client_status: params.client_status ?? '',
+        client_id: '',
+        staff_status: params.staff_status ?? '',
+        type: 'GX',
+        package_id: '',
+        page: params.page,
+        limit: params.limit,
+      },
+    });
+    const body = res.data ?? {};
+    return {
+      rows: (body.data?.data ?? []) as SessionAttendanceRow[],
+      total: Number(body.totalRecord ?? body.data?.total ?? 0),
+      totalPages: Number(body.totalPages ?? body.data?.last_page ?? 1),
+    };
+  } catch (err: any) {
+    if (err?.response?.status === 404) return { rows: [] as SessionAttendanceRow[], total: 0, totalPages: 1 };
+    throw err;
+  }
+};
+
+/** GX trainer dropdown — the web's `auth/get-name?designation_id=1&is_gx_trainer=1`. */
+export const getGXTrainerNames = async (branchId: number | string) => {
+  const res = await api.get('/v1/auth/get-name', {
+    params: { designation_id: 1, branch_id: branchId, is_gx_trainer: 1 },
+  });
+  return (res.data?.data ?? []) as { id: number; first_name: string; last_name: string }[];
 };
 
 /** Trainer dropdown — `{ id, first_name, last_name }[]`; no branch returns all. */
@@ -2381,6 +2454,24 @@ export const addStaffAdvance = async (payload: {
   payment_type_id?: number;
   bank_id?: number;
   reason?: string;
+}) => {
+  const res = await api.post('/v1/users-finance/add', payload);
+  return res.data;
+};
+
+// Staff Profile's "Add Reward" / "Add Fine" — same endpoint and validation as
+// addStaffAdvance above, with `category` Reward | Fine. The web form's
+// "Deduction Date" (fines) is `return_month`; the Reward form has no such
+// field, so the reward date is sent there to satisfy the NOT NULL column.
+// Not submitted against prod — the payload follows the confirmed Advance one.
+export const addStaffFinanceEntry = async (payload: {
+  branch_id: number | string;
+  user_id: number;
+  amount: number;
+  category: 'Reward' | 'Fine';
+  occurrence_date: string;
+  return_month: string; // YYYY-MM-DD
+  reason: string;
 }) => {
   const res = await api.post('/v1/users-finance/add', payload);
   return res.data;

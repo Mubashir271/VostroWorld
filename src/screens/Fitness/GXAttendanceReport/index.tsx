@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Modal,
+  ActivityIndicator, Modal,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -10,34 +10,23 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { RootState } from '../../../redux/store';
-import { getHRSessionsAll, getStaffList } from '../../../api/employeeDashboard';
+import {
+  getGXAttendanceReportPage, getGXTrainerNames, SessionAttendanceRow,
+} from '../../../api/employeeDashboard';
 
-// Confirmed live 2026-06-29: `/v1/session-detail-report` (this screen's
-// previous "Best API" guess) actually returns a payment-type breakdown
-// report, not session/attendance rows — wrong endpoint despite the 200.
-// Built instead on `getHRSessions` (`hr/sessions`, already used by
-// PTAttendance/SalesSessionReport), confirmed live across 26k+ rows on two
-// branches to carry exactly two `type` values, `GX` and `PT` — Befit/SPT
-// are NOT in this table. Filtered here to GX rows (`type === 'GX'`,
-// falling back to `package_type === '15'` since `type` is blank on some
-// legacy GX rows). No start_time/end_time field exists on this endpoint —
-// those columns are always shown as '-' to match the live web admin, which
-// also renders them blank for this report.
-interface Trainer { id: number; name: string; is_gx_trainer?: number; }
-interface SessionRow {
-  id: number;
-  date: string;
-  day: string;
-  client_status?: string;
-  trainer_name?: string;
-  trainer_id?: number;
-  client_name?: string;
-  package_name?: string;
-  package_type?: string;
-  branch_name?: string;
-  type?: string;
-  validate_status?: string;
-}
+// Mirrors the web's GX Attendance Report request exactly (2026-09-18 HAR of
+// the nutritionist login): /fitness/session-attendance/get with type=GX, the
+// date range and the trainer / client / trainer-attendance filters, server
+// paginated 25 per page; trainers from auth/get-name?is_gx_trainer=1. The
+// screen used to pull every page of hr/sessions and filter on the phone,
+// which is tens of thousands of rows. Columns follow the web table: start/end
+// time from `time_slot`, Validate Status from `validate_status` ('1' Verify,
+// '0' Unverify). GX rows carry "Present" in both attendance columns; "Absent"
+// as the other filter value is assumed, not seen in a HAR.
+interface Trainer { id: number; name: string; }
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const dayOf = (iso?: string) => (iso ? DAY_NAMES[new Date(iso + 'T00:00:00').getDay()] : '-');
 
 const fmt = (d: Date) => {
   const y = d.getFullYear();
@@ -81,7 +70,8 @@ const quickDate = (type: string): { start: string; end: string } => {
   }
 };
 
-const CLIENT_STATUS_OPTIONS = ['All', 'Delivered', 'No Show', 'Cancel'] as const;
+const CLIENT_STATUS_OPTIONS = ['All', 'Present', 'Absent'] as const;
+const STAFF_STATUS_OPTIONS = CLIENT_STATUS_OPTIONS;
 
 const COLS = [
   { key: 'sr', label: 'Sr#', width: 36 },
@@ -106,7 +96,8 @@ const GXAttendanceReport = () => {
   const branchId = profile?.branchId || '';
   const branchName = profile?.branchName ?? 'Branch';
 
-  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return fmt(d); });
+  // The web opens on today's sessions.
+  const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [pickerFor, setPickerFor] = useState<'start' | 'end' | null>(null);
 
@@ -115,62 +106,70 @@ const GXAttendanceReport = () => {
   const [trainerName, setTrainerName] = useState('');
   const [trainerModal, setTrainerModal] = useState(false);
 
-  const [clientFilter, setClientFilter] = useState('');
-  const [slotFilter, setSlotFilter] = useState('');
   const [clientStatus, setClientStatus] = useState<string>('All');
+  const [staffStatus, setStaffStatus] = useState<string>('All');
   const [mode, setMode] = useState<'Detail' | 'Summary'>('Detail');
 
-  const [rows, setRows] = useState<SessionRow[]>([]);
+  const [rows, setRows] = useState<SessionAttendanceRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [stats, setStats] = useState<{ label: string; value: number; color: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
   const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
 
   const loadTrainers = useCallback(async () => {
     try {
-      const res = await getStaffList({ branch_id: branchId, limit: 500 });
-      const list: Trainer[] = res?.data?.data ?? res?.data ?? [];
-      setTrainers((Array.isArray(list) ? list : []).filter(s => Number(s.is_gx_trainer) === 1));
+      const list = await getGXTrainerNames(branchId);
+      setTrainers(list.map(t => ({ id: t.id, name: `${t.first_name ?? ''} ${t.last_name ?? ''}`.trim() })));
     } catch {}
   }, [branchId]);
 
-  const load = useCallback(async () => {
+  const filters = useCallback((client: string) => ({
+    branch_id: branchId,
+    start_date: startDate,
+    end_date: endDate,
+    trainer_id: trainerId,
+    client_status: client === 'All' ? '' : client,
+    staff_status: staffStatus === 'All' ? '' : staffStatus,
+  }), [branchId, startDate, endDate, trainerId, staffStatus]);
+
+  const load = useCallback(async (p: number = 1) => {
     setLoading(true);
     setError('');
     try {
-      const data: SessionRow[] = await getHRSessionsAll({ branch_id: branchId, start_date: startDate, end_date: endDate });
-      setRows(data.filter(r => r.type === 'GX' || r.package_type === '15'));
+      if (mode === 'Summary') {
+        // Counts come from each query's totalRecord — no rows are downloaded.
+        const count = async (client: string) =>
+          (await getGXAttendanceReportPage({ ...filters(client), limit: 1, page: 1 })).total;
+        const [all, present, absent] = await Promise.all(
+          [clientStatus, 'Present', 'Absent'].map(count),
+        );
+        setStats([
+          { label: 'Total Sessions', value: all, color: '#1A1A1A' },
+          { label: 'Present', value: present, color: '#10b981' },
+          { label: 'Absent', value: absent, color: '#ef4444' },
+        ]);
+      } else {
+        const r = await getGXAttendanceReportPage({ ...filters(clientStatus), limit: PAGE_SIZE, page: p });
+        setRows(r.rows);
+        setTotal(r.total);
+        setTotalPages(Math.max(1, r.totalPages));
+        setPage(p);
+      }
       setFetched(true);
     } catch (e: any) {
-      const status = e?.response?.status;
-      if (status === 404 || status === 422) { setRows([]); setFetched(true); }
-      else setError(e?.response?.data?.message || 'Failed to load GX attendance report.');
+      setError(e?.response?.data?.message || 'Failed to load GX attendance report.');
     } finally {
       setLoading(false);
     }
-  }, [branchId, startDate, endDate]);
+  }, [mode, filters, clientStatus]);
 
-  useFocusEffect(useCallback(() => { loadTrainers(); load(); }, [loadTrainers, load]));
-
-  const visibleRows = rows.filter(r => {
-    if (trainerId && String(r.trainer_id) !== trainerId) return false;
-    if (clientFilter.trim() && !(r.client_name ?? '').toLowerCase().includes(clientFilter.trim().toLowerCase())) return false;
-    if (slotFilter.trim() && !(r.package_name ?? '').toLowerCase().includes(slotFilter.trim().toLowerCase())) return false;
-    if (clientStatus !== 'All' && r.client_status !== clientStatus) return false;
-    return true;
-  });
-
-  useEffect(() => { setPage(1); }, [trainerId, clientFilter, slotFilter, clientStatus, rows]);
-
-  const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
-  const pagedRows = visibleRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const stats = [
-    { label: 'Total Sessions', value: visibleRows.length, color: '#1A1A1A' },
-    { label: 'Delivered', value: visibleRows.filter(r => r.client_status === 'Delivered').length, color: '#10b981' },
-    { label: 'No Show', value: visibleRows.filter(r => r.client_status === 'No Show').length, color: '#f59e0b' },
-    { label: 'Cancel', value: visibleRows.filter(r => r.client_status === 'Cancel').length, color: '#ef4444' },
-  ];
+  // Trainers once; the report itself loads on open and on Go, like the web.
+  useFocusEffect(useCallback(() => { loadTrainers(); }, [loadTrainers]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(1); }, []);
 
   return (
     <View style={styles.root}>
@@ -241,28 +240,14 @@ const GXAttendanceReport = () => {
                 <Icon name="chevron-down" size={16} color="#666" />
               </TouchableOpacity>
             </View>
-            <View style={styles.col2}>
-              <Text style={styles.label}>Clients Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Filter by client"
-                placeholderTextColor="#aaa"
-                value={clientFilter}
-                onChangeText={setClientFilter}
-              />
-            </View>
           </View>
-          <View style={styles.row2}>
-            <View style={styles.col2}>
-              <Text style={styles.label}>Slots</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Filter by class/slot"
-                placeholderTextColor="#aaa"
-                value={slotFilter}
-                onChangeText={setSlotFilter}
-              />
-            </View>
+          <Text style={styles.label}>Trainer Attendance</Text>
+          <View style={[styles.pillRow, styles.pillGap]}>
+            {STAFF_STATUS_OPTIONS.map(s => (
+              <TouchableOpacity key={s} style={[styles.pill, staffStatus === s && styles.pillActive]} onPress={() => setStaffStatus(s)}>
+                <Text style={[styles.pillText, staffStatus === s && styles.pillTextActive]}>{s}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
           <Text style={[styles.label, { marginTop: 4 }]}>Client Attendance</Text>
           <View style={styles.pillRow}>
@@ -286,7 +271,7 @@ const GXAttendanceReport = () => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.goBtn} onPress={load}>
+        <TouchableOpacity style={styles.goBtn} onPress={() => load(1)} disabled={loading}>
           {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.goBtnText}>Go</Text>}
         </TouchableOpacity>
 
@@ -294,7 +279,7 @@ const GXAttendanceReport = () => {
 
         {fetched && (
           <View style={[styles.card, { marginTop: 14 }]}>
-            <Text style={styles.cardTitle}>Filtered Result</Text>
+            <Text style={styles.cardTitle}>Filtered Result{mode === 'Detail' && total ? ` (${total})` : ''}</Text>
             {loading
               ? <ActivityIndicator color="#C62828" style={{ marginVertical: 30 }} />
               : mode === 'Summary'
@@ -308,7 +293,7 @@ const GXAttendanceReport = () => {
                     ))}
                   </View>
                 )
-                : visibleRows.length === 0
+                : rows.length === 0
                   ? <Text style={styles.emptyText}>No records found.</Text>
                   : (
                     <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -318,45 +303,47 @@ const GXAttendanceReport = () => {
                             <Text key={c.key} style={[styles.th, { width: c.width }]}>{c.label}</Text>
                           ))}
                         </View>
-                        {pagedRows.map((r, i) => (
+                        {rows.map((r, i) => (
                           <View key={r.id} style={[styles.tr, i % 2 === 1 && styles.trAlt]}>
                             <Text style={[styles.td, { width: COLS[0].width }]}>{(page - 1) * PAGE_SIZE + i + 1}</Text>
-                            <Text style={[styles.td, { width: COLS[1].width, textAlign: 'left' }]} numberOfLines={1}>{r.trainer_name ?? '-'}</Text>
-                            <Text style={[styles.td, { width: COLS[2].width, textAlign: 'left' }]} numberOfLines={1}>{r.client_name ?? '-'}</Text>
-                            <Text style={[styles.td, { width: COLS[3].width }]}>{r.branch_name ?? '-'}</Text>
-                            <Text style={[styles.td, { width: COLS[4].width, textAlign: 'left' }]} numberOfLines={1}>{r.package_name ?? '-'}</Text>
-                            <Text style={[styles.td, { width: COLS[5].width }]}>{r.day ?? '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[1].width, textAlign: 'left' }]} numberOfLines={1}>{r.trainer?.trainer_name ?? '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[2].width, textAlign: 'left' }]} numberOfLines={1}>{r.order?.client_name ?? '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[3].width }]}>{r.branch?.name ?? branchName}</Text>
+                            <Text style={[styles.td, { width: COLS[4].width, textAlign: 'left' }]} numberOfLines={1}>{r.order?.name ?? '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[5].width }]}>{r.day || dayOf(r.date)}</Text>
                             <Text style={[styles.td, { width: COLS[6].width }]}>{display(r.date)}</Text>
-                            <Text style={[styles.td, { width: COLS[7].width }]}>{r.client_status ?? '-'}</Text>
-                            <Text style={[styles.td, { width: COLS[8].width }]}>-</Text>
-                            <Text style={[styles.td, { width: COLS[9].width }]}>-</Text>
-                            <Text style={[styles.td, { width: COLS[10].width, color: '#1565C0', fontWeight: '700' }]}>Verify</Text>
-                            <Text style={[styles.td, { width: COLS[11].width, color: '#2E7D32', fontWeight: '700' }]}>Active</Text>
+                            <Text style={[styles.td, { width: COLS[7].width }]}>{r.client_status || '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[8].width }]}>{r.time_slot?.start_time ?? '-'}</Text>
+                            <Text style={[styles.td, { width: COLS[9].width }]}>{r.time_slot?.end_time ?? '-'}</Text>
+                            <Text style={[styles.td, styles.bold, { width: COLS[10].width }, r.validate_status === '1' ? styles.verify : styles.unverify]}>
+                              {r.validate_status === '1' ? 'Verify' : 'Unverify'}
+                            </Text>
+                            <Text style={[styles.td, { width: COLS[11].width, color: r.status === '1' ? '#2E7D32' : '#999', fontWeight: '700' }]}>{r.status === '1' ? 'Active' : 'Inactive'}</Text>
                           </View>
                         ))}
                       </View>
                     </ScrollView>
                   )
             }
-            {!loading && mode === 'Detail' && visibleRows.length > PAGE_SIZE && (
+            {!loading && mode === 'Detail' && totalPages > 1 && (
               <View style={styles.pagination}>
-                <TouchableOpacity disabled={page === 1} onPress={() => setPage(1)}>
+                <TouchableOpacity disabled={page === 1} onPress={() => load(1)}>
                   <Text style={[styles.pageEdgeText, page === 1 && styles.pageDisabledText]}>First Page</Text>
                 </TouchableOpacity>
-                <TouchableOpacity disabled={page === 1} onPress={() => setPage(p => Math.max(1, p - 1))}>
+                <TouchableOpacity disabled={page === 1} onPress={() => load(page - 1)}>
                   <Text style={[styles.pageArrow, page === 1 && styles.pageDisabledText]}>‹</Text>
                 </TouchableOpacity>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pageNumScroll}>
                   {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(n => (
-                    <TouchableOpacity key={n} onPress={() => setPage(n)} style={[styles.pageNum, page === n && styles.pageNumActive]}>
+                    <TouchableOpacity key={n} onPress={() => load(n)} style={[styles.pageNum, page === n && styles.pageNumActive]}>
                       <Text style={[styles.pageNumText, page === n && styles.pageNumTextActive]}>{n}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-                <TouchableOpacity disabled={page === totalPages} onPress={() => setPage(p => Math.min(totalPages, p + 1))}>
+                <TouchableOpacity disabled={page === totalPages} onPress={() => load(page + 1)}>
                   <Text style={[styles.pageArrow, page === totalPages && styles.pageDisabledText]}>›</Text>
                 </TouchableOpacity>
-                <TouchableOpacity disabled={page === totalPages} onPress={() => setPage(totalPages)}>
+                <TouchableOpacity disabled={page === totalPages} onPress={() => load(totalPages)}>
                   <Text style={[styles.pageEdgeText, page === totalPages && styles.pageDisabledText]}>Last Page</Text>
                 </TouchableOpacity>
               </View>
@@ -437,6 +424,10 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12, color: '#555', fontWeight: '500' },
 
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pillGap: { marginBottom: 12 },
+  bold: { fontWeight: '700' },
+  verify: { color: '#2E7D32' },
+  unverify: { color: R },
   pill: { borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FAFAFA' },
   pillActive: { backgroundColor: R, borderColor: R },
   pillText: { fontSize: 13, color: '#555' },

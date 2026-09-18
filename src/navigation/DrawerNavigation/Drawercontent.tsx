@@ -6,9 +6,9 @@ import { DrawerContentScrollView } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Edit_fill } from '../../assets/icons';
 import ProfileHeader from '../../components/ProfileHeader';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import { logoutUser } from '../../redux/slices/userSlice';
+import { performLogout } from '../../utils/logout';
 import { clearCredentials } from '../../utils/biometrics';
 import {
   isAdmin,
@@ -19,7 +19,6 @@ import {
   TRAINER_ALLOWED_MENUS,
   TRAINER_ALLOWED_HR_CHILDREN,
   ADMIN_HIDDEN_MENUS,
-  HR_ALLOWED_MENUS,
   NUTRITIONIST_ALLOWED_MENUS,
   NUTRITIONIST_ALLOWED_FITNESS_CHILDREN,
   NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN,
@@ -28,6 +27,7 @@ import {
   FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN,
   roleLabelOf,
   isEmployee,
+  isSuperAdmin,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
@@ -125,6 +125,9 @@ import {
 const MENU = [
   // ── Shared ────────────────────────────────────────────────────────────────
   { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
+  // Super Admin only — filtered out for the F-11 / G-13 admins below, since
+  // the web shows it under the all-branches login.
+  { title: 'Admin Dashboard', icon: 'view-dashboard-variant', screen: 'AdminDashboard' },
 
   // ── Trainer-only (hidden from admin by ADMIN_HIDDEN_MENUS) ────────────────
   // { title: 'My Commission', icon: 'cash-multiple', screen: 'TrainerCommission' },
@@ -489,6 +492,102 @@ const EMPLOYEE_MENU = [
   { title: 'Employee Dashboard', icon: 'badge-account', screen: 'EmployeeDashboard' },
 ];
 
+// Super Admin's Dashboard group — the web's all-branches login shows these
+// under one expandable "Dashboard" (checked 2026-09-18), in this order. It
+// replaces the flat Dashboard / Admin Dashboard entries and absorbs the
+// standalone Approval entry. `soon` items are greyed out and not tappable:
+// the web marks My Dashboard, Alerts & Notifications and Calendar "SOON", and
+// Social Media Dashboard has no screen in the app yet.
+const SUPER_ADMIN_DASHBOARD = {
+  title: 'Dashboard',
+  icon: 'view-dashboard',
+  children: [
+    { title: 'Admin Dashboard', screen: 'AdminDashboard' },
+    { title: 'Fitness Dashboard', screen: 'FitnessDashboard' },
+    { title: 'Social Media Dashboard', soon: true },
+    // { title: 'Dashboard', screen: 'Dashboard' },
+    { title: 'My Dashboard', soon: true },
+    { title: 'Approvals', screen: 'ApprovalsScreen' },
+    { title: 'Alerts & Notifications', soon: true },
+    { title: 'Calendar', soon: true },
+  ],
+};
+
+// Super Admin's CRM / Clients section — the web's all-branches sidebar
+// (checked 2026-09-18), in its order and wording, mapped to existing screens.
+// Packages reuses the admin Sales › Packages list; Memberships opens the
+// membership package view/add screen. The web itself marks the four
+// client-record items "SOON".
+const buildSuperAdminCRM = (salesPackages?: any) => ({
+  title: 'CRM / Clients',
+  icon: 'account-group',
+  children: [
+    { title: 'Clients', screen: 'ViewClients' },
+    { title: 'Add Client', screen: 'NewMemberRegistration' },
+    { title: 'Memberships', screen: 'MembershipPackages' },
+    ...(salesPackages ? [salesPackages] : []),
+    { title: 'Freezing', screen: 'ViewFreezing' },
+    { title: 'Access Control — Assign Cards', screen: 'AssignCards' },
+    { title: 'Access Control — View Cards', screen: 'ViewCards' },
+    { title: 'Client Profile', soon: true },
+    { title: 'Client Attendance', soon: true },
+    { title: 'Client Notes', soon: true },
+    { title: 'Client Documents', soon: true },
+  ],
+});
+
+// Top-level order of the web's super admin sidebar, with its shorter names.
+// Sections the app doesn't have (Facility, Marketing, Administration) are
+// skipped; anything not listed keeps its place after these.
+const SUPER_ADMIN_ORDER: [string, string][] = [
+  ['Sales', 'Sales'],
+  ['Fitness', 'Fitness'],
+  ['Human Resource', 'HR'],
+  ['Finance', 'Finance'],
+  ['Nutrition', 'Nutrition'],
+  ['Physiotherapy', 'Physio'],
+  ['Cafe', 'Cafe'],
+  ['Reports', 'Reports'],
+];
+
+// HR login's own menu — mirrors the web HR-login sidebar item-for-item
+// (checked 2026-09-18): a flat "HR" section in the web's order and wording,
+// mapped onto the existing Human Resource screens. The admin's grouped
+// "Manage Staff" layout doesn't match what HR sees on the web.
+const HR_MENU = [
+  { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
+  {
+    title: 'HR',
+    icon: 'briefcase-account',
+    children: [
+      { title: 'HR Dashboard', screen: 'HRDashboard' },
+      { title: 'Employee Master', screen: 'ViewStaff' },
+      { title: 'Add Employee', screen: 'AddStaff' },
+      { title: 'Attendance', screen: 'StaffAttendanceReport' },
+      { title: 'Employee Attendance', screen: 'EmployeeAttendance' },
+      { title: 'PT Attendance', screen: 'PTAttendance' },
+      { title: 'Staff Duty Hours', screen: 'StaffDutyHours' },
+      {
+        title: 'Leave Management',
+        children: [
+          { title: 'Leave Quota', screen: 'LeaveQuota' },
+          { title: 'Leave Application', screen: 'LeaveApplications' },
+        ],
+      },
+      { title: 'Salary Management', screen: 'SalaryManagement' },
+      { title: 'Salary Components', screen: 'SalaryComponent' },
+      { title: 'Loans / Advances', screen: 'StaffLoans' },
+      { title: 'Staff Advances', screen: 'StaffAdvances' },
+      { title: 'Fines & Penalties', screen: 'StaffFinance' },
+      { title: 'Promotions & Disciplinary', screen: 'StaffPromotion' },
+      { title: 'Session Portal', screen: 'SessionPortalHR' },
+      { title: 'Resource Management', screen: 'ResourceManager' },
+      { title: 'Letters & Certificates', screen: 'LetterManagement' },
+      { title: 'HR Reports', screen: 'DetailedHRReport' },
+    ],
+  },
+];
+
 const SALES_MENU = [
   { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
   {
@@ -615,14 +714,42 @@ const filterMenuForRole = (
   }
 
   if (isAdmin(role)) {
-    // Admin: hide all trainer-only top-level items
-    return menu.filter(item => !ADMIN_HIDDEN_MENUS.includes(item.title));
+    // Admin: hide all trainer-only top-level items. Admin Dashboard is the
+    // one entry reserved for Super Admin — the branch admins (role '3') are
+    // pinned to a single branch and the screen is built around "All Branches".
+    const adminMenu = menu.filter(
+      item =>
+        !ADMIN_HIDDEN_MENUS.includes(item.title) &&
+        (item.title !== 'Admin Dashboard' || isSuperAdmin(role)),
+    );
+    if (!isSuperAdmin(role)) return adminMenu;
+    const rest = adminMenu.filter(
+      item => !['Dashboard', 'Admin Dashboard', 'Approval'].includes(item.title),
+    );
+    const salesPackages = rest
+      .find(item => item.title === 'Sales')
+      ?.children?.find((c: any) => c.title === 'Packages');
+    const ordered = SUPER_ADMIN_ORDER
+      .map(([from, to]) => {
+        const item = rest.find(i => i.title === from);
+        return item ? { ...item, title: to } : null;
+      })
+      .filter(Boolean);
+    const others = rest.filter(i => !SUPER_ADMIN_ORDER.some(([from]) => from === i.title));
+    return [
+      SUPER_ADMIN_DASHBOARD,
+      buildSuperAdminCRM(salesPackages),
+      ...ordered,
+      ...others,
+    ] as typeof MENU;
   }
 
   if (isHR(role)) {
-    // HR: only Dashboard, Human Resource, Notifications — confirmed live
-    // 2026-06-29 against the web admin's HR-login menu.
-    return menu.filter(item => HR_ALLOWED_MENUS.includes(item.title));
+    // HR has its own menu (see HR_MENU), plus the shared Notifications entry.
+    return [
+      ...HR_MENU,
+      ...menu.filter(item => item.title === 'Notifications'),
+    ] as typeof MENU;
   }
 
   if (isSales(role)) {
@@ -730,7 +857,6 @@ const filterMenuForRole = (
 
 const DrawerContent = (props: any) => {
   const { navigation } = props;
-  const dispatch = useDispatch();
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [active, setActive] = React.useState('Dashboard');
 
@@ -739,7 +865,10 @@ const DrawerContent = (props: any) => {
   const firstName = profile?.firstName || 'User';
   const lastName = profile?.lastName || '';
   const role = roleLabelOf(profile?.role, profile?.type);
-  const branch = profile?.branchName || `Branch ${profile?.branchId}`;
+  // Super admin has no branch of its own (branch_id 0), which used to render
+  // as "Branch 0"; the web labels that login "All Branches".
+  const branch = profile?.branchName
+    || (profile?.branchId ? `Branch ${profile.branchId}` : 'All Branches');
   const avatarSource = appImage
     ? { uri: appImage }
     : profile?.image
@@ -751,7 +880,7 @@ const DrawerContent = (props: any) => {
   const visibleMenu = filterMenuForRole(MENU, profile?.role);
 
   const handleLogout = () => {
-    dispatch(logoutUser());
+    performLogout();
     clearCredentials();
     navigation.replace('WelcomeAdmin');
   };
@@ -834,8 +963,19 @@ const DrawerContent = (props: any) => {
     const key = parentKey ? `${parentKey}.${item.title}` : item.title;
 
     const isOpen = expanded.has(key);
-    const isActive = active === item.title;
     const hasChildren = item.children?.length > 0;
+    // Only leaves highlight — Super Admin's "Dashboard" group shares its title
+    // with the Dashboard entry inside it.
+    const isActive = !hasChildren && active === item.title;
+
+    if (item.soon) {
+      return (
+        <View key={key} style={[styles.menuItem, { paddingLeft: 20 + level * 12 }]}>
+          <Text style={[styles.menuText, styles.soonText]}>{item.title}</Text>
+          <Text style={styles.soonBadge}>SOON</Text>
+        </View>
+      );
+    }
 
     return (
       <View key={key}>
@@ -991,6 +1131,8 @@ const styles = StyleSheet.create({
   activeSubItem: { backgroundColor: '#FFF5F5', borderRadius: 6 },
   subMenuText: { fontSize: 14, color: '#666' },
   activeSubText: { color: '#E63946', fontWeight: '600' },
+  soonText: { fontSize: 13, color: '#BBB' },
+  soonBadge: { fontSize: 11, color: '#BBB', fontWeight: '600', letterSpacing: 0.5 },
   logoutItem: { marginTop: 16, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
   bottomPadding: { height: 20 },
 });

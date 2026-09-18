@@ -82,8 +82,11 @@ android {
         applicationId "com.vostroworld"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 7
-        versionName "1.1"
+        // versionName carries the build number so a tester can read which build
+        // they have from Settings › Apps. Two different builds both calling
+        // themselves "1.1" is what made build 4 and build 7 indistinguishable.
+        versionCode 8
+        versionName "1.1.8"
     }
     aaptOptions {
         cruncherEnabled false
@@ -96,10 +99,15 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('your_key_name.keystore')
-            storePassword 'admin123'
-            keyAlias 'your_key_alias'
-            keyPassword 'admin123'
+            // This repo is public, so the upload keystore's credentials must
+            // never sit in this file. They live in ~/.gradle/gradle.properties
+            // (outside the repo) as VOSTRO_UPLOAD_STORE_FILE / _STORE_PASSWORD
+            // / _KEY_ALIAS / _KEY_PASSWORD. Without them a release build fails
+            // to sign; debug builds are unaffected.
+            storeFile file(project.findProperty('VOSTRO_UPLOAD_STORE_FILE') ?: 'your_key_name.keystore')
+            storePassword project.findProperty('VOSTRO_UPLOAD_STORE_PASSWORD')
+            keyAlias project.findProperty('VOSTRO_UPLOAD_KEY_ALIAS')
+            keyPassword project.findProperty('VOSTRO_UPLOAD_KEY_PASSWORD')
         }
     }
     buildTypes {

@@ -155,6 +155,10 @@ export const EMPLOYEE_ALLOWED_SCREENS = [
 export const EMPLOYEE_ALLOWED_MENUS = ['Employee Dashboard'];
 
 export const isAdmin = (role?: string | null) => role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
+// Strictly role '1'. `isAdmin` also covers the F-11 / G-13 branch admins (role
+// '3'); screens that are for the all-branches login only — the Admin Dashboard
+// — must use this instead.
+export const isSuperAdmin = (role?: string | null) => role === ROLES.SUPER_ADMIN;
 export const isSales = (role?: string | null) => role === ROLES.SALES;
 export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
 export const isHR = (role?: string | null) => role === ROLES.HR;

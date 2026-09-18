@@ -1,62 +1,68 @@
-import React, { useState } from 'react';
+// Membership Packages — CRM / Clients › Memberships (and Sales › Packages).
+// Mirrors the web page: Add form, then Active and Inactive tables.
+// Data: /packages/get?key=category&value=6, status 1 / 0 (HAR 2026-09-18).
+// Both lists are fetched whole and searched / paged 25 at a time here.
+// Add, Update and Active/Inactive use the package routes confirmed for cafe
+// packages (see cafe.ts). The web's Delete was never captured, so it is left
+// out rather than guessed.
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  TextInput, ScrollView, Alert,
+  TextInput, ScrollView, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import { SelectionField } from '../../../components/SelectionField';
 import { SelectionModal } from '../../../components/SelectionModal';
+import { RootState } from '../../../redux/store';
+import { getBranchesNameList } from '../../../api/employeeDashboard';
+import {
+  getMembershipPackages, addMembershipPackage, updateMembershipPackage,
+  setMembershipPackageStatus, MembershipPackageRow,
+} from '../../../api/cafe';
 
 interface PackageItem {
   id: number;
+  branchId: number;
   branch: string;
   name: string;
   price: string;
   active: boolean;
 }
 
-const BRANCH_OPTIONS = [
-  { id: '1', label: 'F 11' },
-  { id: '2', label: 'G 13' },
-  { id: '3', label: 'DHA' },
-];
+const toItem = (r: MembershipPackageRow, active: boolean): PackageItem => ({
+  id: r.id,
+  branchId: r.branch_id,
+  branch: r.branches_name ?? '',
+  name: r.package_name ?? '',
+  price: String(r.price ?? 0),
+  active,
+});
 
-const MOCK_PACKAGES: PackageItem[] = [
-  { id: 1, branch: 'F 11', name: 'Hilong Group Corporate membership fee', price: '19,608', active: true },
-  { id: 2, branch: 'F 11', name: 'Golootlo Offer', price: '22,500', active: true },
-  { id: 3, branch: 'F 11', name: 'Eid Offer - 50% Off', price: '22,500', active: true },
-  { id: 4, branch: 'F 11', name: 'New - Membership - 1st Installment', price: '30,000', active: true },
-  { id: 5, branch: 'F 11', name: 'FBR TEST PACKAGE', price: '5', active: true },
-  { id: 6, branch: 'F 11', name: 'Student - Membership - (100% Off)', price: '0', active: true },
-  { id: 7, branch: 'F 11', name: 'Ladies Only - Membership - (100% Off)', price: '0', active: true },
-  { id: 8, branch: 'F 11', name: 'Ladies only - Membership', price: '20,000', active: true },
-  { id: 9, branch: 'F 11', name: 'Off-Peak - Membership - (100% Off)', price: '0', active: true },
-  { id: 10, branch: 'F 11', name: '100% Off - Membership', price: '0', active: true },
-  { id: 11, branch: 'F 11', name: 'Senior Citizen - Membership - (100% Off)', price: '0', active: true },
-  { id: 12, branch: 'F 11', name: 'Membership New (BNPL Inst. 3)', price: '11,667', active: false },
-  { id: 13, branch: 'F 11', name: 'Membership New (BNPL Inst. 2)', price: '11,667', active: false },
-  { id: 14, branch: 'F 11', name: 'Membership New (BNPL Inst. 1)', price: '11,666', active: false },
-  { id: 15, branch: 'F 11', name: 'New Year offer 75% off Student Membership', price: '4,500', active: false },
-  { id: 16, branch: 'F 11', name: 'New Year offer 50% off Student Membership', price: '9,000', active: false },
-  { id: 17, branch: 'F 11', name: 'New year offer 100% off', price: '0', active: false },
-  { id: 18, branch: 'F 11', name: 'New year offer 75% off', price: '8,750', active: false },
-  { id: 19, branch: 'F 11', name: 'New year offer 50% off', price: '18,000', active: false },
-  { id: 20, branch: 'F 11', name: 'New Year offer 100% off Ladies Membership', price: '0', active: false },
-  { id: 21, branch: 'F 11', name: 'New Year offer 50% off Ladies Membership', price: '9,000', active: false },
-  { id: 22, branch: 'F 11', name: 'Moonsoon Offer', price: '15,000', active: false },
-];
+const errText = (e: any, fallback: string) => {
+  const msg = e?.response?.data?.message;
+  return typeof msg === 'string' ? msg : msg ? Object.values(msg).flat().join(' ') : fallback;
+};
 
 const PAGE_SIZE = 25;
 
 const MembershipPackages = () => {
   const navigation = useNavigation<any>();
 
-  const [packages, setPackages] = useState<PackageItem[]>(MOCK_PACKAGES);
+  const { profile } = useSelector((state: RootState) => state.user);
+  // '' (all branches) only for the no-branch super admin login.
+  const viewerBranch = profile?.branchId || '';
 
-  const [branch, setBranch] = useState('F 11');
+  const [packages, setPackages] = useState<PackageItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [branches, setBranches] = useState<{ id: string; label: string }[]>([]);
+
+  const [branch, setBranch] = useState('');
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -67,7 +73,43 @@ const MembershipPackages = () => {
   const [activePage, setActivePage] = useState(1);
   const [inactivePage, setInactivePage] = useState(1);
 
-  const handleAdd = () => {
+  const load = useCallback(async () => {
+    try {
+      const [active, inactive] = await Promise.all([
+        getMembershipPackages(viewerBranch, 1),
+        getMembershipPackages(viewerBranch, 0),
+      ]);
+      setPackages([...active.map(r => toItem(r, true)), ...inactive.map(r => toItem(r, false))]);
+    } catch (e: any) {
+      Alert.alert('Error', errText(e, 'Could not load membership packages.'));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [viewerBranch]);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    getBranchesNameList()
+      .then(res => {
+        const list = (res?.data ?? []).map((b: any) => ({ id: String(b.id), label: b.name }));
+        setBranches(list);
+        // Branch-bound logins default to their own branch.
+        const own = list.find((b: any) => b.id === String(viewerBranch));
+        if (own) setBranch(own.label);
+      })
+      .catch(() => {});
+  }, [viewerBranch]);
+
+  const resetForm = () => { setEditingId(null); setName(''); setPrice(''); };
+
+  const handleAdd = async () => {
+    const branchId = branches.find(b => b.label === branch)?.id;
+    if (!branchId) {
+      Alert.alert('Validation', 'Please select a branch.');
+      return;
+    }
     if (!name.trim()) {
       Alert.alert('Validation', 'Please enter a package name.');
       return;
@@ -76,18 +118,18 @@ const MembershipPackages = () => {
       Alert.alert('Validation', 'Please enter a price.');
       return;
     }
-    if (editingId) {
-      setPackages(prev => prev.map(p => p.id === editingId
-        ? { ...p, branch, name: name.trim(), price: price.trim() }
-        : p));
-      setEditingId(null);
-    } else {
-      setPackages(prev => [...prev, {
-        id: Date.now(), branch, name: name.trim(), price: price.trim(), active: true,
-      }]);
+    const payload = { branch_id: Number(branchId), package_name: name.trim(), price: Number(price) || 0 };
+    setSaving(true);
+    try {
+      if (editingId) await updateMembershipPackage(editingId, payload);
+      else await addMembershipPackage(payload);
+      resetForm();
+      load();
+    } catch (e: any) {
+      Alert.alert('Error', errText(e, `Could not ${editingId ? 'update' : 'add'} the package.`));
+    } finally {
+      setSaving(false);
     }
-    setName('');
-    setPrice('');
   };
 
   const handleUpdate = (item: PackageItem) => {
@@ -103,21 +145,20 @@ const MembershipPackages = () => {
       `${active ? 'Activate' : 'Deactivate'} "${item.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: active ? 'Activate' : 'Deactivate', style: active ? 'default' : 'destructive', onPress: () => setPackages(prev => prev.map(p => p.id === item.id ? { ...p, active } : p)) },
+        {
+          text: active ? 'Activate' : 'Deactivate',
+          style: active ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              await setMembershipPackageStatus(item.id, active ? 'active' : 'inactive');
+              load();
+            } catch (e: any) {
+              Alert.alert('Error', errText(e, 'Could not change the package status.'));
+            }
+          },
+        },
       ],
     );
-  };
-
-  const handleDelete = (item: PackageItem) => {
-    Alert.alert('Delete Package', `Delete "${item.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: () => {
-          setPackages(prev => prev.filter(p => p.id !== item.id));
-          if (editingId === item.id) { setEditingId(null); setName(''); setPrice(''); }
-        },
-      },
-    ]);
   };
 
   const activePackages = packages.filter(p => p.active && (!searchActive.trim() || p.name.toLowerCase().includes(searchActive.trim().toLowerCase())));
@@ -160,7 +201,11 @@ const MembershipPackages = () => {
         backgroundColor="#FFE5E5"
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} colors={['#E63946']} />}
+      >
         {/* ── Add / Update Membership Package ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -199,11 +244,13 @@ const MembershipPackages = () => {
               />
             </View>
 
-            <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
-              <Text style={styles.addBtnText}>{editingId ? 'Update' : 'Add'}</Text>
+            <TouchableOpacity style={[styles.addBtn, saving && styles.addBtnBusy]} onPress={handleAdd} disabled={saving}>
+              {saving
+                ? <ActivityIndicator color="#FFF" size="small" />
+                : <Text style={styles.addBtnText}>{editingId ? 'Update' : 'Add'}</Text>}
             </TouchableOpacity>
             {editingId && (
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setEditingId(null); setName(''); setPrice(''); }}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={resetForm}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             )}
@@ -244,7 +291,9 @@ const MembershipPackages = () => {
                 <Text style={[tbl.headerCell, { width: 90 }]}>Price</Text>
                 <Text style={[tbl.headerCell, { width: 150 }]}>Actions</Text>
               </View>
-              {activePageData.length === 0
+              {loading
+                ? <View style={styles.noRecord}><ActivityIndicator color="#E63946" /></View>
+                : activePageData.length === 0
                 ? <View style={styles.noRecord}><Text style={styles.noRecordText}>No Record Found</Text></View>
                 : activePageData.map((p, i) => (
                   <View key={p.id} style={[tbl.dataRow, (activeStartIdx + i) % 2 === 1 && tbl.dataRowAlt]}>
@@ -304,7 +353,9 @@ const MembershipPackages = () => {
                 <Text style={[tbl.headerCell, { width: 90 }]}>Price</Text>
                 <Text style={[tbl.headerCell, { width: 150 }]}>Actions</Text>
               </View>
-              {inactivePageData.length === 0
+              {loading
+                ? <View style={styles.noRecord}><ActivityIndicator color="#E63946" /></View>
+                : inactivePageData.length === 0
                 ? <View style={styles.noRecord}><Text style={styles.noRecordText}>No Record Found</Text></View>
                 : inactivePageData.map((p, i) => (
                   <View key={p.id} style={[tbl.dataRow, (inactiveStartIdx + i) % 2 === 1 && tbl.dataRowAlt]}>
@@ -316,10 +367,6 @@ const MembershipPackages = () => {
                       <TouchableOpacity style={[btn.pill, btn.update]} onPress={() => handleSetActive(p, true)}>
                         <Icon name="check-circle-outline" size={12} color="#2A9348" />
                         <Text style={[btn.pillText, { color: '#2A9348' }]}>Active</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[btn.pill, btn.delete]} onPress={() => handleDelete(p)}>
-                        <Icon name="trash-can-outline" size={12} color="#C0392B" />
-                        <Text style={[btn.pillText, { color: '#C0392B' }]}>Delete</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -334,7 +381,7 @@ const MembershipPackages = () => {
       <SelectionModal
         visible={branchModal}
         title="Select Branch"
-        options={BRANCH_OPTIONS}
+        options={branches}
         selectedValue={branch}
         onSelect={(val: string) => { setBranch(val); setBranchModal(false); }}
         onClose={() => setBranchModal(false)}
@@ -358,6 +405,7 @@ const styles = StyleSheet.create({
   input:            { backgroundColor: '#FAFAFA', borderRadius: 8, padding: 14, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: '#1F2937' },
   addBtn:           { backgroundColor: '#1A1A1A', borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
   addBtnText:       { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  addBtnBusy:       { opacity: 0.6 },
   cancelBtn:        { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
   cancelBtnText:    { color: '#E63946', fontWeight: '600', fontSize: 13 },
   toolbar:          { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, flexWrap: 'wrap' },

@@ -5,17 +5,16 @@ import React, { useCallback, useEffect, useState } from 'react'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
-import { logoutUser } from '../../redux/slices/userSlice';
+import { performLogout } from '../../utils/logout';
 import { isEmployee, isNutritionist, isTrainer, roleLabelOf } from '../../config/permissions';
 import { getStaffDetail } from '../../api/employeeDashboard';
 
 
 const AccountScreen = () => {
   const navigation = useNavigation<any>();
-  const dispatch = useDispatch();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -116,7 +115,7 @@ const AccountScreen = () => {
   };
 
   const handleLogout = () => {
-    dispatch(logoutUser());
+    performLogout();
     navigation.replace('WelcomeAdmin');
   };
 
@@ -131,20 +130,8 @@ const AccountScreen = () => {
     { label: 'Designing/Job Title', value: profileData.jobTitle },
   ];
 
-  const securityItems = [
-    { label: 'Change Password', icon: 'chevron-right' },
-    { label: 'Two-factor authentication', icon: 'chevron-right' },
-    { label: 'Active sessions', icon: 'chevron-right' },
-  ];
-
-  const preferenceItems = [
-    { label: 'Language', value: 'English', icon: 'chevron-right' },
-    { label: 'Time Zone', value: '(GMT+5:00)Pakistan', icon: 'chevron-right' },
-    { label: 'Theme', value: 'Dark', icon: 'chevron-right' },
-    { label: 'Notification preferences', icon: 'chevron-right' },
-  ];
-
-  const aboutAppItems = [
+  // `onPress` is optional: rows without one are informational.
+  const aboutAppItems: { label: string; value?: string; icon?: string; onPress?: () => void }[] = [
     { label: 'App version', value: DeviceInfo.getVersion() },
     { label: 'Build number', value: DeviceInfo.getBuildNumber() },
     { label: 'Check for updates', icon: 'chevron-right' },
@@ -204,31 +191,6 @@ const AccountScreen = () => {
               </View>
             ))}
           </View>
-
-          {/* Security */}
-          {/* <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Security</Text>
-            {securityItems.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.listItem}>
-                <Text style={styles.listLabel}>{item.label}</Text>
-                <Icon name={item.icon} size={20} color="#999" />
-              </TouchableOpacity>
-            ))}
-          </View> */}
-
-          {/* Preferences */}
-          {/* <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
-            {preferenceItems.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.listItem}>
-                <View>
-                  <Text style={styles.listLabel}>{item.label}</Text>
-                  {item.value && <Text style={styles.listValue}>{item.value}</Text>}
-                </View>
-                <Icon name={item.icon} size={20} color="#999" />
-              </TouchableOpacity>
-            ))}
-          </View> */}
 
           {/* About App */}
           <View style={styles.section}>
