@@ -8,7 +8,7 @@ import {
   AccountTab, HomeTab, MembersTab, PackageTab, ReportsTab,
 } from '../../assets/icons';
 import { RootState } from '../../redux/store';
-import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, isTrainer } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, isTrainer, isGeneralTrainer } from '../../config/permissions';
 
 // ── Stacks ───────────────────────────────────────────────────────────────────
 import HomeStack from '../stacks/HomeStack';
@@ -21,6 +21,7 @@ import AccountStack from '../stacks/AccountStack';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import AttendanceScreen from '../../screens/Attendance';
 import TrainerRoster from '../../screens/trainer/TrainerRoster';
+import SessionTrackerScreen from '../../screens/trainer/SessionTrackerScreen';
 import ViewStaffScreen from '../../screens/HR/ViewStaff';
 
 // ── Nutritionist / Fitness Manager screens ─────────────────────────────────────
@@ -76,6 +77,11 @@ const BottomTabNavigation = () => {
   // Blank role: the web gives this account only the Employee Dashboard, so
   // the trainer tabs (My Clients / Attendance / Roster) must not appear.
   const userIsEmployee = isEmployee(profile?.role);
+  // General Trainer (role 17): the web gives them Employee Dashboard and a GT
+  // Dashboard and nothing else, so they get the same bare Home + Account tab
+  // pair as a blank-role employee — not the personal trainer's My Clients /
+  // Attendance / Roster, which is what they used to fall through to.
+  const userIsGeneralTrainer = isGeneralTrainer(profile?.role);
 
   // Sales works the same client/package/report surface as admin, so it gets
   // the same tab set rather than the trainer's My Clients/Attendance/Roster.
@@ -91,7 +97,7 @@ const BottomTabNavigation = () => {
         options={{ tabBarIcon: imgIcon(HomeTab) }}
       />
 
-      {userIsEmployee ? null : useAdminTabs ? (
+      {userIsEmployee || userIsGeneralTrainer ? null : useAdminTabs ? (
         /* ── Admin / Sales tabs ── */
         <>
           <Tab.Screen
@@ -148,11 +154,21 @@ const BottomTabNavigation = () => {
               options={{ tabBarLabel: 'My Clients', tabBarIcon: mcIcon('account-multiple') }}
             />
           )}
-          <Tab.Screen
-            name="Attendance"
-            component={AttendanceScreen}
-            options={{ tabBarLabel: 'Attendance', tabBarIcon: mcIcon('calendar-check') }}
-          />
+          {/* A personal trainer marks sessions rather than staff attendance,
+              so role 9 gets Session Tracker in this slot instead. */}
+          {userIsTrainer ? (
+            <Tab.Screen
+              name="SessionTrackerTab"
+              component={SessionTrackerScreen}
+              options={{ tabBarLabel: 'Sessions', tabBarIcon: mcIcon('clipboard-check-outline') }}
+            />
+          ) : (
+            <Tab.Screen
+              name="Attendance"
+              component={AttendanceScreen}
+              options={{ tabBarLabel: 'Attendance', tabBarIcon: mcIcon('calendar-check') }}
+            />
+          )}
           <Tab.Screen
             name="Roster"
             component={TrainerRoster}

@@ -28,9 +28,49 @@ import {
   roleLabelOf,
   isEmployee,
   isSuperAdmin,
+  isTrainer,
+  isGeneralTrainer,
+  GENERAL_TRAINER_ALLOWED_MENUS,
 } from '../../config/permissions';
 
 // ─── Menu definition ────────────────────────────────────────────────────────
+
+// One drawer row. Declared explicitly rather than left to inference: the menus
+// nest three deep in places (Finance › Legacy finance › Cash › …) and the
+// inferred literal type of MENU stopped matching the role-filtered menus that
+// are cast to `typeof MENU`.
+type MenuItem = {
+  title: string;
+  icon?: string;
+  screen?: string;
+  /** Greyed out and not tappable — the web marks these SOON. */
+  soon?: boolean;
+  /** A caption rather than a row: its children render beneath it, always
+   *  visible, with no expand/collapse of their own. */
+  header?: boolean;
+  children?: MenuItem[];
+};
+
+// The package-definition lists. They used to sit inside the admin Sales
+// section; they are now a drawer section of their own, and the same group is
+// reused as super admin's CRM / Clients › Packages.
+const SALES_PACKAGES: MenuItem = {
+  title: 'Packages',
+  icon: 'package-variant',
+  children: [
+    { title: 'Membership Packages', screen: 'MembershipPackages' },
+    { title: 'Gym Packages', screen: 'GymPackages' },
+    { title: 'Trainer Packages', screen: 'TrainerPackages' },
+    { title: 'Bootcamp Packages', screen: 'BootcampPackages' },
+    { title: 'Physiotherapy Packages', screen: 'PhysiotherapyPackages' },
+    { title: 'Massage Chair', screen: 'MassageChair' },
+    { title: 'Small PT Group Packages', screen: 'SmallPTGroupPackages' },
+    { title: 'GX Packages', screen: 'GXPackages' },
+    { title: 'CFT', screen: 'CFTPackages' },
+    { title: 'General Packages', screen: 'GeneralPackages' },
+    { title: 'Detailed Packages', screen: 'DetailedPackages' },
+  ],
+};
 
 // const MENU = [
 //   { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
@@ -122,7 +162,7 @@ import {
 //     ],
 //   },
 // ];
-const MENU = [
+const MENU: MenuItem[] = [
   // ── Shared ────────────────────────────────────────────────────────────────
   { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
   // Super Admin only — filtered out for the F-11 / G-13 admins below, since
@@ -149,22 +189,6 @@ const MENU = [
       { title: 'Add Client', screen: 'NewMemberRegistration' },
       { title: 'Clients Report', screen: 'ClientsReport' },
       { title: 'Session Report', screen: 'SalesSessionReport' },
-      {
-        title: 'Packages',
-        children: [
-          { title: 'Membership Packages', screen: 'MembershipPackages' },
-          { title: 'Gym Packages', screen: 'GymPackages' },
-          { title: 'Trainer Packages', screen: 'TrainerPackages' },
-          { title: 'Bootcamp Packages', screen: 'BootcampPackages' },
-          { title: 'Physiotherapy Packages', screen: 'PhysiotherapyPackages' },
-          { title: 'Massage Chair', screen: 'MassageChair' },
-          { title: 'Small PT Group Packages', screen: 'SmallPTGroupPackages' },
-          { title: 'GX Packages', screen: 'GXPackages' },
-          { title: 'CFT', screen: 'CFTPackages' },
-          { title: 'General Packages', screen: 'GeneralPackages' },
-          { title: 'Detailed Packages', screen: 'DetailedPackages' },
-        ],
-      },
       // Real sell/renew flow (client search -> Package Sell -> cart). The old
       // `NewPackage` screen it used to point at is a hardcoded package-definition
       // mock with no API calls — see screens/Sales/SellPackage.
@@ -179,12 +203,18 @@ const MENU = [
     ],
   },
 
+  // ── Admin: Packages ───────────────────────────────────────────────────────
+  // Its own section rather than a Sales subgroup, so the package-definition
+  // screens stay one tap from the drawer root.
+  SALES_PACKAGES,
+
   // ── Admin: Human Resource ─────────────────────────────────────────────────
   {
     title: 'Human Resource',
     icon: 'briefcase-account',
     children: [
       { title: 'HR Dashboard', screen: 'HRDashboard' },
+      { title: 'Employee Master', screen: 'EmployeeMaster' },
       { title: 'Detailed HR Report', screen: 'DetailedHRReport' },
       {
         title: 'Manage Staff',
@@ -233,16 +263,21 @@ const MENU = [
     icon: 'coffee',
     children: [
       { title: 'Cafe Dashboard', screen: 'CafeDashboard' },
-      { title: 'Cafe Categories', screen: 'CafeCategories' },
-      { title: 'Cafe Products', screen: 'CafeProducts' },
+      { title: 'Categories', screen: 'CafeCategories' },
+      { title: 'Products', screen: 'CafeProducts' },
+      { title: 'Inventory', soon: true },
       { title: 'Cafe Orders', screen: 'Orders' },
       { title: 'Cafe Deposits', screen: 'CafeDeposits' },
       { title: 'Add Clients Deposit', screen: 'AddClientsDeposit' },
-      { title: 'Clients Available Balance', screen: 'ClientsAvailableBalance' },
-      { title: 'Deposits History', screen: 'DepositsHistory' },
+      { title: 'Clients Balance', screen: 'ClientsAvailableBalance' },
+      { title: 'Deposit History', screen: 'DepositsHistory' },
+      { title: 'Sales', soon: true },
+      { title: 'Expenses', soon: true },
+      { title: 'Closing', soon: true },
       { title: 'Cafe Sales Report', screen: 'CafeSalesReport' },
       { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
       { title: 'Management Pendings', screen: 'ManagementPendings' },
+      { title: 'Cafe Reports', soon: true },
     ],
   },
 
@@ -268,84 +303,98 @@ const MENU = [
   },
 
   // ── Admin: Finance ────────────────────────────────────────────────────────
+  // Mirrors the web's Finance sidebar (checked 2026-09-21), which splits into
+  // a "Finance V2 Books" group and a "Legacy finance" group. Every legacy
+  // screen exists in the app; none of the V2 ones do yet, so those are marked
+  // "soon" — as are Accounts / Receivables / Payables / Ledgers, which the web
+  // itself marks SOON.
   {
     title: 'Finance',
     icon: 'finance',
     children: [
-      { title: 'Finance Dashboard', screen: 'FinanceDashboard' },
       {
-        title: 'Expense',
+        title: 'Finance V2 Books',
+        header: true,
         children: [
-          { title: 'Add Expense', screen: 'AddExpense' },
-          { title: 'View Expenses', screen: 'Expenses' },
-          { title: 'Daily Expense', screen: 'DailyExpense' },
-          { title: 'Daily Expense Report', screen: 'DailyExpenseReport' },
-          { title: 'Paid Expense Report', screen: 'PaidExpenseReport' },
+          { title: 'Finance Dashboard', screen: 'FinanceDashboardV2' },
+          { title: 'Setup wizard', screen: 'SetupWizardV2' },
+          { title: 'Import & sync', screen: 'ImportSyncV2' },
+          { title: 'Journals', screen: 'JournalsV2' },
+          { title: 'Financial Reports (V2)', screen: 'FinancialReportsV2' },
+          { title: 'Accounts', soon: true },
+          { title: 'Receivables', soon: true },
+          { title: 'Payables', soon: true },
         ],
       },
       {
-        title: 'Cash In Hand',
+        title: 'Legacy finance',
+        header: true,
         children: [
-          { title: 'Add Cash In Hand', screen: 'AddCashInHand' },
-          { title: 'View Cash In Hand', screen: 'ViewCashInHand' },
+          { title: 'Finance dashboard (legacy)', screen: 'FinanceDashboard' },
+          {
+            title: 'Expenses',
+            children: [
+              { title: 'Add Expense', screen: 'AddExpense' },
+              { title: 'View Expenses', screen: 'Expenses' },
+              { title: 'Daily Expense', screen: 'DailyExpense' },
+              { title: 'Daily Expense Report', screen: 'DailyExpenseReport' },
+              { title: 'Paid Expense Report', screen: 'PaidExpenseReport' },
+            ],
+          },
+          {
+            // The web keeps all four cash books under one "Cash" group; the
+            // app used to split them into Cash In Hand / Office / Petty / G13.
+            title: 'Cash',
+            children: [
+              { title: 'Add Cash In Hand', screen: 'AddCashInHand' },
+              { title: 'View Cash In Hand', screen: 'ViewCashInHand' },
+              { title: 'Add Office Cash', screen: 'AddOfficeCash' },
+              { title: 'View Office Ledger', screen: 'ViewOfficeLedger' },
+              { title: 'Add Petty Cash', screen: 'AddPettyCash' },
+              { title: 'Petty Cash Ledger', screen: 'PettyCashLedger' },
+              { title: 'Add G13 Cash', screen: 'AddG13Cash' },
+              { title: 'G13 Cash Ledger', screen: 'G13CashLedger' },
+            ],
+          },
+          {
+            title: 'Bank',
+            children: [
+              { title: 'Add Bank Cash', screen: 'AddBankCash' },
+              { title: 'View Bank Ledger', screen: 'ViewBankLedger' },
+              { title: 'Bank Details', screen: 'BankDetails' },
+            ],
+          },
+          {
+            title: 'Charity',
+            children: [
+              { title: 'Add Charity', screen: 'AddCharity' },
+              { title: 'View Charity Ledger', screen: 'ViewCharityLedger' },
+            ],
+          },
+          {
+            title: 'Liabilities',
+            children: [
+              { title: 'Add Liabilities', screen: 'AddLiabilities' },
+              { title: 'Pay Liabilities', screen: 'PayLiabilities' },
+              { title: 'View Liabilities Ledger', screen: 'ViewLiabilitiesLedger' },
+            ],
+          },
+          {
+            title: 'Keene Ledger',
+            children: [
+              { title: 'Add Keene', screen: 'AddKeene' },
+              { title: 'Keene Ledger', screen: 'KeeneLedger' },
+            ],
+          },
+          { title: 'Assets', screen: 'Assets' },
+          { title: 'Balance Sheet', screen: 'BalanceSheet' },
+          { title: 'Daily Sales Counter', screen: 'DailySalesCounter' },
+          { title: 'Cafe Sales & Expense Report', screen: 'CafeSalesExpenseReport' },
+          // The web calls this "Daily Closing".
+          { title: 'Daily Closing', screen: 'DailyOfficeClosing' },
+          { title: 'Ledgers', soon: true },
         ],
       },
-      {
-        title: 'Charity',
-        children: [
-          { title: 'Add Charity', screen: 'AddCharity' },
-          { title: 'View Charity Ledger', screen: 'ViewCharityLedger' },
-        ],
-      },
-      {
-        title: 'Office Ledger',
-        children: [
-          { title: 'Add Office Cash', screen: 'AddOfficeCash' },
-          { title: 'View Office Ledger', screen: 'ViewOfficeLedger' },
-        ],
-      },
-      {
-        title: 'Bank Ledger',
-        children: [
-          { title: 'Add Bank Cash', screen: 'AddBankCash' },
-          { title: 'View Bank Ledger', screen: 'ViewBankLedger' },
-        ],
-      },
-      {
-        title: 'Petty Cash Ledger',
-        children: [
-          { title: 'Add Petty Cash', screen: 'AddPettyCash' },
-          { title: 'Petty Cash Ledger', screen: 'PettyCashLedger' },
-        ],
-      },
-      {
-        title: 'G13 Ledger',
-        children: [
-          { title: 'Add G13 Cash', screen: 'AddG13Cash' },
-          { title: 'G13 Cash Ledger', screen: 'G13CashLedger' },
-        ],
-      },
-      {
-        title: 'Liabilities',
-        children: [
-          { title: 'Add Liabilities', screen: 'AddLiabilities' },
-          { title: 'Pay Liabilities', screen: 'PayLiabilities' },
-          { title: 'View Liabilities Ledger', screen: 'ViewLiabilitiesLedger' },
-        ],
-      },
-      {
-        title: 'Keene Ledger',
-        children: [
-          { title: 'Add Keene', screen: 'AddKeene' },
-          { title: 'Keene Ledger', screen: 'KeeneLedger' },
-        ],
-      },
-      { title: 'Assets', screen: 'Assets' },
-      { title: 'Balance Sheet', screen: 'BalanceSheet' },
-      { title: 'Daily Sales Counter', screen: 'DailySalesCounter' },
-      { title: 'Cafe Sales & Expense Report', screen: 'CafeSalesExpenseReport' },
-      { title: 'Daily Office Closing', screen: 'DailyOfficeClosing' },
-      { title: 'Bank Details', screen: 'BankDetails' },
     ],
   },
 
@@ -354,17 +403,18 @@ const MENU = [
     title: 'Fitness',
     icon: 'dumbbell',
     children: [
-      { title: 'SOPs',                      screen: 'SOPs' },
-      { title: 'Personal Trainer Diary',    screen: 'PersonalTrainerDiary' },
+      { title: 'SOPs', screen: 'SOPs' },
+      { title: 'Personal Trainer Diary', screen: 'PersonalTrainerDiary' },
+      { title: 'PT Dashboard', screen: 'PTDashboard' },
       { title: 'Session Attendance Report', screen: 'SessionAttendanceReport' },
-      { title: 'Session Tracker',           screen: 'SessionTracker' },
-      { title: 'Trainer Diary',             screen: 'TrainerDiary' },
-      { title: 'PT Sales Report',           screen: 'PTSalesReport' },
-      { title: 'Switch Booking Time',       screen: 'SwitchBookingTime' },
-      { title: 'Trainer Appointments',      screen: 'TrainerAppointments' },
-      { title: 'Session Attendance',        screen: 'SessionAttendance' },
-      { title: 'New PT Bookings',           screen: 'NewPTBookings' },
-      { title: 'New PT Clients',            screen: 'NewPTClients' },
+      { title: 'Session Tracker', screen: 'SessionTracker' },
+      { title: 'Trainer Diary', screen: 'TrainerDiary' },
+      { title: 'PT Sales Report', screen: 'PTSalesReport' },
+      { title: 'Switch Booking Time', screen: 'SwitchBookingTime' },
+      { title: 'Trainer Appointments', screen: 'TrainerAppointments' },
+      { title: 'Session Attendance', screen: 'SessionAttendance' },
+      { title: 'New PT Bookings', screen: 'NewPTBookings' },
+      { title: 'New PT Clients', screen: 'NewPTClients' },
       {
         title: 'GX Classes',
         children: [
@@ -421,7 +471,16 @@ const MENU = [
     title: 'Nutrition',
     icon: 'food-apple',
     children: [
-      { title: 'Nutrition Packages', screen: 'NutritionPackages' },
+      { title: 'Nutrition Dashboard', screen: 'NutritionDashboard' },
+      { title: 'Clients Details', screen: 'ClientsDetails' },
+      { title: 'Appointments', screen: 'NutritionAppointments' },
+      {
+        title: 'Assessments',
+        children: [
+          { title: 'Add Nutrition Assessments', screen: 'AddNutritionAssessments' },
+          { title: 'View Nutrition Assessments', screen: 'ViewNutritionAssessments' },
+        ],
+      },
       {
         title: 'Meals Plan',
         children: [
@@ -429,19 +488,15 @@ const MENU = [
           { title: 'View Meals Plan', screen: 'ViewMealsPlan' },
         ],
       },
-      {
-        title: 'Nutrition Assessments',
-        children: [
-          { title: 'Add Nutrition Assessments', screen: 'AddNutritionAssessments' },
-          { title: 'View Nutrition Assessments', screen: 'ViewNutritionAssessments' },
-        ],
-      },
-      { title: 'Clients Details', screen: 'ClientsDetails' },
-      { title: 'Dashboard', screen: 'NutritionDashboard' },
-      { title: 'Appointments', screen: 'NutritionAppointments' },
-      { title: 'Diet Plan Issued', screen: 'ViewDietPlanIssued' },
+      { title: 'Diet Plan Issuance', screen: 'ViewDietPlanIssued' },
       { title: 'Health Camps', screen: 'HealthCamps' },
-      { title: 'Referral Sheet', screen: 'ReferralSheet' },
+      { title: 'Referrals', screen: 'ReferralSheet' },
+      { title: 'Nutrition Packages', screen: 'NutritionPackages' },
+
+
+
+
+
       { title: 'Image Gallery', screen: 'NutritionImageGallery' },
       {
         title: 'Assessment Questionnaire',
@@ -458,13 +513,16 @@ const MENU = [
     title: 'Physiotherapy',
     icon: 'medical-bag',
     children: [
-      { title: 'Dashboard', screen: 'PhysiotherapyDashboard' },
+      { title: 'Physio Dashboard', screen: 'PhysiotherapyDashboard' },
+      { title: 'Client / Patient Details', screen: 'PhysiotherapyPatientDetails' },
       { title: 'Appointments', screen: 'PhysiotherapyAppointments' },
+      { title: 'Assessments', soon: true },
       { title: 'Prescriptions', screen: 'PhysiotherapyPrescriptions' },
-      { title: 'GX', screen: 'PhysiotherapyGX' },
-      { title: 'Daily Client Referral', screen: 'PhysiotherapyDailyClientReferral' },
-      { title: 'Patient Details', screen: 'PhysiotherapyPatientDetails' },
+      { title: 'Sessions / GX', screen: 'PhysiotherapyGX' },
+      
+      { title: 'Referrals', screen: 'PhysiotherapyDailyClientReferral' },
       { title: 'Client Responses', screen: 'PhysiotherapyClientResponses' },
+      { title: 'Physio Reports', soon: true },
     ],
   },
 
@@ -498,18 +556,70 @@ const EMPLOYEE_MENU = [
 // standalone Approval entry. `soon` items are greyed out and not tappable:
 // the web marks My Dashboard, Alerts & Notifications and Calendar "SOON", and
 // Social Media Dashboard has no screen in the app yet.
+// The trainer's Dashboard section. The web serves role 9 a collapsible
+// "Dashboard" group whose only child is "Employee Dashboard" (confirmed live
+// 2026-09-23 from the trainer login's own /v1/admin/menu-access/mine), rather
+// than the flat "Dashboard" link every other role gets here.
+//
+// The group deliberately has no `screen` of its own: a parent with children is
+// an expand/collapse row, so giving it one would make the header both toggle
+// and navigate.
+const TRAINER_DASHBOARD = {
+  title: 'Dashboard',
+  icon: 'view-dashboard',
+  children: [
+    { title: 'Employee Dashboard', screen: 'EmployeeDashboard' },
+  ],
+};
+
+// The General Trainer's Fitness section. The web gives role 17 exactly one
+// Fitness child, GT Dashboard (/gt-dashboard), backed by
+// /v1/fitness/general-trainer/summary.
+const GENERAL_TRAINER_FITNESS = {
+  title: 'Fitness',
+  icon: 'dumbbell',
+  children: [
+    { title: 'GT Dashboard', screen: 'GTDashboard' },
+  ],
+};
+
 const SUPER_ADMIN_DASHBOARD = {
   title: 'Dashboard',
   icon: 'view-dashboard',
   children: [
     { title: 'Admin Dashboard', screen: 'AdminDashboard' },
     { title: 'Fitness Dashboard', screen: 'FitnessDashboard' },
-    { title: 'Social Media Dashboard', soon: true },
+    // The web lists Nutrition Dashboard and Marketing Dashboard here as well
+    // as under their own sections (sidebar checked 2026-09-21); Marketing
+    // Dashboard is the web's "Social Media Dashboard" page.
+    { title: 'Nutrition Dashboard', screen: 'NutritionDashboard' },
+    { title: 'Marketing Dashboard', screen: 'MarketingDashboard' },
     // { title: 'Dashboard', screen: 'Dashboard' },
-    { title: 'My Dashboard', soon: true },
+    // { title: 'My Dashboard', soon: true },
+    { title: 'Announcements', screen: 'Announcements' },
     { title: 'Approvals', screen: 'ApprovalsScreen' },
-    { title: 'Alerts & Notifications', soon: true },
-    { title: 'Calendar', soon: true },
+    // { title: 'Alerts & Notifications', soon: true },
+    // { title: 'Calendar', soon: true },
+  ],
+};
+
+// Super Admin's Marketing section — the web's sidebar (checked 2026-09-21).
+// Only Marketing Dashboard has a screen in the app so far; Social Leads is
+// coming, and the web itself marks the rest "SOON".
+const SUPER_ADMIN_MARKETING = {
+  title: 'Marketing',
+  icon: 'bullhorn',
+  children: [
+    { title: 'Marketing Dashboard', screen: 'MarketingDashboard' },
+    { title: 'Campaigns', soon: true },
+    { title: 'Social Media', soon: true },
+    { title: 'Content', soon: true },
+    { title: 'Social Leads', screen: 'SocialLeads' },
+    { title: 'Campaign Leads', soon: true },
+    { title: 'Promotions & Offers', soon: true },
+    { title: 'Events', soon: true },
+    { title: 'Media Library', soon: true },
+    { title: 'Marketing Reports', soon: true },
   ],
 };
 
@@ -518,21 +628,21 @@ const SUPER_ADMIN_DASHBOARD = {
 // Packages reuses the admin Sales › Packages list; Memberships opens the
 // membership package view/add screen. The web itself marks the four
 // client-record items "SOON".
-const buildSuperAdminCRM = (salesPackages?: any) => ({
+// Packages is not repeated here: it is its own top-level drawer section now,
+// so super admin would otherwise see the same group twice.
+const buildSuperAdminCRM = (): MenuItem => ({
   title: 'CRM / Clients',
   icon: 'account-group',
   children: [
     { title: 'Clients', screen: 'ViewClients' },
     { title: 'Add Client', screen: 'NewMemberRegistration' },
-    { title: 'Memberships', screen: 'MembershipPackages' },
-    ...(salesPackages ? [salesPackages] : []),
     { title: 'Freezing', screen: 'ViewFreezing' },
     { title: 'Access Control — Assign Cards', screen: 'AssignCards' },
     { title: 'Access Control — View Cards', screen: 'ViewCards' },
     { title: 'Client Profile', soon: true },
-    { title: 'Client Attendance', soon: true },
-    { title: 'Client Notes', soon: true },
-    { title: 'Client Documents', soon: true },
+    // { title: 'Client Attendance', soon: true },
+    // { title: 'Client Notes', soon: true },
+    // { title: 'Client Documents', soon: true },
   ],
 });
 
@@ -547,6 +657,7 @@ const SUPER_ADMIN_ORDER: [string, string][] = [
   ['Nutrition', 'Nutrition'],
   ['Physiotherapy', 'Physio'],
   ['Cafe', 'Cafe'],
+  // ['Facility', 'Facility'],  
   ['Reports', 'Reports'],
 ];
 
@@ -561,7 +672,7 @@ const HR_MENU = [
     icon: 'briefcase-account',
     children: [
       { title: 'HR Dashboard', screen: 'HRDashboard' },
-      { title: 'Employee Master', screen: 'ViewStaff' },
+      { title: 'Employee Master', screen: 'EmployeeMaster' },
       { title: 'Add Employee', screen: 'AddStaff' },
       { title: 'Attendance', screen: 'StaffAttendanceReport' },
       { title: 'Employee Attendance', screen: 'EmployeeAttendance' },
@@ -688,6 +799,15 @@ const navigateTo = (navigation: any, screen: string, role?: string | null) => {
     // drawer opens a second copy over the live one, the exact duplicate-mount
     // problem this function exists to avoid.
     navigation.navigate('Main', { screen: 'Home' });
+  } else if (screen === 'PTDashboard' && isTrainer(role)) {
+    // A trainer's Home tab *is* the PT Dashboard, so the Fitness › PT
+    // Dashboard entry must switch tab focus rather than push the stack route —
+    // pushing would mount a second copy over the live one, the duplicate-mount
+    // problem described above.
+    navigation.navigate('Main', { screen: 'Home' });
+  } else if (screen === 'SessionTracker' && isTrainer(role)) {
+    // Same reason: Session Tracker is a bottom tab for role 9.
+    navigation.navigate('Main', { screen: 'SessionTrackerTab' });
   } else if (screen === 'NutritionDashboard' && (isNutritionist(role) || isFitnessManager(role))) {
     navigation.navigate('Main', { screen: 'NutritionTab' });
   } else if (screen === 'GXAttendance' && isNutritionist(role)) {
@@ -726,9 +846,6 @@ const filterMenuForRole = (
     const rest = adminMenu.filter(
       item => !['Dashboard', 'Admin Dashboard', 'Approval'].includes(item.title),
     );
-    const salesPackages = rest
-      .find(item => item.title === 'Sales')
-      ?.children?.find((c: any) => c.title === 'Packages');
     const ordered = SUPER_ADMIN_ORDER
       .map(([from, to]) => {
         const item = rest.find(i => i.title === from);
@@ -736,10 +853,16 @@ const filterMenuForRole = (
       })
       .filter(Boolean);
     const others = rest.filter(i => !SUPER_ADMIN_ORDER.some(([from]) => from === i.title));
+    // Marketing has no counterpart in the shared admin menu, so it is not in
+    // SUPER_ADMIN_ORDER. The web puts it immediately before Reports.
+    const reportsAt = ordered.findIndex((i: any) => i.title === 'Reports');
+    const withMarketing = reportsAt === -1
+      ? [...ordered, SUPER_ADMIN_MARKETING]
+      : [...ordered.slice(0, reportsAt), SUPER_ADMIN_MARKETING, ...ordered.slice(reportsAt)];
     return [
       SUPER_ADMIN_DASHBOARD,
-      buildSuperAdminCRM(salesPackages),
-      ...ordered,
+      buildSuperAdminCRM(),
+      ...withMarketing,
       ...others,
     ] as typeof MENU;
   }
@@ -829,10 +952,37 @@ const filterMenuForRole = (
       });
   }
 
+  // General Trainer (role '17'): Dashboard › Employee Dashboard, and a
+  // Fitness section holding only GT Dashboard. Must be tested before the
+  // trainer fallthrough below, which would otherwise hand role 17 the whole
+  // personal-trainer menu.
+  if (isGeneralTrainer(role)) {
+    return menu
+      .filter(item => GENERAL_TRAINER_ALLOWED_MENUS.includes(item.title))
+      .map(item => {
+        if (item.title === 'Dashboard') {
+          // Same collapsible group the personal trainer gets — the web serves
+          // both roles Dashboard › Employee Dashboard.
+          return TRAINER_DASHBOARD as typeof MENU[number];
+        }
+        if (item.title === 'Fitness') {
+          return GENERAL_TRAINER_FITNESS as typeof MENU[number];
+        }
+        return item;
+      });
+  }
+
   // Trainer: keep only allowed sections
   return menu
     .filter(item => TRAINER_ALLOWED_MENUS.includes(item.title))
     .map(item => {
+      // Flat "Dashboard" link → collapsible group holding Employee Dashboard,
+      // matching the web. The trainer's landing screen is the PT Dashboard
+      // (see screens/home/index.tsx), so the employee one needs a home of its
+      // own in the menu rather than being what "Dashboard" opens.
+      if (item.title === 'Dashboard') {
+        return TRAINER_DASHBOARD as typeof MENU[number];
+      }
       if (item.title === 'HR Management' && item.children) {
         return {
           ...item,
@@ -842,8 +992,18 @@ const filterMenuForRole = (
         };
       }
       if (item.title === 'Fitness' && item.children) {
-        // Match website trainer Fitness section exactly
-        const TRAINER_FITNESS = ['SOPs', 'Personal Trainer Diary', 'Session Attendance Report', 'Fitness Plan', 'Session Tracker'];
+        // Match website trainer Fitness section exactly — the list below is
+        // the trainer login's own `/v1/admin/menu-access/mine` response
+        // (confirmed live 2026-09-23, role 9), which is what drives the web
+        // sidebar.
+        //
+        // 'Session Attendance Report' is deliberately absent: the web does not
+        // offer it to role 9, and it was hidden here on 2026-09-23 to match.
+        // It stays in the admin MENU above, so other roles are unaffected.
+        //
+        // 'SOPs' is the one remaining difference — the web serves it under
+        // Human Resource for trainers, this app keeps it under Fitness.
+        const TRAINER_FITNESS = ['SOPs', 'Personal Trainer Diary', 'PT Dashboard', 'Fitness Plan', 'Session Tracker'];
         return {
           ...item,
           children: item.children.filter(c => TRAINER_FITNESS.includes(c.title)),
@@ -977,6 +1137,20 @@ const DrawerContent = (props: any) => {
       );
     }
 
+    // A plain caption over the rows that follow — the web's "Finance V2 Books"
+    // and "Legacy finance" are labels, not collapsible groups, so the children
+    // render at the header's own level and are always visible.
+    if (item.header) {
+      return (
+        <View key={key}>
+          <Text style={[styles.groupHeader, { paddingLeft: 20 + level * 12 }]}>
+            {item.title}
+          </Text>
+          {item.children?.map((child: any) => renderMenuItem(child, level, key))}
+        </View>
+      );
+    }
+
     return (
       <View key={key}>
         <TouchableOpacity
@@ -1071,18 +1245,18 @@ const DrawerContent = (props: any) => {
         avatar={avatarSource}
         {...(isEmployee(profile?.role)
           ? {
-              // Opens the Employee Dashboard's "Change Information" modal.
-              // The timestamp makes each tap a distinct param value, so the
-              // modal re-opens rather than being ignored as unchanged state.
-              editIcon: Edit_fill,
-              onEditPress: () => {
-                navigation.navigate('Main', {
-                  screen: 'Home',
-                  params: { screen: 'Dashboard', params: { openEdit: Date.now() } },
-                });
-                setTimeout(() => navigation.closeDrawer?.(), 100);
-              },
-            }
+            // Opens the Employee Dashboard's "Change Information" modal.
+            // The timestamp makes each tap a distinct param value, so the
+            // modal re-opens rather than being ignored as unchanged state.
+            editIcon: Edit_fill,
+            onEditPress: () => {
+              navigation.navigate('Main', {
+                screen: 'Home',
+                params: { screen: 'Dashboard', params: { openEdit: Date.now() } },
+              });
+              setTimeout(() => navigation.closeDrawer?.(), 100);
+            },
+          }
           : {})}
       />
       {/* Every other role gets no edit affordance. The icon used to navigate to
@@ -1131,6 +1305,15 @@ const styles = StyleSheet.create({
   activeSubItem: { backgroundColor: '#FFF5F5', borderRadius: 6 },
   subMenuText: { fontSize: 14, color: '#666' },
   activeSubText: { color: '#E63946', fontWeight: '600' },
+  groupHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.6,
+    paddingTop: 14,
+    paddingBottom: 4,
+    paddingRight: 20,
+  },
   soonText: { fontSize: 13, color: '#BBB' },
   soonBadge: { fontSize: 11, color: '#BBB', fontWeight: '600', letterSpacing: 0.5 },
   logoutItem: { marginTop: 16, borderTopWidth: 1, borderTopColor: '#F0F0F0' },

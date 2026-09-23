@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Modal,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -14,54 +14,19 @@ import {
   getReferralsStatistics,
   getNutritionAppointments,
 } from '../../../api/nutrition';
+import { useBranchSelector, BranchOption } from '../../../hooks/useBranchSelector';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
 
-const DEMO = {
-  total_appointments: 387,
-  today_appointments: 1,
-  upcoming_appointments: 0,
-  conversion_appointments: 0,
-  diet_plans: {
-    total: 95,
-    this_week: 7,
-    issued: 95,
-    top_goals: [
-      { label: 'Fat loss', count: 48 },
-      { label: 'Muscle and strength gain', count: 29 },
-      { label: 'Metabolic issue', count: 11 },
-      { label: 'IBS', count: 4 },
-      { label: 'Conditioning', count: 2 },
-      { label: 'Muscle gain', count: 1 },
-    ],
-  },
-  health_camps: { total: 0, this_week: 0, upcoming: 0 },
-  referral_sheet: {
-    total_referrals: 235,
-    transformations: 63,
-    active_clients: 1331,
-    google_reviews: 3,
-    video_shoots: 0,
-    week_referrals: 0,
-    week_transformations: 0,
-    week_active_clients: 0,
-  },
-  conversion_stats: [
-    { label: 'Unknown', count: 1 },
-    { label: '2nd Assessment', count: 68 },
-    { label: '3rd Assessment', count: 42 },
-    { label: '4th Assessment', count: 16 },
-    { label: '5th Assessment', count: 20 },
-    { label: '6th Assessment', count: 12 },
-    { label: '7th Assessment', count: 3 },
-    { label: '8th Assessment', count: 1 },
-    { label: '9th Assessment', count: 5 },
-    { label: 'Assessment', count: 15 },
-  ],
-  today_appointments_list: [
-    { time: '1:00 PM', client_name: 'Naila Anjum', staff: 'Sidra Sharif', type: '2nd Assessment' },
-  ],
+// Zeroed shapes for panels whose call returned nothing, so the layout still
+// renders rather than throwing on a missing key.
+const EMPTY_DIET_PLANS = { total: 0, this_week: 0, issued: 0, top_goals: [] as any[] };
+const EMPTY_HEALTH_CAMPS = { total: 0, this_week: 0, upcoming: 0 };
+const EMPTY_REFERRAL = {
+  total_referrals: 0, transformations: 0, active_clients: 0,
+  google_reviews: 0, video_shoots: 0,
+  week_referrals: 0, week_transformations: 0, week_active_clients: 0,
 };
 
 const STAT_CARDS = [
@@ -100,13 +65,35 @@ const QUICK_ACTIONS = [
 const NutritionDashboard = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
+
+  // Every nutrition statistics endpoint requires a real branch id: confirmed
+  // live 2026-09-21 that `all` and `0` both come back "The selected branch id
+  // is invalid", while 1 and 15 return data. Super admin has branch_id 0, so
+  // it has to pick one — the web sends an empty branch_id here and 422s every
+  // panel, which is why that page renders blank for super admin.
+  const { options, loadingOptions, needsPicker } = useBranchSelector();
+  const ownBranchId = profile?.branchId || null;
+
+  const [pickedBranch, setPickedBranch] = useState<BranchOption | null>(null);
+  const [branchOpen, setBranchOpen] = useState(false);
+
+  const branchId = needsPicker ? pickedBranch?.id ?? null : ownBranchId;
+  const branchLabel = needsPicker
+    ? pickedBranch?.name ?? 'Select Branch'
+    : profile?.branchName ?? '';
+
+  // Default to the first branch so the screen has data on arrival.
+  useEffect(() => {
+    if (needsPicker && !pickedBranch && options.length) { setPickedBranch(options[0]); }
+  }, [needsPicker, pickedBranch, options]);
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
+    // Nothing to ask for until a branch is settled; firing now would just 422.
+    if (!branchId) { setLoading(needsPicker && loadingOptions); return; }
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const today = fmtDate(new Date());
@@ -171,16 +158,18 @@ const NutritionDashboard = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [branchId]);
+  }, [branchId, needsPicker, loadingOptions]);
 
   useEffect(() => { load(); }, [load]);
 
-  const d = data ?? DEMO;
-  const dietPlans = d.diet_plans ?? DEMO.diet_plans;
-  const healthCamps = d.health_camps ?? DEMO.health_camps;
-  const referral = d.referral_sheet ?? DEMO.referral_sheet;
-  const conversionStats = d.conversion_stats ?? DEMO.conversion_stats;
-  const todayList = d.today_appointments_list ?? DEMO.today_appointments_list;
+  // No sample-data fallback: an empty panel is honest about a failed call,
+  // where plausible-looking numbers would be read as live figures.
+  const d = data ?? {};
+  const dietPlans = d.diet_plans ?? EMPTY_DIET_PLANS;
+  const healthCamps = d.health_camps ?? EMPTY_HEALTH_CAMPS;
+  const referral = d.referral_sheet ?? EMPTY_REFERRAL;
+  const conversionStats = d.conversion_stats ?? [];
+  const todayList = d.today_appointments_list ?? [];
 
   const maxGoal = Math.max(...(dietPlans.top_goals ?? []).map((g: any) => g.count), 1);
 
@@ -207,6 +196,20 @@ const NutritionDashboard = () => {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
         >
+          {/* Branch picker — super admin has no branch of its own, and every
+              statistics call here requires a real one. */}
+          {needsPicker && (
+            <TouchableOpacity
+              style={styles.branchControl}
+              onPress={() => setBranchOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Icon name="office-building" size={16} color="#64748B" />
+              <Text style={styles.branchControlText} numberOfLines={1}>{branchLabel}</Text>
+              <Icon name="chevron-down" size={18} color="#64748B" />
+            </TouchableOpacity>
+          )}
+
           {/* Stat cards */}
           <View style={styles.statsGrid}>
             {STAT_CARDS.map(c => (
@@ -389,6 +392,30 @@ const NutritionDashboard = () => {
           </View>
         </ScrollView>
       )}
+
+      <Modal visible={branchOpen} transparent animationType="fade" onRequestClose={() => setBranchOpen(false)}>
+        <TouchableOpacity style={styles.modalBack} activeOpacity={1} onPress={() => setBranchOpen(false)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Select Branch</Text>
+            {loadingOptions ? (
+              <ActivityIndicator color="#E63946" style={styles.modalLoader} />
+            ) : (
+              <ScrollView>
+                {options.map(o => (
+                  <TouchableOpacity
+                    key={o.id}
+                    style={styles.modalRow}
+                    onPress={() => { setPickedBranch(o); setBranchOpen(false); }}
+                  >
+                    <Text style={styles.modalRowText}>{o.name}</Text>
+                    {pickedBranch?.id === o.id && <Icon name="check" size={18} color="#E63946" />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -396,6 +423,34 @@ const NutritionDashboard = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  branchControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  branchControlText: { flex: 1, fontSize: 13, color: '#0F172A', fontWeight: '500' },
+
+  modalBack: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 30 },
+  modalCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, maxHeight: '60%' },
+  modalTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 10 },
+  modalLoader: { marginVertical: 16 },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalRowText: { fontSize: 13.5, color: '#334155' },
   scroll: { padding: 14, paddingBottom: 30 },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },

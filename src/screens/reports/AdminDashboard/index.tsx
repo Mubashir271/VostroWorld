@@ -1,12 +1,13 @@
 // Admin Dashboard — the app's mirror of the web admin's Admin Dashboard.
 //
 // Structure and data follow the web page section for section (Today at a
-// glance → branch split → Sales performance → Operations → Snapshots); the
-// styling is the app's own card idiom, not the web's.
+// glance → branch split → Sales performance → Operations → Departments →
+// Snapshots); the styling is the app's own card idiom, not the web's.
 //
-// Data: /v1/admin-dashboard/summary backs everything except "Sales by
-// service", which comes from the `breakup` block of /v1/MISReport/get — the
-// same two calls the web page makes (HAR, 18 Sep 2026).
+// Data: /v1/admin-dashboard/summary backs the whole screen in one call — it
+// now returns `breakup` and `dept_snapshot` too, so the separate
+// /v1/MISReport/get fetch the web used to make alongside it is gone
+// (HAR, 21 Sep 2026).
 //
 // Super Admin only (role '1'). The F-11 / G-13 branch admins are role '3' and
 // `isAdmin` would let them in, so this screen checks `isSuperAdmin` — which is
@@ -25,6 +26,8 @@ import {
     Modal,
 } from 'react-native';
 import Svg, { Circle, G, Rect, Polyline, Line, Text as SvgText } from 'react-native-svg';
+import { captureRef } from 'react-native-view-shot';
+import Share from 'react-native-share';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -39,7 +42,6 @@ import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
     getAdminDashboardSummary,
-    getMISDashboard,
     AdminDashboardSummary,
 } from '../../../api/dashboard';
 
@@ -83,6 +85,21 @@ const Card = ({ title, right, children }: { title?: string; right?: React.ReactN
 const Pill = ({ text }: { text: string }) => (
     <View style={styles.pill}><Text style={styles.pillText}>{text}</Text></View>
 );
+
+/** The "Details" affordance on each Departments card, as the web page has. */
+const DetailsLink = ({ screen }: { screen: string }) => {
+    const navigation = useNavigation() as any;
+    return (
+        <TouchableOpacity
+            style={styles.detailsBtn}
+            onPress={() => navigation.navigate(screen)}
+            activeOpacity={0.7}
+        >
+            <Text style={styles.detailsText}>Details</Text>
+            <Icon name="chevron-right" size={scale(14)} color="#E63946" />
+        </TouchableOpacity>
+    );
+};
 
 /** Big number tile — the six "Today at a glance" cards. */
 const GlanceCard = ({ label, value, sub, iconName, accent }: {
@@ -165,31 +182,33 @@ const Legend = ({ items }: { items: { label: string; color: string }[] }) => (
     </View>
 );
 
-/** Sales vs Expenses vs Profit over the trend window. */
+/**
+ * Sales vs Expenses over the trend window. Profit is in the payload but the
+ * web stopped charting it (HAR, 21 Sep 2026) — it is the difference of the two
+ * lines already drawn, so a third line only crowded the panel.
+ */
 const TrendChart = ({ data, width, height }: {
-    data: { label: string; sales: number; expenses: number; profit: number }[];
+    data: { label: string; sales: number; expenses: number }[];
     width: number; height: number;
 }) => {
     if (!data.length) { return null; }
     const padL = scale(6), padB = scale(16), padT = scale(8);
-    const vals = data.flatMap(d => [d.sales, d.expenses, d.profit]);
+    const vals = data.flatMap(d => [d.sales, d.expenses]);
     const max = Math.max(...vals, 1);
     const min = Math.min(...vals, 0);
     const span = max - min || 1;
     const x = (i: number) => padL + (i * (width - padL * 2)) / Math.max(data.length - 1, 1);
     const y = (v: number) => padT + (1 - (v - min) / span) * (height - padT - padB);
-    const line = (key: 'sales' | 'expenses' | 'profit') =>
+    const line = (key: 'sales' | 'expenses') =>
         data.map((d, i) => `${x(i)},${y(d[key])}`).join(' ');
 
     return (
         <Svg width={width} height={height}>
-            {/* Zero baseline — profit can go negative, as it did on 16 Sep. */}
             {min < 0 && (
                 <Line x1={padL} y1={y(0)} x2={width - padL} y2={y(0)} stroke="#E2E8F0" strokeWidth={1} />
             )}
-            <Polyline points={line('sales')} fill="none" stroke={SALES} strokeWidth={2} />
             <Polyline points={line('expenses')} fill="none" stroke={EXPENSE} strokeWidth={2} />
-            <Polyline points={line('profit')} fill="none" stroke={PROFIT} strokeWidth={2} />
+            <Polyline points={line('sales')} fill="none" stroke={SALES} strokeWidth={2} />
             {data.map((d, i) => (
                 <SvgText key={d.label} x={x(i)} y={height - scale(3)} fontSize={scale(8)} fill="#94A3B8" textAnchor="middle">
                     {d.label}
@@ -237,6 +256,8 @@ const SERVICE_LABELS: Record<string, string> = {
     cafe: 'Cafe',
     academy: 'Academy',
     physio: 'Physio',
+    gx: 'GX',
+    other: 'Other',
 };
 
 // The web's Staff details table shows only the first slice of the roster, with
@@ -260,26 +281,23 @@ const AdminDashboardScreen = () => {
     const [dateOpen, setDateOpen] = useState(false);
 
     const [data, setData] = useState<AdminDashboardSummary | null>(null);
-    const [breakup, setBreakup] = useState<Record<string, any> | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [exporting, setExporting] = useState(false);
+    // The ref goes on the ScrollView itself, not a wrapper: under the New
+    // Architecture `snapshotContentContainer` finds the UIScrollView via
+    // RCTScrollViewComponentView's `scrollView` property, and a wrapping view
+    // hides it (the wrapper's subview is the component view, not a
+    // UIScrollView, so the native lookup rejects).
+    const shotRef = React.useRef<ScrollView>(null);
 
     const load = useCallback(async (isRefresh = false) => {
         if (!allowed) { setLoading(false); return; }
         try {
             if (!isRefresh) { setLoading(true); }
             setError(null);
-            const d = iso(date);
-            // Both are fetched together, as the web page does. MISReport is
-            // only needed for `breakup`, so a failure there leaves the rest of
-            // the dashboard standing.
-            const [summary, mis] = await Promise.all([
-                getAdminDashboardSummary(branchId, d),
-                getMISDashboard(branchId, d).catch(() => null),
-            ]);
-            setData(summary);
-            setBreakup(mis?.breakup ?? null);
+            setData(await getAdminDashboardSummary(branchId, iso(date)));
         } catch (e: any) {
             setError(e?.response?.data?.message || e?.message || 'Could not load the dashboard.');
         } finally {
@@ -294,10 +312,64 @@ const AdminDashboardScreen = () => {
         load(true).finally(() => setRefreshing(false));
     }, [load]);
 
+    /**
+     * "Download MIS" — the web's button is html2canvas + jsPDF over the
+     * dashboard node, i.e. a picture of the page, not an API export. The
+     * app's equivalent is a full-scroll snapshot handed to the share sheet,
+     * which is also how a phone "downloads" a file.
+     */
+    const onDownloadMIS = useCallback(async () => {
+        if (!shotRef.current || exporting) { return; }
+        try {
+            setExporting(true);
+            setError(null);
+            const branchPart =
+                branchId === 'all' ? 'AllBranches' : branchLabel.replace(/[^A-Za-z0-9]/g, '');
+            // `useRenderInContext` is required here: the default
+            // drawViewHierarchyInRect path fails on a view this tall — the
+            // render server rejects it and the library reports success with a
+            // blank image. renderInContext is the library's documented route
+            // for large views.
+            let path: string;
+            try {
+                path = await captureRef(shotRef, {
+                    format: 'jpg',
+                    quality: 0.92,
+                    // The whole scroll content, not just what is on screen.
+                    snapshotContentContainer: true,
+                    useRenderInContext: true,
+                });
+            } catch {
+                // Last resort: the visible area, so the button still produces
+                // something rather than only an error.
+                path = await captureRef(shotRef, {
+                    format: 'jpg',
+                    quality: 0.92,
+                    useRenderInContext: true,
+                });
+            }
+            await Share.open({
+                // captureRef resolves to a bare filesystem path; the share
+                // sheet needs a URL, and silently does nothing without the
+                // scheme.
+                url: path.startsWith('file://') ? path : `file://${path}`,
+                type: 'image/jpeg',
+                filename: `MIS_Report_${branchPart}_${iso(date)}`,
+                failOnCancel: false,
+            });
+        } catch (e: any) {
+            setError(e?.message || 'Could not download MIS report.');
+        } finally {
+            setExporting(false);
+        }
+    }, [branchId, branchLabel, date, exporting]);
+
     const onDateChange = (_e: DateTimePickerEvent, picked?: Date) => {
         setDateOpen(false);
         if (picked) { setDate(picked); }
     };
+
+    const breakup = data?.breakup;
 
     const services = React.useMemo(() => {
         if (!breakup) { return []; }
@@ -331,6 +403,7 @@ const AdminDashboardScreen = () => {
                 </View>
             ) : (
                 <ScrollView
+                    ref={shotRef}
                     style={styles.container}
                     contentContainerStyle={styles.content}
                     showsVerticalScrollIndicator={false}
@@ -351,6 +424,22 @@ const AdminDashboardScreen = () => {
                             <Text style={styles.controlText}>{data?.display_date || iso(date)}</Text>
                         </TouchableOpacity>
                     </View>
+
+                    <TouchableOpacity
+                        style={[styles.misBtn, (!data || exporting) && styles.misBtnOff]}
+                        onPress={onDownloadMIS}
+                        disabled={!data || exporting}
+                        activeOpacity={0.8}
+                    >
+                        {exporting ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Icon name="download" size={scale(15)} color="#fff" />
+                        )}
+                        <Text style={styles.misBtnText}>
+                            {exporting ? 'Preparing…' : 'Download MIS'}
+                        </Text>
+                    </TouchableOpacity>
 
                     {dateOpen && (
                         <DateTimePicker
@@ -387,12 +476,22 @@ const AdminDashboardScreen = () => {
                                 <GlanceCard
                                     label="Today Expenses" accent={EXPENSE} iconName="receipt"
                                     value={formatCurrency(data.today_expense)}
-                                    sub={`MTD ${formatCurrency(data.t_expense_date)}`}
+                                    sub={`MTD ${formatCurrency(data.t_expense_date)} · Pending ${data.pending_expense_approvals}`}
                                 />
                                 <GlanceCard
-                                    label="Today Profit" accent={PROFIT} iconName="chart-line"
-                                    value={formatCurrency(data.profit_today)}
-                                    sub={`MTD ${formatCurrency(data.profit_mtd)}`}
+                                    label="Physio" accent={PROFIT} iconName="heart-pulse"
+                                    value={formatCurrency(data.dept_snapshot?.physio?.sales_net ?? 0)}
+                                    sub={`Appts ${data.dept_snapshot?.physio?.appointments_today ?? 0} · MTD ${formatCurrency(data.dept_snapshot?.physio?.mtd_net ?? 0)}`}
+                                />
+                                <GlanceCard
+                                    label="Nutrition" accent="#10B981" iconName="food-apple"
+                                    value={formatCurrency(data.dept_snapshot?.nutrition?.sales_net ?? 0)}
+                                    sub={`Appts ${data.dept_snapshot?.nutrition?.appointments_today ?? 0} · MTD ${formatCurrency(data.dept_snapshot?.nutrition?.mtd_net ?? 0)}`}
+                                />
+                                <GlanceCard
+                                    label="Social Leads" accent="#7C3AED" iconName="bullhorn"
+                                    value={`${data.dept_snapshot?.social_leads?.leads_today ?? 0}`}
+                                    sub={`Visits ${data.dept_snapshot?.social_leads?.visit_completed ?? 0} · Paid ${data.dept_snapshot?.social_leads?.payments ?? 0} · MTD paid ${data.dept_snapshot?.social_leads?.mtd_payments ?? 0}`}
                                 />
                                 <GlanceCard
                                     label="Staff Present" accent="#0EA5E9" iconName="account-check"
@@ -400,7 +499,7 @@ const AdminDashboardScreen = () => {
                                     sub={`of ${data.totalStaff} · Absent ${data.absentStaff} · Late ${data.lateStaff}`}
                                 />
                                 <GlanceCard
-                                    label="Footfall" accent="#7C3AED" iconName="account-group"
+                                    label="Footfall" accent="#DB2777" iconName="account-group"
                                     value={`${data.totalCheckins}`}
                                     sub={`Male ${data.totalMales} · Female ${data.totalFemales} · Absent paid ${data.absentPaidClients}`}
                                 />
@@ -412,7 +511,9 @@ const AdminDashboardScreen = () => {
                                     {data.by_branch.map(b => (
                                         <Card key={b.branch_id} title={b.branch_label} right={<Pill text="Branch split" />}>
                                             <Row label="Today sales" value={formatCurrency(b.total_sales_today)} />
-                                            <Row label="Today profit" value={formatCurrency(b.profit_today)} />
+                                            <Row label="Physio sales" value={formatCurrency(b.physio_sales)} />
+                                            <Row label="Nutrition sales" value={formatCurrency(b.nutrition_sales)} />
+                                            <Row label="Leads today" value={b.leads_today} />
                                             <Row label="Footfall" value={b.totalCheckins} />
                                             <Row label="Staff present" value={b.presentStaff} />
                                         </Card>
@@ -428,9 +529,8 @@ const AdminDashboardScreen = () => {
                             >
                                 <TrendChart data={data.trend || []} width={chartWidth} height={scale(150)} />
                                 <Legend items={[
-                                    { label: 'Sales', color: SALES },
                                     { label: 'Expenses', color: EXPENSE },
-                                    { label: 'Profit', color: PROFIT },
+                                    { label: 'Sales', color: SALES },
                                 ]} />
                             </Card>
 
@@ -536,6 +636,52 @@ const AdminDashboardScreen = () => {
                                 )}
                             </Card>
 
+                            {/* ── Departments ───────────────────────────────── */}
+                            <SectionTitle>Departments</SectionTitle>
+                            <Card title="Sales" right={<DetailsLink screen="DetailedSalesReport" />}>
+                                <Row
+                                    label="Gym today"
+                                    value={`${formatCurrency(data.dept_snapshot?.sales?.gym_net ?? 0)} · ${data.dept_snapshot?.sales?.gym_qty ?? 0}`}
+                                />
+                                <Row
+                                    label="PT today"
+                                    value={`${formatCurrency(data.dept_snapshot?.sales?.pt_net ?? 0)} · ${data.dept_snapshot?.sales?.pt_qty ?? 0}`}
+                                />
+                                <Row
+                                    label="GX today"
+                                    value={`${formatCurrency(data.dept_snapshot?.sales?.gx_net ?? 0)} · ${data.dept_snapshot?.sales?.gx_qty ?? 0}`}
+                                />
+                                <Row label="Cafe today" value={formatCurrency(data.dept_snapshot?.sales?.cafe_net ?? 0)} />
+                            </Card>
+
+                            <Card title="Physio" right={<DetailsLink screen="PhysiotherapyDashboard" />}>
+                                <Row label="Appointments today" value={data.dept_snapshot?.physio?.appointments_today ?? 0} />
+                                <Row label="Sales qty" value={data.dept_snapshot?.physio?.sales_qty ?? 0} />
+                                <Row label="Sales net" value={formatCurrency(data.dept_snapshot?.physio?.sales_net ?? 0)} />
+                                <Row label="MTD sales" value={formatCurrency(data.dept_snapshot?.physio?.mtd_net ?? 0)} />
+                            </Card>
+
+                            <Card title="Nutrition" right={<DetailsLink screen="NutritionDashboard" />}>
+                                <Row label="Appointments today" value={data.dept_snapshot?.nutrition?.appointments_today ?? 0} />
+                                <Row label="Sales qty" value={data.dept_snapshot?.nutrition?.sales_qty ?? 0} />
+                                <Row label="Sales net" value={formatCurrency(data.dept_snapshot?.nutrition?.sales_net ?? 0)} />
+                                <Row label="MTD sales" value={formatCurrency(data.dept_snapshot?.nutrition?.mtd_net ?? 0)} />
+                            </Card>
+
+                            {/* No Details link: the app has no social-leads screen to open. */}
+                            <Card title="Social Leads">
+                                <Row label="Leads today" value={data.dept_snapshot?.social_leads?.leads_today ?? 0} />
+                                <Row label="Interested" value={data.dept_snapshot?.social_leads?.interested ?? 0} />
+                                <Row
+                                    label="Visit scheduled / done"
+                                    value={`${data.dept_snapshot?.social_leads?.visit_scheduled ?? 0} / ${data.dept_snapshot?.social_leads?.visit_completed ?? 0}`}
+                                />
+                                <Row
+                                    label="Paid today / MTD"
+                                    value={`${data.dept_snapshot?.social_leads?.payments ?? 0} / ${data.dept_snapshot?.social_leads?.mtd_payments ?? 0}`}
+                                />
+                            </Card>
+
                             {/* ── Snapshots ─────────────────────────────────── */}
                             <SectionTitle>Snapshots</SectionTitle>
                             <Card title="Cafe">
@@ -558,9 +704,9 @@ const AdminDashboardScreen = () => {
                                         label="PT new / renew"
                                         value={`${formatCurrency(breakup.pt_new?.net || 0)} / ${formatCurrency(breakup.pt_renew?.net || 0)}`}
                                     />
+                                    <Row label="GX" value={formatCurrency(breakup.gx?.net || 0)} />
                                     <Row label="Nutrition" value={formatCurrency(breakup.nutrition?.net || 0)} />
                                     <Row label="Physio" value={formatCurrency(breakup.physio?.net || 0)} />
-                                    <Row label="Academy" value={formatCurrency(breakup.academy?.net || 0)} />
                                 </Card>
                             )}
 
@@ -643,6 +789,19 @@ const styles = StyleSheet.create({
     },
     controlText: { flex: 1, fontSize: scale(12), color: '#0F172A', fontWeight: '500' },
 
+    misBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: scale(7),
+        backgroundColor: '#E10600',
+        borderRadius: 10,
+        paddingVertical: scale(11),
+        marginTop: scale(10),
+    },
+    misBtnOff: { opacity: 0.5 },
+    misBtnText: { fontSize: scale(12.5), color: '#fff', fontWeight: '700' },
+
     errorBox: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -718,6 +877,18 @@ const styles = StyleSheet.create({
         paddingVertical: scale(3),
     },
     pillText: { fontSize: scale(9.5), color: '#475569', fontWeight: '600' },
+
+    detailsBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(2),
+        backgroundColor: '#FFF5F5',
+        borderRadius: 20,
+        paddingLeft: scale(10),
+        paddingRight: scale(6),
+        paddingVertical: scale(4),
+    },
+    detailsText: { fontSize: scale(10), color: '#E63946', fontWeight: '700' },
 
     row: {
         flexDirection: 'row',

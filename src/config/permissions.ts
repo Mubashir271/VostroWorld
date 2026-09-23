@@ -8,6 +8,12 @@ export const ROLES = {
   NUTRITIONIST: '10', // confirmed live 2026-07-23 via /v1/auth/get (designation "Nutritionist")
   FITNESS_MANAGER: '11', // confirmed live 2026-07-23 via /v1/auth/app-login (fitnessmanagerf11@/g13@)
   HR: '12',        // HR Department — confirmed live 2026-06-29 via app-login
+  // General Trainer — confirmed live 2026-09-23 via /v1/auth/app-login
+  // (uk8668686@gmail.com, Muhammad Umar, designation_id 18 "General
+  // Trainer", department 22 Fitness). Distinct from TRAINER ('9', the
+  // Personal Trainer, designation_id 1). Both logins return `type` '30', so
+  // `type` cannot tell them apart — only `role` can.
+  GENERAL_TRAINER: '17',
   EMPLOYEE: '13',  // Plain staff record — confirmed live 2026-09-09 via app-login
                    // (khawar1973.kk@gmail.com). The web renders this as
                    // "Role: Employee"; the job title lives in designation.
@@ -25,6 +31,7 @@ export const ROLE_LABELS: Record<string, string> = {
   [ROLES.NUTRITIONIST]: 'Nutritionist',
   [ROLES.FITNESS_MANAGER]: 'Fitness Manager',
   [ROLES.HR]: 'HR Department',
+  [ROLES.GENERAL_TRAINER]: 'General Trainer',
   [ROLES.EMPLOYEE]: 'Employee',
 };
 
@@ -46,6 +53,7 @@ export const HEADER_TITLES: Record<string, string> = {
   [ROLES.NUTRITIONIST]: 'Vostro Nutritionist',
   [ROLES.FITNESS_MANAGER]: 'Vostro Fitness',
   [ROLES.HR]: 'Vostro HR',
+  [ROLES.GENERAL_TRAINER]: 'Vostro Trainer',
   [ROLES.EMPLOYEE]: 'Vostro Employee',
 };
 
@@ -80,12 +88,16 @@ export const roleLabelOf = (role?: string | null, type?: string | null): string 
 // Admin (role === '3') gets everything.
 // Anyone else (trainer, staff, etc.) gets only these sections + children.
 
+// The web's trainer sidebar has three sections — Dashboard, Fitness and Human
+// Resource — and no Notifications entry: notifications live behind the header
+// bell there, as they do in this app's AppHeader. 'Notifications' was dropped
+// from this list on 2026-09-23 to match. The route stays in
+// PERSONAL_TRAINER_ALLOWED_SCREENS so the bell still opens it.
 export const TRAINER_ALLOWED_MENUS = [
   'Dashboard',
   'My Commission',
   'HR Management',
   'Fitness',
-  'Notifications',
 ];
 
 // Within HR Management, trainers can only see these children
@@ -95,10 +107,16 @@ export const TRAINER_ALLOWED_HR_CHILDREN = [
 ];
 
 // Stack screen names that trainers are allowed to navigate to
-export const TRAINER_ALLOWED_SCREENS = [
+export const PERSONAL_TRAINER_ALLOWED_SCREENS = [
   'Drawer',
   'Dashboard',
+  // The trainer's Home tab is the PT Dashboard, so the Employee Dashboard is
+  // reached as its own stack route from the drawer's Dashboard group. It is
+  // wrapped in protect(), so without it listed here a trainer opening their
+  // own employee dashboard would get <AccessDenied/>.
+  'EmployeeDashboard',
   // Fitness
+  'PTDashboard',
   'FitnessPlans',
   'Classes',
   'TrainerManagement',
@@ -114,6 +132,26 @@ export const TRAINER_ALLOWED_SCREENS = [
   'Notifications',
   'Account',
   // 'NewPackage',
+];
+
+// General-Trainer-role drawer sections — confirmed live 2026-09-23 against
+// the GT login's own /v1/admin/menu-access/mine (role '17'), which returns
+// exactly two modules:
+//
+//   Dashboard › Employee Dashboard   (/employee-dashboard)
+//   Fitness   › GT Dashboard         (/gt-dashboard)
+//
+// No SOPs, no Personal Trainer Diary, no Session Tracker, no Fitness Plans —
+// everything the personal trainer gets. Before this role existed, '17'
+// matched no isX() and fell through to the trainer branch, handing a General
+// Trainer the whole PT menu and denying them the one screen they do have.
+export const GENERAL_TRAINER_ALLOWED_MENUS = ['Dashboard', 'Fitness'];
+
+// 'AddPreAssessment' / 'ViewAssessment' are reached from the GT Dashboard's
+// timeline actions, so they belong to this role's surface too.
+export const GENERAL_TRAINER_ALLOWED_SCREENS = [
+  'Drawer', 'Dashboard', 'EmployeeDashboard', 'Notifications', 'Account',
+  'GTDashboard', 'AddPreAssessment', 'ViewAssessment',
 ];
 
 // Top-level menu items hidden from admin (trainer-only sections)
@@ -164,6 +202,7 @@ export const isTrainer = (role?: string | null) => role === ROLES.TRAINER;
 export const isHR = (role?: string | null) => role === ROLES.HR;
 export const isNutritionist = (role?: string | null) => role === ROLES.NUTRITIONIST;
 export const isFitnessManager = (role?: string | null) => role === ROLES.FITNESS_MANAGER;
+export const isGeneralTrainer = (role?: string | null) => role === ROLES.GENERAL_TRAINER;
 
 export const hasFullAccess = (role?: string | null) => isAdmin(role);
 
@@ -228,7 +267,9 @@ export const HR_ALLOWED_MENUS = ['Dashboard', 'Human Resource', 'Notifications']
 export const HR_ALLOWED_SCREENS = [
   'Drawer', 'Dashboard', 'Notifications', 'Account',
   'HRDashboard', 'DetailedHRReport',
-  'ViewStaff', 'AddStaff', 'StaffPromotion', 'StaffFinance', 'StaffAdvances',
+  // 'EmployeeMaster' is the HR menu's Employee Master; it used to point at
+  // ViewStaff, so without it here protect() would deny HR its own landing page.
+  'ViewStaff', 'EmployeeMaster', 'AddStaff', 'StaffPromotion', 'StaffFinance', 'StaffAdvances',
   'SalaryComponent', 'StaffLoans', 'SalaryManagement', 'StaffCommissions',
   // 'StaffAttendanceReport' is the web HR menu's "Staff Attendance" — it was
   // only reachable from the admin Reports section, so HR could not open it.

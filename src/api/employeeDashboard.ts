@@ -88,8 +88,12 @@ export const createDutyHourRequest = async (payload: {
   requested_end_time: string;
   reason: string;
 }) => {
+  // `/v1/` prefix: every other call in this file carries it, the live GET at
+  // /v1/hr/employee-duty-hour-requests/index answers 200, and API_REFERENCE's
+  // tables drop the prefix by convention throughout. Without it this posted to
+  // /public/api/hr/... and 404'd. Fixed 2026-09-23.
   const res = await api.post(
-    '/hr/employee-duty-hour-requests/store',
+    '/v1/hr/employee-duty-hour-requests/store',
     payload,
   );
   return res.data;
@@ -105,7 +109,7 @@ export const updateDutyHourRequest = async (
   },
 ) => {
   const res = await api.put(
-    `/hr/employee-duty-hour-requests/update/${id}`,
+    `/v1/hr/employee-duty-hour-requests/update/${id}`,
     payload,
   );
   return res.data;
@@ -633,6 +637,11 @@ export const updateProfileEntry = async (id: number, payload: Partial<{
   start_date: string;
   end_date: string;
   description: string;
+  // The web's "Archive" action on a saved record. Rows come back with
+  // `status: "1"` and the list is fetched with `status=1`, so archiving is a
+  // soft delete via status 0 — not a DELETE route. Unverified: no write has
+  // been made against production to confirm it.
+  status: number;
 }>) => {
   const res = await api.put(`/v1/hr/employee-profile-entries/update/${id}`, payload);
   return res.data;
@@ -870,6 +879,13 @@ export const getStaffList = async (params: {
   status?: number;
   limit?: number;
   page?: number;
+  /**
+   * 'staff' for the employee roster, 'login' for accounts that can sign in.
+   * The web's Employee Master sends it explicitly and counts the two
+   * separately for its "Total Active Staff" and "Total Logins" tiles
+   * (HAR, 21 Sep 2026). Omitted, the server keeps its own default.
+   */
+  account_type?: 'staff' | 'login';
 }) => {
   const res = await api.get('/v1/auth/get', { params });
   const list = res.data?.data?.data;
@@ -911,13 +927,10 @@ export const getStaffDetail = async (staffId: number, branch_id: number) => {
 
 // ── Finance ───────────────────────────────────────────────────────────────────
 
-export const getFinanceDashboard = async (params: {
-  branch_id: number | string;
-  filter?: 'today' | 'week' | 'month' | 'quarter';
-}) => {
-  const res = await api.get('/v1/finance/dashboard', { params });
-  return res.data;
-};
+// `/v1/finance/dashboard` does not exist — it 404s (checked live 21 Sep 2026).
+// The legacy Finance dashboard is built from the five `/v1/finance/...` calls
+// in api/financeLegacy.ts instead. The old helper lived here and its failure
+// was swallowed, which is how that screen came to render sample figures.
 
 export const getExpensesList = async (params: {
   branch_id: number | string;

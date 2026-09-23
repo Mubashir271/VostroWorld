@@ -11,9 +11,9 @@ export const getMISDashboard = async (branchId: number | string, date?: string) 
 
 // ── Admin Dashboard ──────────────────────────────────────────────────────────
 // GET /v1/admin-dashboard/summary?bId={all|<branch id>}&date=YYYY-MM-DD
-// Confirmed live 2026-09-18 from a HAR of the web admin's Admin Dashboard.
-// It backs that whole page in one call; `/v1/MISReport/get` is fetched
-// alongside it only for the per-service `breakup` (Sales by service).
+// Confirmed live 2026-09-21 from a HAR of the web admin's Admin Dashboard.
+// One call backs the whole page — the web no longer fetches /v1/MISReport/get
+// alongside it, because `breakup` now comes back in this response.
 //
 // Response is `{ data: {...} }` — note MISReport/get is flat, this one is not.
 
@@ -21,9 +21,38 @@ export interface AdminDashboardBranchRow {
     branch_id: string;
     branch_label: string;
     total_sales_today: number;
-    profit_today: number;
     totalCheckins: number;
     presentStaff: number;
+    physio_sales: number;
+    nutrition_sales: number;
+    leads_today: number;
+}
+
+/** One `breakup` entry — a service's takings for the date. */
+export interface AdminDashboardBreakupRow {
+    qty: number;
+    price: number;
+    discount: number;
+    tax: number;
+    net: number;
+}
+
+export interface AdminDashboardDeptSnapshot {
+    physio: { appointments_today: number; sales_qty: number; sales_net: number; mtd_net: number };
+    nutrition: { appointments_today: number; sales_qty: number; sales_net: number; mtd_net: number };
+    social_leads: {
+        leads_today: number;
+        interested: number;
+        visit_scheduled: number;
+        visit_completed: number;
+        payments: number;
+        mtd_leads: number;
+        mtd_payments: number;
+    };
+    sales: {
+        gym_net: number; pt_net: number; gx_net: number; cafe_net: number;
+        gym_qty: number; pt_qty: number; gx_qty: number;
+    };
 }
 
 export interface AdminDashboardTrendPoint {
@@ -55,6 +84,12 @@ export interface AdminDashboardSummary {
     by_branch: AdminDashboardBranchRow[];
     trend: AdminDashboardTrendPoint[];
     staffRoster: AdminDashboardStaffRow[];
+
+    /** Per-service takings, keyed gym_new | gym_renew | pt_new | pt_renew |
+     *  nutrition | cafe | academy | physio | gx | other. Backs Sales by
+     *  service and the Membership snapshot. */
+    breakup: Record<string, AdminDashboardBreakupRow>;
+    dept_snapshot: AdminDashboardDeptSnapshot;
 
     totalStaff: number;
     presentStaff: number;

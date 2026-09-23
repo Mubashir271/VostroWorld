@@ -23,8 +23,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../redux/store';
 import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin, isSales, isEmployee, ROLE_LABELS, headerTitleOf } from '../../config/permissions';
+import { isAdmin, isSales, isEmployee, isTrainer, isGeneralTrainer, ROLE_LABELS, headerTitleOf } from '../../config/permissions';
 import EmployeeDashboardScreen from '../HR/EmployeeDashboard';
+import PTDashboardScreen from '../Fitness/PTDashboard';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { fetchMembers } from '../../redux/slices/membersSlice';
@@ -123,6 +124,11 @@ export default function DashboardScreen() {
     // A staff record with no role gets the Employee Dashboard as its whole
     // app, matching the web — so Home is that dashboard, not this one.
     const userIsEmployee = isEmployee(profile?.role);
+    // Role 9 gets the PT Dashboard as its Home tab (see the early return below).
+    const userIsTrainer = isTrainer(profile?.role);
+    // Role 17's whole app is the Employee Dashboard (plus a GT Dashboard not
+    // built yet), so Home is that dashboard — same as a blank-role employee.
+    const userIsGeneralTrainer = isGeneralTrainer(profile?.role);
     const userIsSales = isSales(profile?.role);
     // Sales sees the same client-stats dashboard as admin (confirmed against
     // the web Sales login), not the employee/trainer self-service one.
@@ -219,7 +225,15 @@ export default function DashboardScreen() {
     // Placed after every hook above so hook order stays constant.
     // `openEdit` is set by the drawer's edit icon and carries a timestamp, so
     // tapping it repeatedly re-opens the Change Information modal.
-    if (userIsEmployee) return <EmployeeDashboardScreen focusContact={(route as any)?.params?.openEdit} />;
+    if (userIsEmployee || userIsGeneralTrainer) {
+        return <EmployeeDashboardScreen focusContact={(route as any)?.params?.openEdit} />;
+    }
+
+    // A personal trainer lands on the PT Dashboard, not the employee one —
+    // the web makes /pt-dashboard role 9's working screen and files Employee
+    // Dashboard under the sidebar's Dashboard group, which the drawer now
+    // mirrors. The employee dashboard is still reachable from there.
+    if (userIsTrainer) return <PTDashboardScreen />;
 
     return (
         <>

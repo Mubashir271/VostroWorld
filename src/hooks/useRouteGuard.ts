@@ -14,7 +14,7 @@
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
-import { isAdmin, isSales, SALES_ALLOWED_SCREENS, TRAINER_ALLOWED_SCREENS } from '../config/permissions';
+import { isAdmin, isSales, SALES_ALLOWED_SCREENS, PERSONAL_TRAINER_ALLOWED_SCREENS } from '../config/permissions';
 
 interface RouteGuardResult {
   accessDenied: boolean;  // true  → render <AccessDenied />
@@ -25,7 +25,7 @@ interface RouteGuardResult {
  * Guards the current screen against non-admin users.
  *
  * @param screenName  The stack screen name of the current screen.
- *                    Checked against TRAINER_ALLOWED_SCREENS.
+ *                    Checked against PERSONAL_TRAINER_ALLOWED_SCREENS.
  *                    If omitted, the screen is treated as admin-only.
  *
  * @returns { accessDenied, isAdmin }
@@ -46,7 +46,7 @@ export const useRouteGuard = (screenName?: string): RouteGuardResult => {
     userIsAdmin ||
     salesAllowed ||
     !screenName ||
-    TRAINER_ALLOWED_SCREENS.includes(screenName);
+    PERSONAL_TRAINER_ALLOWED_SCREENS.includes(screenName);
 
   const [accessDenied, setAccessDenied] = useState(!allowed);
 

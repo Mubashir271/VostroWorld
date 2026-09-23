@@ -1,250 +1,393 @@
-import React, { useEffect, useState, useCallback } from 'react';
+// Finance dashboard (legacy) — the app's mirror of the web's legacy Finance
+// dashboard.
+//
+// Rebuilt 21 Sep 2026 against the five calls the web actually makes. The
+// previous version called `/v1/finance/dashboard`, which 404s, so it always
+// fell through to a hardcoded DEMO_SALES / DEMO_EXPENSES block — every figure
+// on the screen was invented. Those fallbacks are gone: an empty response now
+// renders as empty.
+//
+// Sections follow the web (Sales and Expense by category → Filter By →
+// Bank / Office / Sales Counter balances → Monthly Profit & Loss → Payment
+// Method Breakdown).
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    RefreshControl,
+    Dimensions,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { RootState } from '../../../redux/store';
-import { getFinanceDashboard } from '../../../api/employeeDashboard';
+import AppHeader from '../../../components/AppHeader';
+import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import {
+    getBankBalance,
+    getOfficeBalance,
+    getSalesCounterBalance,
+    getSalesAndExpenseByCategory,
+    getSalesByPaymentMethod,
+    foldSalesByCategory,
+    foldExpensesByCategory,
+    FinanceBalance,
+    PaymentMethodRow,
+} from '../../../api/financeLegacy';
 
-interface BalanceCard {
-  label: string;
-  total_balance: number;
-  last_debit: number;
-  last_credit: number;
-}
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const scale = (size: number) => (SCREEN_WIDTH / 375) * size;
 
-interface FinanceData {
-  bank: BalanceCard;
-  office: BalanceCard;
-  sales_counter: BalanceCard;
-  sales_by_category: { category: string; amount: number }[];
-  expenses_by_category: { category: string; amount: number }[];
-}
+const SALES_COLOR = '#0F766E';
+const EXPENSE_COLOR = '#E63946';
 
-const FILTER_TABS = ['Today', 'Week', 'Month', 'Quarter'];
+const FILTERS = ['Today', 'Week', 'Month', 'Quarter'] as const;
+type Filter = typeof FILTERS[number];
 
-const fmt = (n: number) => {
-  const abs = Math.abs(n || 0);
-  const prefix = n < 0 ? '-Rs ' : 'Rs ';
-  return `${prefix}${abs.toLocaleString()}/-`;
+const iso = (d: Date) => {
+    const p = (n: number) => `${n}`.padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-const BalanceWidget = ({ label, total, lastDebit, lastCredit }: { label: string; total: number; lastDebit: number; lastCredit: number }) => (
-  <View style={styles.balanceCard}>
-    <Text style={styles.balanceLabel}>{label}</Text>
-    <Text style={styles.balanceTotalLabel}>Total Balance</Text>
-    <Text style={[styles.balanceTotal, total < 0 ? styles.negative : styles.positive]}>{fmt(total)}</Text>
-    <View style={styles.balanceRow}>
-      <View style={styles.balanceSub}>
-        <Text style={styles.balanceSubLabel}>Last Debit</Text>
-        <Text style={[styles.balanceSubVal, { color: '#E63946' }]}>{fmt(lastDebit)}</Text>
-      </View>
-      <View style={styles.balanceSub}>
-        <Text style={styles.balanceSubLabel}>Last Credit</Text>
-        <Text style={[styles.balanceSubVal, { color: '#43A047' }]}>{fmt(lastCredit)}</Text>
-      </View>
+/** The date range each Filter By tab covers. */
+const rangeFor = (f: Filter) => {
+    const end = new Date();
+    const start = new Date();
+    if (f === 'Today') { /* same day */ }
+    else if (f === 'Week') { start.setDate(end.getDate() - 6); }
+    else if (f === 'Month') { start.setDate(1); }
+    else { start.setMonth(end.getMonth() - 2, 1); }
+    return { start_date: iso(start), end_date: iso(end) };
+};
+
+const fmt = (n: number) => {
+    const abs = Math.abs(n || 0);
+    return `${n < 0 ? '-Rs ' : 'Rs '}${abs.toLocaleString()}/-`;
+};
+
+const BalanceCard = ({ label, b }: { label: string; b: FinanceBalance | null }) => (
+    <View style={styles.balanceCard}>
+        <Text style={styles.balanceLabel}>{label}</Text>
+        <Text style={styles.balanceTotalLabel}>Total Balance</Text>
+        <Text style={[
+            styles.balanceTotal,
+            (b?.total_balance ?? 0) < 0 ? styles.negative : styles.positive,
+        ]}>
+            {fmt(b?.total_balance ?? 0)}
+        </Text>
+        <View style={styles.balanceRow}>
+            <View style={styles.balanceSub}>
+                <Text style={styles.balanceSubLabel}>Last Debit</Text>
+                <Text style={styles.balanceSubVal}>{fmt(b?.last_debit ?? 0)}</Text>
+            </View>
+            <View style={styles.balanceSub}>
+                <Text style={styles.balanceSubLabel}>Last Credit</Text>
+                <Text style={styles.balanceSubVal}>{fmt(b?.last_credit ?? 0)}</Text>
+            </View>
+        </View>
     </View>
-  </View>
+);
+
+const Bar = ({ label, value, max, color, display }: {
+    label: string; value: number; max: number; color: string; display: string;
+}) => (
+    <View style={styles.barRow}>
+        <Text style={styles.barLabel} numberOfLines={1}>{label}</Text>
+        <View style={styles.barTrack}>
+            <View style={[
+                styles.barFill,
+                { width: `${max > 0 ? Math.max((value / max) * 100, value > 0 ? 2 : 0) : 0}%`, backgroundColor: color },
+            ]} />
+        </View>
+        <Text style={styles.barValue} numberOfLines={1}>{display}</Text>
+    </View>
+);
+
+const Card = ({ title, children }: { title?: string; children: React.ReactNode }) => (
+    <View style={styles.card}>
+        {!!title && <Text style={styles.cardTitle}>{title}</Text>}
+        {children}
+    </View>
 );
 
 const FinanceDashboard = () => {
-  const navigation = useNavigation<any>();
-  const { profile } = useSelector((state: RootState) => state.user);
-  const branchId = profile?.branchId || '';
+    const navigation = useNavigation<any>();
+    const { profile } = useSelector((state: RootState) => state.user);
+    const branchId = profile?.branchId || '';
 
-  const [data, setData] = useState<FinanceData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('Month');
+    const [filter, setFilter] = useState<Filter>('Month');
+    const [bank, setBank] = useState<FinanceBalance | null>(null);
+    const [office, setOffice] = useState<FinanceBalance | null>(null);
+    const [counter, setCounter] = useState<FinanceBalance | null>(null);
+    const [sales, setSales] = useState<any[]>([]);
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [methods, setMethods] = useState<PaymentMethodRow[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true); else setLoading(true);
-    try {
-      const res = await getFinanceDashboard({
-        branch_id: branchId,
-        filter: activeFilter.toLowerCase() as any,
-      });
-      setData(res?.data ?? res ?? null);
-    } catch {
-      setData(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [branchId, activeFilter]);
+    const load = useCallback(async (isRefresh = false) => {
+        try {
+            if (!isRefresh) { setLoading(true); }
+            setError(null);
+            const p = { branch_id: branchId, ...rangeFor(filter) };
+            const [b, o, c, cat, pm] = await Promise.all([
+                getBankBalance(p).catch(() => null),
+                getOfficeBalance(p).catch(() => null),
+                getSalesCounterBalance(p).catch(() => null),
+                getSalesAndExpenseByCategory(p).catch(() => ({ sales: [], expenses: [] })),
+                getSalesByPaymentMethod(p).catch(() => []),
+            ]);
+            setBank(b);
+            setOffice(o);
+            setCounter(c);
+            setSales(foldSalesByCategory(cat.sales));
+            setExpenses(foldExpensesByCategory(cat.expenses));
+            setMethods(pm);
+            if (!b && !o && !c) { setError('Could not load the finance figures.'); }
+        } catch (e: any) {
+            setError(e?.response?.data?.message || e?.message || 'Could not load the finance figures.');
+        } finally {
+            if (!isRefresh) { setLoading(false); }
+        }
+    }, [branchId, filter]);
 
-  useEffect(() => { load(); }, [load]);
+    useEffect(() => { load(); }, [load]);
 
-  const DEMO_SALES = [
-    { category: 'Gym', amount: 4200000 },
-    { category: 'PT', amount: 1800000 },
-    { category: 'Guest Pass', amount: 450000 },
-    { category: 'Registration', amount: 380000 },
-    { category: 'Freezing', amount: 120000 },
-    { category: 'Cafe', amount: 95000 },
-  ];
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        load(true).finally(() => setRefreshing(false));
+    }, [load]);
 
-  const DEMO_EXPENSES = [
-    { category: 'Staff Salaries', amount: 1200000 },
-    { category: 'Maintenance', amount: 350000 },
-    { category: 'Cafe Expense', amount: 280000 },
-    { category: 'Utility Bills', amount: 220000 },
-    { category: 'Rents', amount: 180000 },
-    { category: 'General', amount: 95000 },
-  ];
+    const totalSales = useMemo(() => sales.reduce((t, s) => t + s.amount, 0), [sales]);
+    const totalExpenses = useMemo(() => expenses.reduce((t, e) => t + e.amount, 0), [expenses]);
+    const netProfit = totalSales - totalExpenses;
 
-  const salesData = data?.sales_by_category ?? DEMO_SALES;
-  const expensesData = data?.expenses_by_category ?? DEMO_EXPENSES;
-  const maxSales = Math.max(...salesData.map(s => s.amount), 1);
-  const maxExpenses = Math.max(...expensesData.map(e => e.amount), 1);
+    const maxSales = Math.max(...sales.map(s => s.amount), 1);
+    const maxExpenses = Math.max(...expenses.map(e => e.amount), 1);
 
-  const BAR_COLORS = ['#E63946', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1'];
+    const paidMethods = methods.filter(m => Number(m.total_payment) > 0);
+    const methodTotal = paidMethods.reduce((t, m) => t + Number(m.total_payment), 0);
+    const maxMethod = Math.max(...paidMethods.map(m => Number(m.total_payment)), 1);
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Finance Dashboard</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Expenses')}>
-          <Icon name="plus-circle" size={24} color="#E63946" />
-        </TouchableOpacity>
-      </View>
+    return (
+        <View style={styles.container}>
+            <AppHeader
+                title="Finance Dashboard"
+                leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+                rightIcon={<NotificationSVG width={24} height={24} />}
+                onLeftPress={() => navigation.goBack()}
+                onRightPress={() => navigation.navigate('Notifications')}
+                backgroundColor="#FFE5E5"
+            />
 
-      {/* Filter Tabs */}
-      <View style={styles.tabRow}>
-        {FILTER_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeFilter === tab && styles.activeTab]}
-            onPress={() => setActiveFilter(tab)}
-          >
-            <Text style={[styles.tabText, activeFilter === tab && styles.activeTabText]}>{tab}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+            {loading ? (
+                <View style={styles.centre}><ActivityIndicator size="large" color="#E10600" /></View>
+            ) : (
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E10600" />
+                    }
+                >
+                    {/* ── Filter By ────────────────────────────────────────── */}
+                    <View style={styles.tabRow}>
+                        {FILTERS.map(t => (
+                            <TouchableOpacity
+                                key={t}
+                                style={[styles.tab, filter === t && styles.tabOn]}
+                                onPress={() => setFilter(t)}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.tabText, filter === t && styles.tabTextOn]}>{t}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
 
-      {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color="#E63946" /></View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
-        >
-          {/* Balance Cards */}
-          <Text style={styles.sectionTitle}>Account Balances</Text>
-          <BalanceWidget
-            label="Bank"
-            total={data?.bank?.total_balance ?? -9253629}
-            lastDebit={data?.bank?.last_debit ?? 170000}
-            lastCredit={data?.bank?.last_credit ?? 0}
-          />
-          <BalanceWidget
-            label="Office"
-            total={data?.office?.total_balance ?? -1997928}
-            lastDebit={data?.office?.last_debit ?? 1000}
-            lastCredit={data?.office?.last_credit ?? 170000}
-          />
-          <BalanceWidget
-            label="Sales Counter"
-            total={data?.sales_counter?.total_balance ?? 6211951}
-            lastDebit={data?.sales_counter?.last_debit ?? 300}
-            lastCredit={data?.sales_counter?.last_credit ?? 6300}
-          />
+                    {!!error && (
+                        <View style={styles.errorBox}>
+                            <Icon name="alert-circle-outline" size={scale(16)} color="#B91C1C" />
+                            <Text style={styles.errorText}>{error}</Text>
+                        </View>
+                    )}
 
-          {/* Sales Chart */}
-          <Text style={styles.sectionTitle}>Sales Breakdown</Text>
-          <View style={styles.chartCard}>
-            {salesData.map((item, i) => (
-              <View key={item.category} style={styles.barRow}>
-                <Text style={styles.barLabel} numberOfLines={1}>{item.category}</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${(item.amount / maxSales) * 100}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }]} />
-                </View>
-                <Text style={styles.barValue}>Rs {(item.amount / 1000).toFixed(0)}K</Text>
-              </View>
-            ))}
-          </View>
+                    {/* ── Balances ─────────────────────────────────────────── */}
+                    <BalanceCard label="Bank" b={bank} />
+                    <BalanceCard label="Office" b={office} />
+                    <BalanceCard label="Sales Counter" b={counter} />
 
-          {/* Expense Chart */}
-          <Text style={styles.sectionTitle}>Expense Breakdown</Text>
-          <View style={styles.chartCard}>
-            {expensesData.map((item, i) => (
-              <View key={item.category} style={styles.barRow}>
-                <Text style={styles.barLabel} numberOfLines={1}>{item.category}</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${(item.amount / maxExpenses) * 100}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }]} />
-                </View>
-                <Text style={styles.barValue}>Rs {(item.amount / 1000).toFixed(0)}K</Text>
-              </View>
-            ))}
-          </View>
+                    {/* ── Sales by category ────────────────────────────────── */}
+                    <Card title="Sales">
+                        {sales.length ? sales.map(s => (
+                            <Bar
+                                key={s.label}
+                                label={s.label}
+                                value={s.amount}
+                                max={maxSales}
+                                color={SALES_COLOR}
+                                display={fmt(s.amount)}
+                            />
+                        )) : <Text style={styles.empty}>No sales in this period.</Text>}
+                    </Card>
 
-          {/* Quick Actions */}
-          <Text style={styles.sectionTitle}>Finance Actions</Text>
-          <View style={styles.actionsGrid}>
-            {[
-              { icon: 'plus-circle', label: 'Add Expense', screen: 'AddExpense' },
-              { icon: 'cash', label: 'Cash In Hand', screen: 'ViewCashInHand' },
-              { icon: 'bank', label: 'Bank Ledger', screen: 'FinanceDashboard' },
-              { icon: 'scale-balance', label: 'Balance Sheet', screen: 'FinanceDashboard' },
-            ].map(item => (
-              <TouchableOpacity
-                key={item.label}
-                style={styles.actionCard}
-                onPress={() => navigation.navigate(item.screen)}
-              >
-                <View style={styles.actionIcon}>
-                  <Icon name={item.icon} size={22} color="#E63946" />
-                </View>
-                <Text style={styles.actionLabel}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-      )}
-    </SafeAreaView>
-  );
+                    {/* ── Expenses by category ─────────────────────────────── */}
+                    <Card title="Expense">
+                        {expenses.length ? expenses.map(e => (
+                            <Bar
+                                key={e.label}
+                                label={e.label}
+                                value={e.amount}
+                                max={maxExpenses}
+                                color={EXPENSE_COLOR}
+                                display={fmt(e.amount)}
+                            />
+                        )) : <Text style={styles.empty}>No expenses in this period.</Text>}
+                    </Card>
+
+                    {/* ── Profit & Loss ────────────────────────────────────── */}
+                    <Card title={`${filter} Profit & Loss`}>
+                        <View style={styles.plRow}>
+                            <Text style={styles.plLabel}>Total Sales</Text>
+                            <Text style={styles.plValue}>{fmt(totalSales)}</Text>
+                        </View>
+                        <View style={styles.plRow}>
+                            <Text style={styles.plLabel}>Total Expenses</Text>
+                            <Text style={styles.plValue}>{fmt(totalExpenses)}</Text>
+                        </View>
+                        <View style={[styles.plRow, styles.plRowNet]}>
+                            <Text style={styles.plLabelNet}>Net Profit</Text>
+                            <Text style={[
+                                styles.plValueNet,
+                                netProfit < 0 ? styles.negative : styles.positive,
+                            ]}>
+                                {fmt(netProfit)}
+                            </Text>
+                        </View>
+                    </Card>
+
+                    {/* ── Payment Method Breakdown ─────────────────────────── */}
+                    <Card title="Payment Method Breakdown">
+                        {paidMethods.length ? paidMethods.map(m => (
+                            <Bar
+                                key={m.payment_method}
+                                label={m.payment_method}
+                                value={Number(m.total_payment)}
+                                max={maxMethod}
+                                color="#2563EB"
+                                display={`${Math.round((Number(m.total_payment) / (methodTotal || 1)) * 100)}%`}
+                            />
+                        )) : <Text style={styles.empty}>No payments in this period.</Text>}
+                        {!!paidMethods.length && (
+                            <Text style={styles.footNote}>Total {fmt(methodTotal)}</Text>
+                        )}
+                    </Card>
+
+                    <View style={{ height: scale(40) }} />
+                </ScrollView>
+            )}
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
-  tabRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  tab: { flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 8, marginHorizontal: 3, backgroundColor: '#F0F0F0' },
-  activeTab: { backgroundColor: '#E63946' },
-  tabText: { fontSize: 12, fontWeight: '600', color: '#666' },
-  activeTabText: { color: '#fff' },
-  scroll: { padding: 16, paddingBottom: 30 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#1a1a1a', marginBottom: 10, marginTop: 6 },
-  balanceCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
-  balanceLabel: { fontSize: 16, fontWeight: '800', color: '#1a1a1a', marginBottom: 4 },
-  balanceTotalLabel: { fontSize: 12, color: '#888', marginBottom: 4 },
-  balanceTotal: { fontSize: 22, fontWeight: '900', marginBottom: 10 },
-  positive: { color: '#43A047' },
-  negative: { color: '#E63946' },
-  balanceRow: { flexDirection: 'row', gap: 16 },
-  balanceSub: { flex: 1, backgroundColor: '#F8F9FA', borderRadius: 8, padding: 8 },
-  balanceSubLabel: { fontSize: 11, color: '#aaa', marginBottom: 2 },
-  balanceSubVal: { fontSize: 14, fontWeight: '700' },
-  chartCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
-  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  barLabel: { width: 90, fontSize: 12, color: '#555', fontWeight: '600' },
-  barTrack: { flex: 1, height: 12, backgroundColor: '#F0F0F0', borderRadius: 6, marginHorizontal: 8, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 6 },
-  barValue: { width: 60, fontSize: 11, color: '#888', textAlign: 'right' },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  actionCard: { width: '22%', backgroundColor: '#fff', borderRadius: 12, padding: 10, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
-  actionIcon: { width: 42, height: 42, borderRadius: 10, backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  actionLabel: { fontSize: 10, color: '#555', textAlign: 'center', fontWeight: '600' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    container: { flex: 1, backgroundColor: '#f1f5f9' },
+    content: { padding: scale(20) },
+    centre: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f1f5f9' },
+
+    tabRow: {
+        flexDirection: 'row',
+        gap: scale(6),
+        backgroundColor: '#E2E8F0',
+        borderRadius: 10,
+        padding: scale(3),
+    },
+    tab: { flex: 1, alignItems: 'center', paddingVertical: scale(8), borderRadius: 8 },
+    tabOn: { backgroundColor: '#E10600' },
+    tabText: { fontSize: scale(11.5), color: '#64748b', fontWeight: '600' },
+    tabTextOn: { color: '#fff', fontWeight: '700' },
+
+    errorBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scale(8),
+        backgroundColor: '#FEF2F2',
+        borderRadius: 10,
+        padding: scale(12),
+        marginTop: scale(10),
+    },
+    errorText: { flex: 1, fontSize: scale(12), color: '#B91C1C' },
+
+    balanceCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: scale(14),
+        marginTop: scale(10),
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+    },
+    balanceLabel: { fontSize: scale(13), fontWeight: '700', color: '#0F172A' },
+    balanceTotalLabel: { fontSize: scale(10.5), color: '#64748b', marginTop: scale(6) },
+    balanceTotal: { fontSize: scale(20), fontWeight: '700', marginTop: scale(2) },
+    positive: { color: '#0F766E' },
+    negative: { color: '#B91C1C' },
+    balanceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: scale(12),
+        paddingTop: scale(10),
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: '#E2E8F0',
+    },
+    balanceSub: { flex: 1 },
+    balanceSubLabel: { fontSize: scale(10), color: '#94A3B8' },
+    balanceSubVal: { fontSize: scale(12), fontWeight: '700', color: '#334155', marginTop: scale(2) },
+
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: scale(14),
+        marginTop: scale(10),
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+    },
+    cardTitle: { fontSize: scale(13), fontWeight: '700', color: '#0F172A', marginBottom: scale(8) },
+
+    barRow: { flexDirection: 'row', alignItems: 'center', gap: scale(8), paddingVertical: scale(6) },
+    barLabel: { width: '28%', fontSize: scale(10.5), color: '#334155' },
+    barTrack: { flex: 1, height: scale(8), borderRadius: scale(4), backgroundColor: '#F1F5F9', overflow: 'hidden' },
+    barFill: { height: '100%', borderRadius: scale(4) },
+    barValue: { width: scale(88), textAlign: 'right', fontSize: scale(10), fontWeight: '700', color: '#0F172A' },
+
+    plRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#FFF5F5',
+        borderRadius: 10,
+        paddingHorizontal: scale(12),
+        paddingVertical: scale(12),
+        marginBottom: scale(8),
+    },
+    plRowNet: { marginBottom: 0 },
+    plLabel: { fontSize: scale(12), color: '#334155', fontWeight: '600' },
+    plValue: { fontSize: scale(12.5), color: '#0F172A', fontWeight: '700' },
+    plLabelNet: { fontSize: scale(12.5), color: '#0F172A', fontWeight: '700' },
+    plValueNet: { fontSize: scale(13.5), fontWeight: '700' },
+
+    footNote: { fontSize: scale(10), color: '#94A3B8', marginTop: scale(8) },
+    empty: { fontSize: scale(11.5), color: '#94A3B8', textAlign: 'center', paddingVertical: scale(20) },
 });
 
 export default FinanceDashboard;

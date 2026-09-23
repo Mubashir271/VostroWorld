@@ -85,8 +85,8 @@ android {
         // versionName carries the build number so a tester can read which build
         // they have from Settings › Apps. Two different builds both calling
         // themselves "1.1" is what made build 4 and build 7 indistinguishable.
-        versionCode 8
-        versionName "1.1.8"
+        versionCode 9
+        versionName "1.1.9"
     }
     aaptOptions {
         cruncherEnabled false

@@ -60,7 +60,7 @@ import AccessDenied from '../../screens/AccessDenied';
 import LegalScreen from '../../screens/Legal';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
-import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, HR_ALLOWED_SCREENS, SALES_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS, EMPLOYEE_ALLOWED_SCREENS } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, isTrainer, isGeneralTrainer, HR_ALLOWED_SCREENS, SALES_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS, EMPLOYEE_ALLOWED_SCREENS, PERSONAL_TRAINER_ALLOWED_SCREENS, GENERAL_TRAINER_ALLOWED_SCREENS } from '../../config/permissions';
 import AttendanceScreen from '../../screens/Attendance';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
@@ -98,6 +98,7 @@ import GeneralPackages from '../../screens/Sales/GeneralPackages';
 import DetailedPackages from '../../screens/Sales/DetailedPackages';
 import HRDashboard from '../../screens/HR/HRDashboard';
 import ViewStaff from '../../screens/HR/ViewStaff';
+import EmployeeMaster from '../../screens/HR/EmployeeMaster';
 import EmployeeAttendance from '../../screens/HR/EmployeeAttendance';
 import StaffDutyHours from '../../screens/HR/StaffDutyHours';
 import PTAttendance from '../../screens/HR/PTAttendance';
@@ -114,6 +115,11 @@ import DetailedHRReport from '../../screens/HR/DetailedHRReport';
 import AddStaff from '../../screens/HR/AddStaff';
 import StaffAdvances from '../../screens/HR/StaffAdvances';
 import FinanceDashboard from '../../screens/Finance/FinanceDashboard';
+import JournalsV2 from '../../screens/Finance/JournalsV2';
+import FinancialReportsV2 from '../../screens/Finance/FinancialReportsV2';
+import SetupWizardV2 from '../../screens/Finance/SetupWizardV2';
+import ImportSyncV2 from '../../screens/Finance/ImportSyncV2';
+import FinanceDashboardV2 from '../../screens/Finance/FinanceDashboardV2';
 import Expenses from '../../screens/Finance/Expenses';
 import AddExpense from '../../screens/Finance/AddExpense';
 import ViewCashInHand from '../../screens/Finance/ViewCashInHand';
@@ -176,6 +182,8 @@ import QualificationsScreen from '../../screens/trainer/QualificationsScreen';
 import TrainerDocumentsScreen from '../../screens/trainer/TrainerDocumentsScreen';
 import SessionTrackerScreen from '../../screens/trainer/SessionTrackerScreen';
 import SOPsScreen from '../../screens/trainer/SOPsScreen';
+import PTDashboard from '../../screens/Fitness/PTDashboard';
+import GTDashboard from '../../screens/Fitness/GTDashboard';
 import ViewFitnessPlans from '../../screens/trainer/ViewFitnessPlans';
 import AddFitnessPlan from '../../screens/trainer/AddFitnessPlan';
 import ManageExercises from '../../screens/trainer/ManageExercises';
@@ -236,6 +244,9 @@ import MealPlanDetailScreen from '../../screens/Nutrition/MealPlanDetail';
 import ViewNutritionAssessmentsScreen from '../../screens/Nutrition/ViewNutritionAssessments';
 import NutritionAppointmentsScreen from '../../screens/Nutrition/NutritionAppointments';
 import NutritionDashboardScreen from '../../screens/Nutrition/NutritionDashboard';
+import MarketingDashboardScreen from '../../screens/Marketing/MarketingDashboard';
+import SocialLeadsScreen from '../../screens/Marketing/SocialLeads';
+import AnnouncementsScreen from '../../screens/Announcements';
 import ClientsDetailsScreen from '../../screens/Nutrition/ClientsDetails';
 import DietPlanIssuedScreen from '../../screens/Nutrition/DietPlanIssued';
 import HealthCampsScreen from '../../screens/Nutrition/HealthCamps';
@@ -268,8 +279,19 @@ const ProtectedScreen = ({
     const nutritionistAllowed = isNutritionist(profile?.role) && !!screenName && NUTRITIONIST_ALLOWED_SCREENS.includes(screenName);
     const fitnessManagerAllowed = isFitnessManager(profile?.role) && !!screenName && FITNESS_MANAGER_ALLOWED_SCREENS.includes(screenName);
     const employeeAllowed = isEmployee(profile?.role) && !!screenName && EMPLOYEE_ALLOWED_SCREENS.includes(screenName);
+    // Role 9 had no branch here at all, so PERSONAL_TRAINER_ALLOWED_SCREENS was dead
+    // config and every protected screen denied trainers — which is why the
+    // trainer's own screens are all registered outside protect(). Added
+    // 2026-09-23 so the drawer's Dashboard › Employee Dashboard can reach the
+    // protected EmployeeDashboard route. This only ever grants access to
+    // screens explicitly listed for trainers; no other role is affected.
+    const trainerAllowed = isTrainer(profile?.role) && !!screenName && PERSONAL_TRAINER_ALLOWED_SCREENS.includes(screenName);
+    // Role 17 matched no branch here either, so a General Trainer opening
+    // their own Employee Dashboard — the one screen the web gives them — got
+    // <AccessDenied/>.
+    const generalTrainerAllowed = isGeneralTrainer(profile?.role) && !!screenName && GENERAL_TRAINER_ALLOWED_SCREENS.includes(screenName);
 
-    if (!userIsAdmin && !hrAllowed && !salesAllowed && !nutritionistAllowed && !fitnessManagerAllowed && !employeeAllowed) {
+    if (!userIsAdmin && !hrAllowed && !salesAllowed && !nutritionistAllowed && !fitnessManagerAllowed && !employeeAllowed && !trainerAllowed && !generalTrainerAllowed) {
         return <AccessDenied />;
     }
 
@@ -326,6 +348,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="TrainerDocuments" component={TrainerDocumentsScreen} />
                 <Stack.Screen name="SOPs" component={SOPsScreen} />
                 <Stack.Screen name="SessionTracker" component={SessionTrackerScreen} />
+                <Stack.Screen name="PTDashboard" component={PTDashboard} />
+                <Stack.Screen name="GTDashboard" component={GTDashboard} />
                 <Stack.Screen name="PersonalTrainerDiary" component={TrainerRoster} />
                 {/* Trainer's own client surface, reached from a red client name
                     in the Personal Training Roster — the app's counterpart of
@@ -407,6 +431,7 @@ const AppNavigator = () => {
                 {/* ── Admin: Human Resource ── */}
                 <Stack.Screen name="HRDashboard" component={protect(HRDashboard)} />
                 <Stack.Screen name="ViewStaff" component={protect(ViewStaff)} />
+                <Stack.Screen name="EmployeeMaster" component={protect(EmployeeMaster)} />
                 <Stack.Screen name="DetailedHRReport" component={protect(DetailedHRReport)} />
                 <Stack.Screen name="AddStaff" component={protect(AddStaff)} />
                 <Stack.Screen name="StaffPromotion" component={protect(StaffPromotion)} />
@@ -457,6 +482,11 @@ const AppNavigator = () => {
 
                 {/* ── Admin: Finance ── */}
                 <Stack.Screen name="FinanceDashboard" component={protect(FinanceDashboard)} />
+                <Stack.Screen name="JournalsV2" component={protect(JournalsV2)} />
+                <Stack.Screen name="FinancialReportsV2" component={protect(FinancialReportsV2)} />
+                <Stack.Screen name="SetupWizardV2" component={protect(SetupWizardV2)} />
+                <Stack.Screen name="ImportSyncV2" component={protect(ImportSyncV2)} />
+                <Stack.Screen name="FinanceDashboardV2" component={protect(FinanceDashboardV2)} />
                 <Stack.Screen name="Expenses" component={protect(Expenses)} />
                 <Stack.Screen name="AddExpense" component={protect(AddExpense)} />
                 <Stack.Screen name="DailyExpense" component={protect(DailyExpense)} />
@@ -529,6 +559,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="NutritionAppointments" component={protect(NutritionAppointmentsScreen)} />
                 <Stack.Screen name="AddNutritionAppointment" component={protect(AddNutritionAppointmentScreen)} />
                 <Stack.Screen name="NutritionDashboard" component={protect(NutritionDashboardScreen)} />
+                <Stack.Screen name="MarketingDashboard" component={protect(MarketingDashboardScreen)} />
+                <Stack.Screen name="SocialLeads" component={protect(SocialLeadsScreen)} />
+                <Stack.Screen name="Announcements" component={protect(AnnouncementsScreen)} />
                 <Stack.Screen name="ClientsDetails" component={protect(ClientsDetailsScreen)} />
                 <Stack.Screen name="AddAssessmentQuestionnaire" component={protect(AddAssessmentQuestionnaireScreen)} />
                 <Stack.Screen name="ViewAssessmentQuestionnaire" component={protect(ViewAssessmentQuestionnaireScreen)} />

@@ -6,8 +6,10 @@ import {
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import AppHeader from '../../../components/AppHeader';
+import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import { getHRDashboard, getStaffList, getBranchesNameList } from '../../../api/employeeDashboard';
 import api from '../../../api/service';
@@ -675,17 +677,23 @@ const HRDashboard = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>HR Dashboard</Text>
-        <TouchableOpacity onPress={() => load(true)}>
-          <Icon name="refresh" size={22} color="#E63946" />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      {/* The hand-rolled back/title/refresh bar this replaced was the only
+          screen-specific header left in the HR section. The refresh action is
+          not lost: the scroll view below already carries pull-to-refresh on
+          the same `load(true)`. */}
+      <AppHeader
+        title="HR Dashboard"
+        leftIcon={
+          navigation.canGoBack()
+            ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
+            : <BurgerSVG width={24} height={24} />
+        }
+        rightIcon={<NotificationSVG width={24} height={24} />}
+        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
+        onRightPress={() => navigation.navigate('Notifications')}
+        backgroundColor="#FFE5E5"
+      />
 
       {/* Filters */}
       <View style={styles.filtersBar}>
@@ -994,7 +1002,7 @@ const HRDashboard = () => {
           <View style={{ height: 30 }} />
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -1013,15 +1021,6 @@ const getAgeColor = (age: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
-
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee',
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
 
   // Filters bar
   filtersBar: { backgroundColor: '#fff', padding: 14, borderBottomWidth: 1, borderBottomColor: '#eee' },
