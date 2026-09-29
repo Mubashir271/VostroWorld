@@ -69,6 +69,8 @@ import TrainerRoster from '../../screens/trainer/TrainerRoster';
 import TrainerClientProfile from '../../screens/trainer/TrainerClientProfile';
 import AddPreAssessment from '../../screens/trainer/AddPreAssessment';
 import ViewAssessment from '../../screens/trainer/ViewAssessment';
+import AddClientAssessment from '../../screens/trainer/AddClientAssessment';
+import ViewClientAssessment from '../../screens/trainer/ViewClientAssessment';
 import SessionAttendanceReport from '../../screens/trainer/SessionAttendanceReport';
 import SalaryManagement from '../../screens/SalaryManagement';
 import MySalarySlip from '../../screens/MySalarySlip';
@@ -360,6 +362,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="TrainerClientProfile" component={TrainerClientProfile} />
                 <Stack.Screen name="AddPreAssessment" component={AddPreAssessment} />
                 <Stack.Screen name="ViewAssessment" component={ViewAssessment} />
+                <Stack.Screen name="AddClientAssessment" component={AddClientAssessment} />
+                <Stack.Screen name="ViewClientAssessment" component={ViewClientAssessment} />
                 <Stack.Screen name="ViewFitnessPlans" component={ViewFitnessPlans} />
                 <Stack.Screen name="AddFitnessPlan" component={AddFitnessPlan} />
                 <Stack.Screen name="ManageExercises" component={ManageExercises} />

@@ -164,6 +164,12 @@ const PTDashboard = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // Refetch when returning from the assessment form so a saved client flips
+  // from "Add Assessment" to "Assessed".
+  useEffect(() => navigation.addListener('focus', () => {
+    if (data) load(true);
+  }), [navigation, load, data]);
+
   const expiring = data?.expiring_soon ?? [];
   const checkins = data?.checkins_today?.clients ?? [];
   const clients = data?.clients ?? [];
@@ -351,35 +357,31 @@ const PTDashboard = () => {
                       Ends {fmtDate(c.end_date)} · {c.sessions_delivered}/{c.total_sessions} · {c.sessions_remaining} left
                     </Text>
 
+                    {/* The web's Assessment column: the Client Assessment Form
+                        (/postAssessment) until one is on file, then View
+                        (/viewAssessmentInfo). */}
                     <View style={styles.assessRow}>
-                      {c.has_pre_assessment ? (
-                        <>
-                          <TouchableOpacity
-                            style={styles.assessBtn}
-                            onPress={() => navigation.navigate('ViewAssessment', {
-                              clientId: c.client_id, clientName: c.name,
-                            })}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.assessBtnText}>View</Text>
-                          </TouchableOpacity>
-                          {c.has_post_assessment ? (
-                            <View style={styles.doneTag}>
-                              <Icon name="check" size={12} color="#2E7D32" />
-                              <Text style={styles.doneTagText}>Post done</Text>
-                            </View>
-                          ) : null}
-                        </>
+                      {c.has_post_assessment ? (
+                        <TouchableOpacity
+                          style={styles.assessBtn}
+                          onPress={() => navigation.navigate('ViewClientAssessment', {
+                            clientId: c.client_id, clientName: c.name,
+                          })}
+                          activeOpacity={0.8}
+                        >
+                          <Icon name="eye-outline" size={12} color="#E63946" />
+                          <Text style={styles.assessBtnText}>View</Text>
+                        </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
                           style={[styles.assessBtn, styles.assessBtnPrimary]}
-                          onPress={() => navigation.navigate('AddPreAssessment', {
+                          onPress={() => navigation.navigate('AddClientAssessment', {
                             clientId: c.client_id, clientName: c.name,
                           })}
                           activeOpacity={0.8}
                         >
                           <Icon name="plus" size={12} color="#E63946" />
-                          <Text style={styles.assessBtnText}>Add Pre</Text>
+                          <Text style={styles.assessBtnText}>Add Assessment</Text>
                         </TouchableOpacity>
                       )}
                     </View>
