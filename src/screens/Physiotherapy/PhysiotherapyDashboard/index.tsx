@@ -4,12 +4,14 @@ import {
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useSelector } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { RootState } from '../../../redux/store';
 import { getPhysioDashboard } from '../../../api/physio';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import { isPhysio } from '../../../config/permissions';
 
 const STAT_CARDS = [
   { key: 'total', label: 'Total Appointments', icon: 'calendar-check', color: '#1E88E5', bg: '#E8F1FC' },
@@ -61,8 +63,14 @@ const fmtDDMMYY = (dateStr: string) => {
 
 const PhysiotherapyDashboard = () => {
   const navigation = useNavigation<any>();
+  // The physio login gets this screen as its own bottom tab, where there is
+  // nothing to go back to — show the drawer burger there. Keyed on the route
+  // name rather than canGoBack(), which tab history makes unreliable.
+  const asTab = useRoute().name === 'PhysioTab';
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
+  // Physio login: own records only, as the web scopes it.
+  const physioId = isPhysio(profile?.role) ? profile?.id : undefined;
   const firstName = profile?.firstName || '';
 
   const [data, setData] = useState<any>(null);
@@ -73,7 +81,11 @@ const PhysiotherapyDashboard = () => {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const res = await getPhysioDashboard({ branch_id: branchId, week_start: selectedDate });
+      const res = await getPhysioDashboard({
+        branch_id: branchId,
+        week_start: selectedDate,
+        physio_id: physioId,
+      });
       const body = res?.data?.data ?? null;
       setData(body);
       if (body?.week?.start) setSelectedDate(body.week.start);
@@ -123,9 +135,9 @@ const PhysiotherapyDashboard = () => {
     <View style={styles.container}>
       <AppHeader
         title="Physio Dashboard"
-        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        leftIcon={asTab ? <BurgerSVG width={24} height={24} /> : <Icon name="arrow-left" size={24} color="#1A1A1A" />}
         rightIcon={<NotificationSVG width={24} height={24} />}
-        onLeftPress={() => navigation.goBack()}
+        onLeftPress={() => (asTab ? navigation.openDrawer() : navigation.goBack())}
         onRightPress={() => navigation.navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />

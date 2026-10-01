@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, RefreshControl, Modal, Pressable,
@@ -6,6 +6,7 @@ import {
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../components/AppHeader';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
@@ -43,7 +44,12 @@ const SESSION_TYPES = ['PT', 'SPT', 'GX', 'Befit'];
 const sessionType = (c: Client) =>
   c.package_type && SESSION_TYPES.includes(c.package_type) ? c.package_type : 'PT';
 
-const today = () => new Date().toISOString().split('T')[0];
+// Local date: toISOString() is UTC, which in Pakistan (UTC+5) reads as
+// yesterday until 5 AM.
+const isoOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const today = () => isoOf(new Date());
+const dateOf = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
 const fmtDate = (d: string) => {
   const [y, m, dd] = d.split('-');
   return `${dd} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]} ${y}`;
@@ -64,25 +70,43 @@ export default function SessionTrackerScreen() {
   const [slotClient, setSlotClient]     = useState<Client | null>(null); // Present sheet target
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [takenSlots, setTakenSlots]     = useState<string[]>([]);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [dateLoading, setDateLoading]   = useState(false);
 
-  const fetchClients = useCallback(async (date = checkDate) => {
+  // Only the latest date's answer is applied, so quick date changes can't
+  // land out of order.
+  const latestDate = useRef(checkDate);
+  const fetchClients = useCallback(async (date: string) => {
     try {
       const res = await getTrainerClients({ branch_id: branchId, include_expired: 0, check_date: date });
+      if (latestDate.current !== date) return;
       setClients((res?.data as any) ?? []);
       setPresent(!!(res as any)?.is_trainer_present);
     } catch (e) {
       console.log('Session tracker error:', e);
     }
-  }, [branchId, checkDate]);
+  }, [branchId]);
 
+  // Full-screen spinner on first load only; a date change keeps the page up
+  // and shows a small spinner beside the date instead.
+  const firstLoad = useRef(true);
   useEffect(() => {
-    setLoading(true);
-    fetchClients().finally(() => setLoading(false));
-  }, [fetchClients]);
+    latestDate.current = checkDate;
+    if (firstLoad.current) {
+      firstLoad.current = false;
+      setLoading(true);
+      fetchClients(checkDate).finally(() => setLoading(false));
+    } else {
+      setDateLoading(true);
+      fetchClients(checkDate).finally(() => {
+        if (latestDate.current === checkDate) setDateLoading(false);
+      });
+    }
+  }, [checkDate, fetchClients]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchClients().finally(() => setRefreshing(false));
+    fetchClients(checkDate).finally(() => setRefreshing(false));
   };
 
   // Mirrors the web tracker: the time slot is picked when marking Present, and a
@@ -108,7 +132,7 @@ export default function SessionTrackerScreen() {
           ? `${client.client_name} — ${timeSlot}, ${fmtDate(checkDate)}`
           : `${client.client_name} marked as No-Show.`,
       );
-      fetchClients();
+      fetchClients(checkDate);
     } catch (e: any) {
       const msg = e?.response?.data?.message;
       Alert.alert('Error', typeof msg === 'string' ? msg : 'Failed to mark session.');
@@ -194,12 +218,14 @@ export default function SessionTrackerScreen() {
           {/* Session Date */}
           <View style={s.dateRow}>
             <Text style={s.dateLabel}>Session Date</Text>
-            <TextInput
-              style={s.dateInput}
-              value={checkDate}
-              onChangeText={d => { setCheckDate(d); fetchClients(d); }}
-              placeholder="YYYY-MM-DD"
-            />
+            <View style={s.dateRight}>
+              {dateLoading && <ActivityIndicator size="small" color="#E63946" />}
+              <TouchableOpacity style={s.dateInput} onPress={() => setDatePickerOpen(true)}>
+                <Icon name="calendar" size={15} color="#64748b" />
+                <Text style={s.dateText}>{fmtDate(checkDate)}</Text>
+                <Icon name="chevron-down" size={15} color="#64748b" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Stats pills */}
@@ -395,6 +421,14 @@ export default function SessionTrackerScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <DateTimePickerModal
+        isVisible={datePickerOpen}
+        mode="date"
+        date={dateOf(checkDate)}
+        onConfirm={d => { setDatePickerOpen(false); setCheckDate(isoOf(d)); }}
+        onCancel={() => setDatePickerOpen(false)}
+      />
     </>
   );
 }
@@ -409,7 +443,9 @@ const s = StyleSheet.create({
   searchInput:        { flex: 1, fontSize: 14, color: '#1e293b' },
   dateRow:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   dateLabel:          { fontSize: 13, fontWeight: '600', color: '#374151' },
-  dateInput:          { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: 13, color: '#1e293b', backgroundColor: '#fff' },
+  dateRight:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateInput:          { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff' },
+  dateText:           { fontSize: 13, color: '#1e293b', fontWeight: '500' },
   pillsRow:           { marginBottom: 14 },
   pill:               { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, marginRight: 8 },
   pillText:           { color: '#fff', fontSize: 12, fontWeight: '700' },

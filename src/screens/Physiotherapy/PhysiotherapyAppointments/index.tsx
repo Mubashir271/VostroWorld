@@ -11,6 +11,7 @@ import { RootState } from '../../../redux/store';
 import { getPhysioAppointments } from '../../../api/physio';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import { isPhysio } from '../../../config/permissions';
 
 interface Appointment {
   id: number;
@@ -100,6 +101,8 @@ const PhysiotherapyAppointments = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
+  // Physio login: own records only, as the web scopes it.
+  const physioId = isPhysio(profile?.role) ? profile?.id : undefined;
 
   const [list, setList] = useState<Appointment[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -126,6 +129,7 @@ const PhysiotherapyAppointments = () => {
     try {
       const res = await getPhysioAppointments({
         branch_id: branchId,
+        physio_id: physioId,
         limit: PAGE_SIZE,
         page: targetPage,
         search: appliedSearch || undefined,
@@ -143,7 +147,7 @@ const PhysiotherapyAppointments = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [branchId, appliedSearch, appliedSource, appliedFrom, appliedTo]);
+  }, [branchId, physioId, appliedSearch, appliedSource, appliedFrom, appliedTo]);
 
   useEffect(() => { load(1); }, [load]);
 

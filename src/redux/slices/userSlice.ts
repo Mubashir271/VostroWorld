@@ -60,6 +60,11 @@ interface UserState {
     appImage: string | null;
     autoBackup: boolean;
     biometricEnabled: boolean;
+    // "Remember me" from the login screen. Undefined on installs persisted
+    // before this existed — treated as remembered so nobody is logged out.
+    rememberMe?: boolean;
+    // Pre-fills the login email after logout; kept only while remembered.
+    rememberedEmail?: string;
     currency: string;
     currencyRates: CurrencyRates | null;
     profile: UserProfile | null;
@@ -88,6 +93,8 @@ const initialState: UserState = {
     appImage: null,
     autoBackup: true,
     biometricEnabled: false,
+    rememberMe: false,
+    rememberedEmail: '',
     currency: 'PKR',
     currencyRates: null,
     profile: null,
@@ -175,6 +182,10 @@ const userSlice = createSlice({
             state.profile = null;
             state.biometricEnabled = false;
         },
+        setRememberMe: (state, action: PayloadAction<{ remember: boolean; email: string }>) => {
+            state.rememberMe = action.payload.remember;
+            state.rememberedEmail = action.payload.remember ? action.payload.email : '';
+        },
         setBiometricEnabled: (state, action: PayloadAction<boolean>) => {
             state.biometricEnabled = action.payload;
         },
@@ -213,6 +224,7 @@ export const {
     setUser,
     logoutUser,
     setBiometricEnabled,
+    setRememberMe,
     updateRegistrationData,
     clearRegistrationData,
     updateAppImage,

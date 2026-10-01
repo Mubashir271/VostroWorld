@@ -28,13 +28,15 @@
 // (verified on prod), so the app asks each branch the viewer may see.
 //
 // HR and admin logins get the web's Add Reward, Add Fine, Add Warning and
-// Add Promotion actions; everyone else sees the profile read-only. The web's
-// Update Profile form, Print and per-row delete are not mirrored here.
+// Add Promotion actions, and the General Info edit (pencil beside Staff ID →
+// Update Profile, HAR 2026-09-30); everyone else sees the profile read-only.
+// The web's Package Category re-pick, Print and per-row delete are not
+// mirrored here.
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl,
-  TouchableOpacity, TextInput, Platform, Linking,
+  TouchableOpacity, TextInput, Platform, Linking, Modal, FlatList,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -46,9 +48,12 @@ import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import api from '../../../api/service';
 import {
   getBranchesNameList, addStaffDocument, addStaffFinanceEntry,
+  getDepartmentNames, getDesignationNames, getStaffRoles, updateStaffGeneralInfo,
+  isStaffEmailTaken, isStaffPhoneTaken, isStaffCnicTaken,
 } from '../../../api/employeeDashboard';
-import { isAdmin, isHR } from '../../../config/permissions';
+import { isAdmin, isHR, ROLE_LABELS } from '../../../config/permissions';
 import { RootState } from '../../../redux/store';
+import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 
 const R = '#E63946';
 const PAGE_SIZE = 25;
@@ -76,6 +81,7 @@ const salaryWindow = (year: number, month: number) => ({
   start: iso(new Date(year, month - 1, 26)),
   end: iso(new Date(year, month, 25)),
 });
+const hasDate = (v: any) => /^\d{4}-\d{2}-\d{2}/.test(String(v ?? '')) && !String(v).startsWith('0000');
 const monthStart = () => { const n = new Date(); return iso(new Date(n.getFullYear(), n.getMonth(), 1)); };
 
 const dash = (v: any) => {
@@ -199,13 +205,13 @@ const DateField = ({ label, value, onChange }: { label: string; value: string; o
     <View style={s.field}>
       <Text style={s.label}>{label}</Text>
       <TouchableOpacity style={s.input} onPress={() => setOpen(true)}>
-        <Text style={s.inputText}>{dmy(value)}</Text>
+        <Text style={s.inputText}>{hasDate(value) ? dmy(value) : 'Select date'}</Text>
         <Icon name="calendar" size={18} color="#888" />
       </TouchableOpacity>
       {open && (
         <>
           <DateTimePicker
-            value={fromIso(value)}
+            value={hasDate(value) ? fromIso(value) : new Date()}
             mode="date"
             display={Platform.OS === 'ios' ? 'inline' : 'default'}
             onChange={(_: any, d?: Date) => {
@@ -224,21 +230,27 @@ const DateField = ({ label, value, onChange }: { label: string; value: string; o
   );
 };
 
-const Field = ({ label, value, onChange, placeholder, numeric, multiline }: {
+const Field = ({ label, value, onChange, placeholder, numeric, multiline, email, phone, secure, maxLength, error }: {
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; numeric?: boolean; multiline?: boolean;
+  email?: boolean; phone?: boolean; secure?: boolean; maxLength?: number; error?: string;
 }) => (
   <View style={s.field}>
     <Text style={s.label}>{label}</Text>
     <TextInput
-      style={[s.input, s.inputText, multiline && s.inputMulti]}
+      style={[s.input, s.inputText, multiline && s.inputMulti, !!error && s.inputError]}
       value={value}
       onChangeText={onChange}
       placeholder={placeholder}
       placeholderTextColor="#aaa"
-      keyboardType={numeric ? 'numeric' : 'default'}
+      keyboardType={numeric ? 'numeric' : email ? 'email-address' : phone ? 'phone-pad' : 'default'}
+      autoCapitalize={email || secure ? 'none' : 'sentences'}
+      autoCorrect={!(email || secure || phone)}
+      secureTextEntry={secure}
+      maxLength={maxLength}
       multiline={multiline}
     />
+    {error ? <Text style={s.fieldErr}>{error}</Text> : null}
   </View>
 );
 
@@ -548,6 +560,243 @@ const EmploymentTab = ({ staff, promotions, warnings, canEdit, onWarningAdded }:
   );
 };
 
+// ─── General Info edit ───────────────────────────────────────────────────────
+// The web's pencil → Update Profile form. Same fields, required marks and
+// rules as its Formik schema; the save posts the whole form like the web.
+
+type Option = { value: string; label: string };
+const GENDERS: Option[] = ['Male', 'Female', 'Others'].map(v => ({ value: v, label: v }));
+const EMPLOYMENT: Option[] = ['Employed', 'Terminated', 'Resigned'].map(v => ({ value: v, label: v }));
+// The web shows Commission only for these designations (trainer roles).
+const COMMISSION_DESIGNATIONS = ['1', '2', '76'];
+
+// The web masks phones as "+92 (___)-_______" and strips the mask on save.
+const cleanPhone = (v: string) => v.replace(/[-\s()[\]{}]/g, '');
+// CNIC as the web's "_____-_______-_" mask: 13 digits, dashes after 5 and 12.
+const formatCnic = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 13);
+  return d.length > 12 ? `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}`
+    : d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+};
+const str = (v: any) => (v == null ? '' : String(v));
+const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+const formFrom = (p: any) => ({
+  first_name: str(p.first_name), last_name: str(p.last_name), father_name: str(p.father_name), dob: str(p.dob),
+  email: str(p.email), official_email: str(p.official_email), password: '', phone: str(p.phone),
+  emergency_contact_no: str(p.emergency_contact_no), blood_group: str(p.blood_group), cnic: str(p.cnic),
+  address: str(p.address), city: str(p.city),
+  employment_status: str(p.employment_status), employment_end_date: str(p.employment_end_date),
+  gender: str(p.gender), department_id: str(p.department_id), designation_id: str(p.designation_id),
+  role: str(p.role), salary: str(p.salary), commission: str(p.commission),
+  joining: str(p.joining), appointment_date: str(p.appointment_date),
+  probation_duration: str(p.probation_duration), monthly_medical: str(p.monthly_medical),
+});
+type Form = ReturnType<typeof formFrom>;
+
+const Select = ({ label, value, options, onPick, error }: {
+  label: string; value: string; options: Option[]; onPick: (v: string) => void; error?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const current = options.find(o => o.value === value)?.label;
+  return (
+    <View style={s.field}>
+      <Text style={s.label}>{label}</Text>
+      <TouchableOpacity style={[s.input, !!error && s.inputError]} onPress={() => setOpen(true)}>
+        <Text style={[s.inputText, !current && s.placeholder]} numberOfLines={1}>{current ?? 'Select'}</Text>
+        <Icon name="chevron-down" size={18} color="#888" />
+      </TouchableOpacity>
+      {error ? <Text style={s.fieldErr}>{error}</Text> : null}
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={() => setOpen(false)}>
+          <TouchableOpacity style={s.sheet} activeOpacity={1}>
+            <Text style={s.sheetTitle}>{label.replace(' *', '')}</Text>
+            <FlatList
+              data={options}
+              keyExtractor={o => o.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={s.sheetRow} onPress={() => { onPick(item.value); setOpen(false); }}>
+                  <Text style={[s.sheetText, item.value === value && s.sheetTextActive]}>{item.label}</Text>
+                  {item.value === value && <Icon name="check" size={16} color={R} />}
+                </TouchableOpacity>
+              )}
+            />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
+
+const GeneralInfoEdit = ({ staff, onCancel, onSaved }: {
+  staff: any; onCancel: () => void; onSaved: () => void;
+}) => {
+  const [form, setForm] = useState<Form>(() => formFrom(staff));
+  const set = (k: keyof Form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
+  const [errors, setErrors] = useState<Partial<Record<keyof Form, string>>>({});
+  const [departments, setDepartments] = useState<Option[]>([]);
+  const [designations, setDesignations] = useState<Option[]>([]);
+  const [roles, setRoles] = useState<Option[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const names = (r: any): Option[] => (r?.data ?? []).map((x: any) => ({ value: String(x.id), label: String(x.name) }));
+    getDepartmentNames().then(r => setDepartments(names(r))).catch(() => {});
+    getDesignationNames().then(r => setDesignations(names(r))).catch(() => {});
+    getStaffRoles().then(r => setRoles(r.map(x => ({ value: x.code, label: x.label })))).catch(() => {});
+  }, []);
+
+  const ended = form.employment_status === 'Terminated' || form.employment_status === 'Resigned';
+
+  const validate = () => {
+    const e: Partial<Record<keyof Form, string>> = {};
+    const nameRule = (v: string, what: string) =>
+      !v.trim() ? `${what} is required` : v.trim().length < 2 || v.trim().length > 25 ? `${what} must be 2–25 characters` : '';
+    e.first_name = nameRule(form.first_name, 'First Name');
+    e.last_name = nameRule(form.last_name, 'Last Name');
+    e.email = !form.email.trim() ? 'Email is required' : !emailOk(form.email.trim()) ? 'Email must be valid' : '';
+    e.official_email = form.official_email.trim() && !emailOk(form.official_email.trim()) ? 'Official email must be valid' : '';
+    e.phone = !cleanPhone(form.phone) ? 'Phone is required' : '';
+    e.cnic = !form.cnic ? 'CNIC is required' : form.cnic.length !== 15 ? 'Please enter complete CNIC number' : '';
+    e.gender = !form.gender ? 'Gender is required' : '';
+    e.department_id = !form.department_id ? 'Department is required' : '';
+    e.designation_id = !form.designation_id ? 'Designation is required' : '';
+    e.joining = !hasDate(form.joining) ? 'Joining date is required' : '';
+    e.salary = form.salary === '' || Number(form.salary) < 0 || Number.isNaN(Number(form.salary)) ? 'Salary is required' : '';
+    const c = Number(form.commission || 0);
+    e.commission = Number.isNaN(c) || c < 0 || c > 100 ? 'Commission must be 0–100' : '';
+    e.employment_end_date = ended && !hasDate(form.employment_end_date) ? 'Termination/Resignation date is required' : '';
+    Object.keys(e).forEach(k => { if (!e[k as keyof Form]) delete e[k as keyof Form]; });
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const save = async () => {
+    setError('');
+    if (!validate()) { setError('Please fix the highlighted fields.'); return; }
+    setSaving(true);
+    try {
+      // The web's duplicate checks (GET only), run together before saving.
+      const phone = cleanPhone(form.phone);
+      const [emailTaken, phoneTaken, cnicTaken] = await Promise.all([
+        isStaffEmailTaken(form.email.trim(), staff.id),
+        isStaffPhoneTaken(phone, staff.id),
+        isStaffCnicTaken(form.cnic, staff.id),
+      ]);
+      if (emailTaken || phoneTaken || cnicTaken) {
+        setErrors(prev => ({
+          ...prev,
+          ...(emailTaken ? { email: 'email already exists' } : {}),
+          ...(phoneTaken ? { phone: 'Phone number already exists' } : {}),
+          ...(cnicTaken ? { cnic: 'CNIC already exists' } : {}),
+        }));
+        setError('Please fix the highlighted fields.');
+        return;
+      }
+
+      // Field order and blanks as the web's Update Profile sends them.
+      await updateStaffGeneralInfo(staff.id, {
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        father_name: form.father_name.trim(),
+        cnic: form.cnic,
+        email: form.email.trim(),
+        official_email: form.official_email.trim(),
+        ...(form.password.trim() ? { password: form.password } : {}),
+        phone,
+        emergency_contact_no: cleanPhone(form.emergency_contact_no),
+        address: form.address.trim(),
+        city: form.city.trim(),
+        gender: form.gender,
+        employment_status: form.employment_status,
+        joining: form.joining,
+        employment_end_date: form.employment_end_date,
+        appointment_date: form.appointment_date,
+        dob: form.dob,
+        salary: form.salary,
+        designation_id: form.designation_id,
+        department_id: form.department_id,
+        commission: form.commission,
+        monthly_medical: form.monthly_medical,
+        probation_duration: form.probation_duration,
+        // Package categories: blank = unchanged, as when the web's
+        // "Update" link beside Package Category isn't used.
+        type: '',
+        start_time: str(staff.start_time),
+        end_time: str(staff.end_time),
+        blood_group: form.blood_group.trim(),
+        role: form.role,
+      });
+      onSaved();
+    } catch (e: any) {
+      setError(e?.response?.status === 422 ? 'Some data is missing' : errText(e, 'Something went wrong while updating the profile.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Card title="Staff Name">
+        <Field label="First Name *" value={form.first_name} onChange={set('first_name')} error={errors.first_name} />
+        <Field label="Last Name *" value={form.last_name} onChange={set('last_name')} error={errors.last_name} />
+        <Field label="Father's Name" value={form.father_name} onChange={set('father_name')} />
+        <DateField label="DOB" value={form.dob} onChange={set('dob')} />
+      </Card>
+      <Card title="Staff Contact Detail">
+        <Field label="Email *" value={form.email} onChange={set('email')} email error={errors.email} />
+        <Field label="Official Email" value={form.official_email} onChange={set('official_email')} email placeholder="Enter Official Email" error={errors.official_email} />
+        <Field label="Password" value={form.password} onChange={set('password')} secure placeholder="Enter new password (leave blank to keep current)" />
+        <Text style={s.hint}>Leave blank to keep current password, or enter new password</Text>
+        <Field label="Phone *" value={form.phone} onChange={set('phone')} phone placeholder="+923000000000" error={errors.phone} />
+        <Field label="Emergency Contact No" value={form.emergency_contact_no} onChange={set('emergency_contact_no')} phone placeholder="(e.g 92xxxxxxxxxx" />
+        <Field label="Blood Group" value={form.blood_group} onChange={set('blood_group')} placeholder="Enter Blood Group" />
+        <Field label="CNIC *" value={form.cnic} onChange={v => set('cnic')(formatCnic(v))} numeric maxLength={15} placeholder="#####-#######-#" error={errors.cnic} />
+      </Card>
+      <Card title="Staff Address Detail">
+        <Field label="Address" value={form.address} onChange={set('address')} multiline />
+        <Field label="City" value={form.city} onChange={set('city')} />
+      </Card>
+      <Card title="Employee Status">
+        <Select label="Employee Status" value={form.employment_status} options={EMPLOYMENT} onPick={set('employment_status')} />
+        {ended && (
+          <View>
+            <DateField label="Termination/Resignation Date *" value={form.employment_end_date} onChange={set('employment_end_date')} />
+            {errors.employment_end_date ? <Text style={s.fieldErr}>{errors.employment_end_date}</Text> : null}
+          </View>
+        )}
+      </Card>
+      <Card title="Staff Other Details">
+        <Select label="Gender *" value={form.gender} options={GENDERS} onPick={set('gender')} error={errors.gender} />
+        <Select label="Department *" value={form.department_id} options={departments} onPick={set('department_id')} error={errors.department_id} />
+        <Select label="Designation *" value={form.designation_id} options={designations} onPick={set('designation_id')} error={errors.designation_id} />
+        <Select label="Role *" value={form.role} options={roles} onPick={set('role')} />
+        <Field label="Salary *" value={form.salary} onChange={set('salary')} numeric error={errors.salary} />
+        {COMMISSION_DESIGNATIONS.includes(form.designation_id) && (
+          <Field label="Commission" value={form.commission} onChange={set('commission')} numeric error={errors.commission} />
+        )}
+        <View>
+          <DateField label="Joining Date *" value={form.joining} onChange={set('joining')} />
+          {errors.joining ? <Text style={s.fieldErr}>{errors.joining}</Text> : null}
+        </View>
+        <DateField label="Appointment Date" value={form.appointment_date} onChange={set('appointment_date')} />
+        <Field label="Probation Period (months)" value={form.probation_duration} onChange={set('probation_duration')} numeric />
+      </Card>
+      <Card title="Other Benefits">
+        <Field label="Medical" value={form.monthly_medical} onChange={set('monthly_medical')} numeric />
+      </Card>
+      <Status error={error} success="" />
+      <View style={s.twoCol}>
+        <TouchableOpacity style={[s.cancelBtn, s.flex1]} onPress={onCancel} disabled={saving}>
+          <Text style={s.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+        <View style={s.flex1}><PrimaryBtn label="Update Profile" onPress={save} busy={saving} /></View>
+      </View>
+    </>
+  );
+};
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 type Data = {
@@ -571,6 +820,8 @@ const StaffProfileScreen = () => {
   const canEdit = isHR(viewer?.role) || isAdmin(viewer?.role);
 
   const [tab, setTab] = useState<TabKey>('general');
+  const [editing, setEditing] = useState(false);
+  const { showSnackbar } = useSnackbarStore();
   const [staff, setStaff] = useState<any | null>(null);
   const [data, setData] = useState<Data>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
@@ -656,6 +907,19 @@ const StaffProfileScreen = () => {
   const renderTab = () => {
     switch (tab) {
       case 'general':
+        if (editing) {
+          return (
+            <GeneralInfoEdit
+              staff={staff}
+              onCancel={() => setEditing(false)}
+              onSaved={() => {
+                setEditing(false);
+                showSnackbar('Profile information updated successfully', 'success');
+                load();
+              }}
+            />
+          );
+        }
         return (
           <>
             <Card title="Staff Name">
@@ -700,8 +964,17 @@ const StaffProfileScreen = () => {
               <Row label="Joining Date" value={dmy(staff.joining)} />
               <Row label="Appointment Date" value={dmy(staff.appointment_date)} />
               <Row label="Confirmation Date" value={dmy(staff.confirmation_date)} />
+              <Row label="Role" value={ROLE_LABELS[String(staff.role)] ?? staff.role} />
               <Row label="Salary" value={rs(staff.salary)} />
               <Row label="Commission" value={staff.commission != null ? `${staff.commission}%` : null} />
+              <Row label="Probation Period" value={staff.probation_duration != null ? `${staff.probation_duration} months` : null} />
+              <Row
+                label="Package Category"
+                value={(staff.training_categories ?? []).map((c: any) => c.category_info?.name).filter(Boolean).join(', ')}
+              />
+            </Card>
+            <Card title="Other Benefits">
+              <Row label="Medical" value={rs(staff.monthly_medical)} />
             </Card>
           </>
         );
@@ -842,6 +1115,16 @@ const StaffProfileScreen = () => {
                 <Text style={s.heroSub}>Staff ID: {dash(staff?.uid)}</Text>
                 <Text style={s.heroSub}>{dash(staff?.designation)} · {dash(staff?.department)}</Text>
               </View>
+              {/* The web's pencil beside Staff ID — opens General Info for editing. */}
+              {canEdit && !editing && (
+                <TouchableOpacity
+                  style={s.editBtn}
+                  onPress={() => { setTab('general'); setEditing(true); }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="pencil" size={18} color={R} />
+                </TouchableOpacity>
+              )}
             </View>
             <View style={s.chipRow}>
               <View style={s.chip}><Text style={s.chipText}>{dash(staff?.branch_name)}</Text></View>
@@ -853,7 +1136,7 @@ const StaffProfileScreen = () => {
             {TABS.map(t => {
               const active = t.key === tab;
               return (
-                <TouchableOpacity key={t.key} style={[s.tab, active && s.tabActive]} onPress={() => setTab(t.key)}>
+                <TouchableOpacity key={t.key} style={[s.tab, active && s.tabActive]} onPress={() => { setTab(t.key); setEditing(false); }}>
                   <Icon name={t.icon} size={14} color={active ? '#FFF' : '#444'} />
                   <Text style={[s.tabText, active && s.tabTextActive]}>{t.label}</Text>
                 </TouchableOpacity>
@@ -911,6 +1194,19 @@ const s = StyleSheet.create({
   label:        { fontSize: 12, fontWeight: '600', color: '#444', marginBottom: 4 },
   input:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9, backgroundColor: '#FFF' },
   inputLocked:  { backgroundColor: '#F0F0F0' },
+  inputError:   { borderColor: R },
+  fieldErr:     { color: R, fontSize: 11, marginTop: 3 },
+  placeholder:  { color: '#aaa' },
+  hint:         { fontSize: 11, color: '#888', marginTop: -6, marginBottom: 10 },
+  editBtn:      { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFF0F0', alignItems: 'center', justifyContent: 'center' },
+  cancelBtn:    { borderWidth: 1, borderColor: '#DDD', borderRadius: 6, paddingVertical: 10, alignItems: 'center', backgroundColor: '#FFF' },
+  cancelText:   { color: '#555', fontWeight: '700', fontSize: 13 },
+  backdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 32 },
+  sheet:        { backgroundColor: '#FFF', borderRadius: 12, paddingVertical: 8, maxHeight: '60%' },
+  sheetTitle:   { fontSize: 13, fontWeight: '700', color: '#888', paddingHorizontal: 16, paddingVertical: 8 },
+  sheetRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  sheetText:    { fontSize: 14, color: '#1A1A1A', flex: 1 },
+  sheetTextActive: { color: R, fontWeight: '700' },
   inputText:    { fontSize: 13, color: '#1A1A1A' },
   inputMulti:   { minHeight: 60, textAlignVertical: 'top' },
   iosDone:      { alignSelf: 'flex-end', paddingVertical: 6, paddingHorizontal: 10 },

@@ -10,7 +10,7 @@ import AppHeader from '../../components/AppHeader'
 import { BackSVG } from '../../assets/svg'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../redux/store'
-import { isEmployee, isNutritionist, isTrainer } from '../../config/permissions'
+import { isEmployee, isNutritionist, isTrainer, isPhysio } from '../../config/permissions'
 import { getAnnouncements } from '../../api/employeeDashboard'
 
 type RootStackParamList = {
@@ -72,7 +72,7 @@ const NotificationScreen: React.FC = () => {
     // Same gate as the Account screen's cog: Settings is not part of the
     // trainer / nutritionist / Employee surface, so don't offer a way in.
     const hideSettings =
-        isNutritionist(profile?.role) || isEmployee(profile?.role) || isTrainer(profile?.role)
+        isNutritionist(profile?.role) || isEmployee(profile?.role) || isTrainer(profile?.role) || isPhysio(profile?.role)
     const branchId = profile?.branchId ?? 1
 
     // ── Local state ────────────────────────────────────────────────────────

@@ -14,6 +14,11 @@ export const ROLES = {
   // Personal Trainer, designation_id 1). Both logins return `type` '30', so
   // `type` cannot tell them apart — only `role` can.
   GENERAL_TRAINER: '17',
+  // Physio — confirmed from the web HAR 2026-09-30 (munibashah8@gmail.com,
+  // Muniba Mehmood, user 10429): /auth/get role '15', department 110
+  // Physiotherapy, designation 107 Physiotherapist, branch F 11. The web's
+  // /admin/menu-access/roles labels code 15 "Physio".
+  PHYSIO: '15',
   EMPLOYEE: '13',  // Plain staff record — confirmed live 2026-09-09 via app-login
                    // (khawar1973.kk@gmail.com). The web renders this as
                    // "Role: Employee"; the job title lives in designation.
@@ -32,6 +37,7 @@ export const ROLE_LABELS: Record<string, string> = {
   [ROLES.FITNESS_MANAGER]: 'Fitness Manager',
   [ROLES.HR]: 'HR Department',
   [ROLES.GENERAL_TRAINER]: 'General Trainer',
+  [ROLES.PHYSIO]: 'Physiotherapist',
   [ROLES.EMPLOYEE]: 'Employee',
 };
 
@@ -54,6 +60,7 @@ export const HEADER_TITLES: Record<string, string> = {
   [ROLES.FITNESS_MANAGER]: 'Vostro Fitness',
   [ROLES.HR]: 'Vostro HR',
   [ROLES.GENERAL_TRAINER]: 'Vostro Trainer',
+  [ROLES.PHYSIO]: 'Vostro Physio',
   [ROLES.EMPLOYEE]: 'Vostro Employee',
 };
 
@@ -203,6 +210,23 @@ export const isHR = (role?: string | null) => role === ROLES.HR;
 export const isNutritionist = (role?: string | null) => role === ROLES.NUTRITIONIST;
 export const isFitnessManager = (role?: string | null) => role === ROLES.FITNESS_MANAGER;
 export const isGeneralTrainer = (role?: string | null) => role === ROLES.GENERAL_TRAINER;
+export const isPhysio = (role?: string | null) => role === ROLES.PHYSIO;
+
+// Physio-role screens — the web's physio login (/admin/menu-access/mine,
+// HAR 2026-09-30) allows /employee-dashboard plus the eight /physio/* pages:
+// Dashboard, Patient Details, Appointments, Assessments (no app screen yet),
+// Prescriptions, Sessions / GX, Referrals and Client Responses. The Add*
+// screens are the forms those pages open.
+export const PHYSIO_ALLOWED_SCREENS = [
+  'Drawer', 'Dashboard', 'Notifications', 'Account',
+  'EmployeeDashboard',
+  'PhysiotherapyDashboard', 'PhysiotherapyPatientDetails',
+  'PhysiotherapyAppointments',
+  'PhysiotherapyPrescriptions', 'AddPhysioPrescription',
+  'PhysiotherapyGX',
+  'PhysiotherapyDailyClientReferral', 'AddPhysioDailyReferral',
+  'PhysiotherapyClientResponses', 'AddPhysioClientResponse',
+];
 
 export const hasFullAccess = (role?: string | null) => isAdmin(role);
 
@@ -217,9 +241,9 @@ export const hasFullAccess = (role?: string | null) => isAdmin(role);
 // The web menu also carries a 'Social Leads (Sales)' entry above 'Sales';
 // it has no screen in this app and is deliberately left out for now.
 //
-// Two web entries have no app screen yet and are omitted from both the menu
-// and this list: 'Active Clients Report' (/active-clients-report) and
-// 'Client Details Report' (/client-details-report). ('Detailed Cafe Report'
+// Two web entries are omitted from both the menu and this list for now:
+// 'Active Clients Report' (/active-clients-report) and 'Client Details
+// Report' (/client-details-report) — their screens exist but are admin-only. ('Detailed Cafe Report'
 // was the third until 2026-09-07; it now exists and, like the web, appears
 // under both Cafe and Reports.)
 export const SALES_ALLOWED_SCREENS = [

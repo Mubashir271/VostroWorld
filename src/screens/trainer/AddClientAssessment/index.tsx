@@ -226,7 +226,7 @@ const AddClientAssessment = () => {
             {['Height', 'Weight', 'Fat', 'Vfat', 'BMI'].map(num)}
           </Card>
 
-          <Card title="Section 4 — Measurements (Inches/CM)">
+          <Card title="Section 4 — Measurements (CM)">
             {['Chest', 'upper_belly', 'Waist', 'lower_belly', 'Glutes', 'Thigh', 'Arm'].map(num)}
           </Card>
 
@@ -234,33 +234,33 @@ const AddClientAssessment = () => {
             {LIFESTYLE_FIELDS.map(f => (f.options ? chips(f.key, f.label, f.options) : txt(f.key, f.label)))}
           </Card>
 
-          <Card title="Section 6 — Cardiovascular Assessments">
+          {/* <Card title="Section 6 — Cardiovascular Assessments">
             {txt('vo2_max', 'VO2 Max Assessment')}
             {txt('hr_recovery_step_test', 'Heart Rate Recovery Step Test')}
             {num('Mhr')}
             {num('Rhr')}
-          </Card>
+          </Card> */}
 
-          <Card title="Section 7 — Strength Assessments">
+          {/* <Card title="Section 7 — Strength Assessments">
             {['max_push_ups', 'max_push_ups_one_min', 'one_rm_squat', 'one_rm_bench_press'].map(num)}
-          </Card>
+          </Card> */}
 
-          <Card title="Section 8 — Mobility & Flexibility Assessments">
+          {/* <Card title="Section 8 — Mobility & Flexibility Assessments">
             {num('fit_and_reach')}
             {num('Whr')}
-          </Card>
+          </Card> */}
 
-          <Card title="Section 9 — Postural Assessment">
+          <Card title="Section 6 — Postural Assessment">
             {POSTURE_FIELDS.map(f => txt(f.key, f.label, { placeholder: 'Observations' }))}
             {txt('clinical_recommendation', 'Clinical Recommendation', { multiline: true })}
           </Card>
 
-          <Card title="Section 10 — Training Objectives">
+          <Card title="Section 7 — Training Objectives">
             {txt('primary_goal', 'Primary Goal')}
             {txt('secondary_goal', 'Secondary Goal')}
           </Card>
 
-          <Card title="Section 11 — Trainer Final Notes">
+          <Card title="Section 8 — Trainer Final Notes">
             {txt('trainer_notes', 'Trainer Final Notes', { multiline: true })}
           </Card>
 

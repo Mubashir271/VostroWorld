@@ -60,7 +60,7 @@ import AccessDenied from '../../screens/AccessDenied';
 import LegalScreen from '../../screens/Legal';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
-import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, isTrainer, isGeneralTrainer, HR_ALLOWED_SCREENS, SALES_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS, EMPLOYEE_ALLOWED_SCREENS, PERSONAL_TRAINER_ALLOWED_SCREENS, GENERAL_TRAINER_ALLOWED_SCREENS } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, isTrainer, isGeneralTrainer, isPhysio, PHYSIO_ALLOWED_SCREENS, HR_ALLOWED_SCREENS, SALES_ALLOWED_SCREENS, NUTRITIONIST_ALLOWED_SCREENS, FITNESS_MANAGER_ALLOWED_SCREENS, EMPLOYEE_ALLOWED_SCREENS, PERSONAL_TRAINER_ALLOWED_SCREENS, GENERAL_TRAINER_ALLOWED_SCREENS } from '../../config/permissions';
 import AttendanceScreen from '../../screens/Attendance';
 import MyClientsScreen from '../../screens/MyClientsScreen';
 import TrainerCommission from '../../screens/trainer/TrainerCommission';
@@ -221,6 +221,8 @@ import SalesByBootcampScreen from '../../screens/reports/SalesByBootcamp';
 import StaffAttendanceReportScreen from '../../screens/reports/StaffAttendanceReport';
 import StaffProfileScreen from '../../screens/HR/StaffProfile';
 import ClientsAttendanceScreen from '../../screens/reports/ClientsAttendance';
+import ActiveClientsReportScreen from '../../screens/reports/ActiveClientsReport';
+import ClientDetailsReportScreen from '../../screens/reports/ClientDetailsReport';
 import FootfallReportScreen from '../../screens/reports/FootfallReport';
 
 // ── Coming Soon placeholder ───────────────────────────────────────────────────
@@ -293,7 +295,10 @@ const ProtectedScreen = ({
     // <AccessDenied/>.
     const generalTrainerAllowed = isGeneralTrainer(profile?.role) && !!screenName && GENERAL_TRAINER_ALLOWED_SCREENS.includes(screenName);
 
-    if (!userIsAdmin && !hrAllowed && !salesAllowed && !nutritionistAllowed && !fitnessManagerAllowed && !employeeAllowed && !trainerAllowed && !generalTrainerAllowed) {
+    // Role 15 (Physio): Employee Dashboard plus the Physio section.
+    const physioAllowed = isPhysio(profile?.role) && !!screenName && PHYSIO_ALLOWED_SCREENS.includes(screenName);
+
+    if (!userIsAdmin && !hrAllowed && !salesAllowed && !nutritionistAllowed && !fitnessManagerAllowed && !employeeAllowed && !trainerAllowed && !generalTrainerAllowed && !physioAllowed) {
         return <AccessDenied />;
     }
 
@@ -482,6 +487,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="StaffAttendanceReport" component={protect(StaffAttendanceReportScreen)} />
                 <Stack.Screen name="StaffProfile" component={protect(StaffProfileScreen)} />
                 <Stack.Screen name="ClientsAttendance" component={protect(ClientsAttendanceScreen)} />
+                <Stack.Screen name="ActiveClientsReport" component={protect(ActiveClientsReportScreen)} />
+                <Stack.Screen name="ClientDetailsReport" component={protect(ClientDetailsReportScreen)} />
                 <Stack.Screen name="FootfallReport" component={protect(FootfallReportScreen)} />
 
                 {/* ── Admin: Finance ── */}

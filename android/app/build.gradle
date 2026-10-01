@@ -131,6 +131,12 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
+    // "Remember me" saves the login to Google Password Manager (the phone's
+    // Google account) — see credentials/PasswordCredentialsModule.kt. The
+    // play-services-auth artifact backs Credential Manager below Android 14.
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

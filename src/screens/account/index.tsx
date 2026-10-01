@@ -9,7 +9,7 @@ import { useSelector } from 'react-redux';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
 import { performLogout } from '../../utils/logout';
-import { isEmployee, isNutritionist, isTrainer, isGeneralTrainer, roleLabelOf } from '../../config/permissions';
+import { isEmployee, isNutritionist, isTrainer, isGeneralTrainer, isPhysio, roleLabelOf } from '../../config/permissions';
 import { getStaffDetail } from '../../api/employeeDashboard';
 
 
@@ -44,7 +44,7 @@ const AccountScreen = () => {
   // (confirmed live 2026-09-23 from role 17's own menu-access), so Settings is
   // hidden for them too.
   const hideSettings =
-    userIsNutritionist || isEmployee(profile?.role) || isTrainer(profile?.role)
+    userIsNutritionist || isEmployee(profile?.role) || isTrainer(profile?.role) || isPhysio(profile?.role)
     || isGeneralTrainer(profile?.role);
 
   // /v1/auth/app-login carries designation_id (126) but not the label, so the

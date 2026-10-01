@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppHeader from '../../../components/AppHeader';
@@ -170,17 +171,17 @@ const toMinutes = (t?: string | null): number | null => {
  * grace period is only the fallback for rows where it is null — same
  * precedence the web uses.
  */
-const lateInfo = (a: any, dutyStart: string | null): { isLate: boolean; text: string } => {
+const lateInfo = (a: any, dutyStart: string | null): { isLate: boolean; text: string; minutes: number } => {
   const start = toMinutes(dutyStart);
   const checkin = toMinutes(a?.checkin_time_24h);
   if (start == null || checkin == null) {
-    return { isLate: Number(a?.is_late) === 1, text: Number(a?.is_late) === 1 ? 'Late' : 'On Time' };
+    return { isLate: Number(a?.is_late) === 1, text: Number(a?.is_late) === 1 ? 'Late' : 'On Time', minutes: 0 };
   }
   const diff = checkin > start ? checkin - start : 0;
   const isLate = a?.is_late != null ? Number(a.is_late) === 1 : checkin > start + 15;
-  if (!isLate) return { isLate: false, text: 'On Time' };
+  if (!isLate) return { isLate: false, text: 'On Time', minutes: 0 };
   const h = Math.floor(diff / 60);
-  return { isLate: true, text: `${h > 0 ? `${h}h ` : ''}${diff % 60}m`.trim() };
+  return { isLate: true, text: `${h > 0 ? `${h}h ` : ''}${diff % 60}m`.trim(), minutes: diff };
 };
 
 const DEPT_COLORS = ['#E63946', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1', '#D81B60', '#F57F17'];
@@ -191,22 +192,24 @@ const SectionTitle = ({ title }: { title: string }) => (
   <Text style={styles.sectionTitle}>{title}</Text>
 );
 
-const StaffCard = ({ label, value, sub }: { label: string; value: any; sub?: string }) => (
-  <View style={styles.staffCard}>
+const StaffCard = ({ label, value, sub, onPress }: { label: string; value: any; sub?: string; onPress?: () => void }) => (
+  <TouchableOpacity style={styles.staffCard} onPress={onPress} disabled={!onPress} activeOpacity={0.7}>
     <Text style={styles.staffValue}>{value ?? '—'}</Text>
     <Text style={styles.staffLabel}>{label}</Text>
     {sub ? <Text style={styles.staffSub}>{sub}</Text> : null}
-  </View>
+  </TouchableOpacity>
 );
 
 const AttendanceDayCard = ({
   title,
   highlighted,
   day,
+  onPress,
 }: {
   title: string;
   highlighted?: boolean;
   day: AttendanceDay;
+  onPress?: () => void;
 }) => {
   const f11 = getBranchBreakdown(day, 'f11');
   const g13 = getBranchBreakdown(day, 'g13');
@@ -216,7 +219,12 @@ const AttendanceDayCard = ({
   const absent = day.absent ?? 0;
 
   return (
-    <View style={[styles.attCard, highlighted && styles.attCardHighlighted]}>
+    <TouchableOpacity
+      style={[styles.attCard, highlighted && styles.attCardHighlighted]}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.attCardHeader}>
         <Text style={[styles.attCardTitle, highlighted && styles.attCardTitleHighlighted]}>{title}</Text>
         {day.date ? <Text style={styles.attCardDate}>{dayLabel(day.date)}</Text> : null}
@@ -249,7 +257,7 @@ const AttendanceDayCard = ({
           </Text>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -259,14 +267,21 @@ const SummaryBanner = ({
   prev,
   today,
   next,
+  onPress,
 }: {
   title: string;
   color: string;
   prev: any;
   today: any;
   next: any;
+  onPress?: () => void;
 }) => (
-  <View style={[styles.summaryBanner, { borderLeftColor: color }]}>
+  <TouchableOpacity
+    style={[styles.summaryBanner, { borderLeftColor: color }]}
+    onPress={onPress}
+    disabled={!onPress}
+    activeOpacity={0.7}
+  >
     <View style={styles.summaryBannerHeader}>
       <Text style={[styles.summaryBannerTitle, { color }]}>{title}</Text>
       <View style={[styles.summaryBannerBadge, { backgroundColor: color }]}>
@@ -279,7 +294,7 @@ const SummaryBanner = ({
       <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Today: {today ?? 0}</Text></View>
       <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Next Day: {next ?? 0}</Text></View>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const ApprovalCard = ({ label, value, color }: { label: string; value: any; color: string }) => (
@@ -294,11 +309,11 @@ const ApprovalCard = ({ label, value, color }: { label: string; value: any; colo
 
 // Column sets for the attendance detail tables, matching the web's HR
 // dashboard exactly (confirmed against the 2026-09-17 capture).
-type AttCol = { label: string; key: string; w: number; badge?: 'status' | 'late' };
+type AttCol = { label: string; key: string; w: number; badge?: 'status' | 'late'; date?: boolean };
 
 const PRESENT_COLS: AttCol[] = [
   { label: 'Employee', key: 'name', w: 150 },
-  { label: 'Date', key: 'date', w: 100 },
+  { label: 'Date', key: 'date', w: 100, date: true },
   { label: 'Duty Hours', key: 'duty_hours', w: 150 },
   { label: 'Check In', key: 'checkin_time', w: 90 },
   { label: 'Check Out', key: 'checkout_time', w: 90 },
@@ -311,7 +326,7 @@ const PRESENT_COLS: AttCol[] = [
 
 const LATE_COLS: AttCol[] = [
   { label: 'Employee', key: 'name', w: 150 },
-  { label: 'Date', key: 'date', w: 100 },
+  { label: 'Date', key: 'date', w: 100, date: true },
   { label: 'Duty Hours', key: 'duty_hours', w: 150 },
   { label: 'Check In', key: 'checkin_time', w: 90 },
   { label: 'Late By', key: 'late_time', w: 90, badge: 'late' },
@@ -322,9 +337,33 @@ const LATE_COLS: AttCol[] = [
 
 const ABSENT_COLS: AttCol[] = [
   { label: 'Employee', key: 'name', w: 150 },
-  { label: 'Date', key: 'date', w: 100 },
+  { label: 'Date', key: 'date', w: 100, date: true },
   { label: 'Reason', key: 'reason', w: 140 },
   { label: 'Remarks', key: 'remarks', w: 140 },
+  { label: 'Branch', key: 'branch', w: 70 },
+  { label: 'Designation', key: 'designation', w: 140 },
+  { label: 'Department', key: 'department', w: 140 },
+];
+
+// Staff Register — the Total / F-11 / G-13 staff popups.
+const STAFF_COLS: AttCol[] = [
+  { label: 'Employee', key: 'name', w: 170 },
+  { label: 'Employee ID', key: 'uid', w: 110 },
+  { label: 'Branch', key: 'branch', w: 70 },
+  { label: 'Department', key: 'department', w: 160 },
+  { label: 'Designation', key: 'designation', w: 170 },
+  { label: 'Joining Date', key: 'joining', w: 110, date: true },
+  { label: 'Phone', key: 'phone', w: 130 },
+];
+
+// Approved Leaves — the day popups.
+const LEAVE_COLS: AttCol[] = [
+  { label: 'Employee', key: 'name', w: 150 },
+  { label: 'Date', key: 'date', w: 100, date: true },
+  { label: 'Leave From', key: 'leave_from_date', w: 100, date: true },
+  { label: 'Leave To', key: 'leave_to_date', w: 100, date: true },
+  { label: 'Leave Type', key: 'leave_type', w: 90 },
+  { label: 'Reason', key: 'reason', w: 220 },
   { label: 'Branch', key: 'branch', w: 70 },
   { label: 'Designation', key: 'designation', w: 140 },
   { label: 'Department', key: 'department', w: 140 },
@@ -356,9 +395,10 @@ const AttTable = ({ rows, cols, empty }: { rows: any[]; cols: AttCol[]; empty: s
                   </View>
                 );
               }
+              const blank = v == null || v === '' || String(v).startsWith('0000');
               return (
                 <Text key={c.key} style={[styles.attTd, { width: c.w }]} numberOfLines={2}>
-                  {v == null || v === '' ? 'N/A' : String(v)}
+                  {blank ? 'N/A' : c.date ? dayLabel(String(v)) : String(v)}
                 </Text>
               );
             })}
@@ -394,6 +434,53 @@ const CollapsibleSection = ({
     </View>
   );
 };
+
+// ── Card details popup ────────────────────────────────────────────────────────
+// What the web's HR dashboard shows when a card is clicked (captured
+// 2026-09-30): count chips on top, then one or more tables. Everything comes
+// from the data already loaded — the web makes no extra calls either.
+type DetailSection = { title: string; color: string; rows: any[]; cols: AttCol[]; empty: string };
+type DetailSheet = { title: string; subtitle: string; badges: { label: string; value: number }[]; sections: DetailSection[] };
+
+const DetailsModal = ({ sheet, onClose }: { sheet: DetailSheet | null; onClose: () => void }) => (
+  <Modal visible={!!sheet} animationType="slide" onRequestClose={onClose}>
+    {/* A full-screen Modal is a separate native root outside the app's safe-area
+        provider, so it needs its own — without it the insets read 0 and the
+        header slides under the status bar / notch. */}
+    <SafeAreaProvider>
+    {/* Bottom only: AppHeader pads the top inset itself. */}
+    <SafeAreaView style={styles.detailSafe} edges={['bottom']}>
+      <AppHeader
+        title={sheet?.title ?? ''}
+        leftIcon={<Icon name="close" size={24} color="#1A1A1A" />}
+        onLeftPress={onClose}
+        backgroundColor="#FFE5E5"
+      />
+      <ScrollView style={styles.detailBody} contentContainerStyle={styles.scroll}>
+        {!!sheet?.subtitle && <Text style={styles.detailSubtitle}>{sheet.subtitle}</Text>}
+        <View style={styles.detailBadges}>
+          {sheet?.badges.map(b => (
+            <View key={b.label} style={styles.summaryChip}>
+              <Text style={styles.summaryChipText}>{b.label}: {b.value}</Text>
+            </View>
+          ))}
+        </View>
+        {sheet?.sections.map(sec => (
+          <View key={sec.title} style={styles.detailsCard}>
+            <View style={styles.detailSectionHead}>
+              <Text style={[styles.collapseTitle, { color: sec.color }]}>{sec.title}</Text>
+              <View style={[styles.collapseBadge, { backgroundColor: sec.color + '20' }]}>
+                <Text style={[styles.collapseBadgeText, { color: sec.color }]}>{sec.rows.length}</Text>
+              </View>
+            </View>
+            <AttTable rows={sec.rows} cols={sec.cols} empty={sec.empty} />
+          </View>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
+    </SafeAreaProvider>
+  </Modal>
+);
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -433,6 +520,8 @@ const HRDashboard = () => {
       .catch(() => {});
   }, [profile?.branchId]);
 
+  const [sheet, setSheet] = useState<DetailSheet | null>(null);
+
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -463,8 +552,10 @@ const HRDashboard = () => {
       const f11Id = branchOptions.find(o => o.label === 'F 11')?.branch_id ?? 15;
       const g13Id = branchOptions.find(o => o.label === 'G 13')?.branch_id ?? 1;
 
-      const [staffRes, attRes, dutyReqRes, docReqRes] = await Promise.allSettled([
-        getStaffList({ branch_id: bId, status: 1, limit: 1000 }),
+      const [staffRes, attRes, dutyReqRes, docReqRes, leaveRes] = await Promise.allSettled([
+        // account_type=staff, as the web sends: without it the server's
+        // default can count login accounts into Total Staff.
+        getStaffList({ branch_id: bId, status: 1, limit: 1000, account_type: 'staff' }),
         api.get('/v1/attendance/index', {
           params: { branch_id: bId, category: 2, type: 'Staff', start_date: prevStr, end_date: nextStr, limit: 1000, page: 1 },
         }),
@@ -473,6 +564,11 @@ const HRDashboard = () => {
         }),
         api.get('/v1/hr/staff-documents/index', {
           params: { branch_id: bId, approval_status: 'Pending', limit: 1 },
+        }),
+        // The day cards' "On Leave" and "Approved Leaves" come from here, not
+        // from attendance rows (HAR 2026-09-30).
+        api.get('/v1/hr/leave-application/index', {
+          params: { page: 1, branch_id: bId, status: 1, limit: 1000 },
         }),
       ]);
 
@@ -485,6 +581,26 @@ const HRDashboard = () => {
       // are also narrowed here whenever a single branch is selected.
       const inBranch = (r: any) => bId === undefined || Number(r?.branch_id) === Number(bId);
       const staff: any[] = (staffRaw?.data?.data ?? []).filter(inBranch);
+
+      // The web counts attendance only for people on this roster.
+      const staffById: Record<string, any> = {};
+      staff.forEach((s: any) => { staffById[String(s.id)] = s; });
+
+      // Staff Register rows for the Total / F-11 / G-13 cards, sorted by
+      // department then name like the web's.
+      const staffRegister = staff
+        .map((s: any) => ({
+          id: s.id,
+          branch_id: s.branch_id,
+          name: s.name || 'N/A',
+          uid: s.uid || 'N/A',
+          branch: s.branch_name || 'N/A',
+          department: s.department_name || s.department || 'N/A',
+          designation: s.designation_name || s.designation || 'N/A',
+          joining: s.joining,
+          phone: s.phone || 'N/A',
+        }))
+        .sort((x: any, y: any) => x.department.localeCompare(y.department) || x.name.localeCompare(y.name));
 
       const totalStaff = staff.length;
       const f11Total = staff.filter((s: any) => s.branch_id === f11Id).length;
@@ -519,17 +635,52 @@ const HRDashboard = () => {
 
       // ── Attendance (one 3-day-range call, split client-side by row.date) ──
       const attRaw = ok(attRes);
-      const attList: any[] = ((attRaw as any)?.data?.data?.data ?? []).filter(inBranch);
+      const attList: any[] = ((attRaw as any)?.data?.data?.data ?? [])
+        .filter(inBranch)
+        .filter((a: any) => staffById[String(a.attendee_id)]);
+
+      // Approved leave applications, expanded to one row per day of the
+      // window they cover — the web's "On Leave" count and "Approved Leaves".
+      const leaveRaw = ok(leaveRes) as any;
+      const leaveApps: any[] = Array.isArray(leaveRaw?.data?.data)
+        ? leaveRaw.data.data
+        : (leaveRaw?.data?.data?.data ?? []);
+      const leaveRows = leaveApps
+        .filter((l: any) => l.application_status === 'Approved' && inBranch(l))
+        .flatMap((l: any) => {
+          const uid = String(l.user_id ?? l.user_info?.id ?? '');
+          const from = l.from ?? l.leave_from_date;
+          const to = l.to ?? l.leave_to_date;
+          if (!uid || !from || !to) return [];
+          const who = staffById[uid] ?? {};
+          return [prevStr, todayStr, nextStr]
+            .filter(d => d >= from && d <= to)
+            .map(d => ({
+              id: `${l.id}-${uid}-${d}`,
+              branch_id: l.branch_id ?? who.branch_id,
+              name: l.user_info?.name || who.name || 'N/A',
+              date: d,
+              leave_from_date: from,
+              leave_to_date: to,
+              leave_type: l.leave_type || 'N/A',
+              reason: l.reason || l.remarks || 'N/A',
+              branch: l.branch_info?.name || who.branch_name || 'N/A',
+              designation: who.designation_name || who.designation || 'N/A',
+              department: who.department_name || who.department || 'N/A',
+            }));
+        })
+        .sort((x: any, y: any) => x.date.localeCompare(y.date) || x.name.localeCompare(y.name));
 
       const parseAttDay = (dateStr: string) => {
         const list = attList.filter((a: any) => a.date === dateStr);
+        const leaves = leaveRows.filter((l: any) => l.date === dateStr);
         const byBranch = (branchId: number) => {
           const l = list.filter((a: any) => a.branch_id === branchId);
           return {
             present: l.filter((a: any) => a.attendance_status === 'Present').length,
             late:    l.filter((a: any) => a.is_late === 1).length,
             absent:  l.filter((a: any) => a.attendance_status === 'Absent').length,
-            on_leave: l.filter((a: any) => a.attendance_status === 'Leave').length,
+            on_leave: leaves.filter((x: any) => Number(x.branch_id) === Number(branchId)).length,
           };
         };
         return {
@@ -537,7 +688,7 @@ const HRDashboard = () => {
           present: list.filter((a: any) => a.attendance_status === 'Present').length,
           late:    list.filter((a: any) => a.is_late === 1).length,
           absent:  list.filter((a: any) => a.attendance_status === 'Absent').length,
-          on_leave: list.filter((a: any) => a.attendance_status === 'Leave').length,
+          on_leave: leaves.length,
           total: list.length,
           f11: byBranch(f11Id),
           g13: byBranch(g13Id),
@@ -573,6 +724,7 @@ const HRDashboard = () => {
             reason: a.reason ?? 'N/A',
             remarks: a.remarks ?? 'N/A',
             late_time: late.text,
+            _lateMin: late.minutes,
             status: late.isLate ? 'Late' : 'Present',
             _present: a.attendance_status === 'Present',
             _late: a.attendance_status === 'Present' && late.isLate,
@@ -620,8 +772,12 @@ const HRDashboard = () => {
         // and shows a "Late" badge in the Present table.
         details: {
           present_details: attDetail.filter(r => r._present),
-          late_details:    attDetail.filter(r => r._late),
+          // Late: by date, then most-late first, as the web sorts it.
+          late_details:    attDetail.filter(r => r._late)
+            .sort((x, y) => String(x.date).localeCompare(String(y.date)) || y._lateMin - x._lateMin),
           absent_details:  attDetail.filter(r => r._absent),
+          staff_details:   staffRegister,
+          leave_details:   leaveRows,
         },
       });
     } catch {
@@ -673,6 +829,58 @@ const HRDashboard = () => {
   const leaveDetails = details?.leave_details ?? details?.leaveDetails ?? [];
   const dutyHourReqs = details?.duty_hour_requests ?? details?.dutyHourRequests ?? [];
   const docApprovalReqs = details?.document_approval_requests ?? details?.documentApprovalRequests ?? [];
+
+  // ── Card popups (same content as the web's) ────────────────────────────────
+  const openStaff = (scope: 'all' | 'f11' | 'g13') => {
+    const f11Id = branchOptions.find(o => o.label === 'F 11')?.branch_id ?? 15;
+    const g13Id = branchOptions.find(o => o.label === 'G 13')?.branch_id ?? 1;
+    const rows = scope === 'all'
+      ? staffDetails
+      : staffDetails.filter((r: any) => Number(r.branch_id) === Number(scope === 'f11' ? f11Id : g13Id));
+    setSheet({
+      title: { all: 'Total Staff Details', f11: 'F-11 Staff Details', g13: 'G-13 Staff Details' }[scope],
+      subtitle: `Current scope: ${selectedBranch.label}`,
+      badges: [{ label: 'Records', value: rows.length }],
+      sections: [{ title: 'Staff Register', color: '#1a1a1a', rows, cols: STAFF_COLS, empty: 'No staff records found for this scope.' }],
+    });
+  };
+
+  const openDay = (label: string, day: AttendanceDay) => {
+    const onDay = (r: any) => r.date === day.date;
+    setSheet({
+      title: `${label} Details`,
+      subtitle: dayLabel(day.date),
+      badges: [
+        { label: 'Present', value: day.present ?? 0 },
+        { label: 'Late', value: day.late ?? 0 },
+        { label: 'Absent', value: day.absent ?? 0 },
+        { label: 'On Leave', value: day.on_leave ?? day.onLeave ?? 0 },
+      ],
+      sections: [
+        { title: 'Present Staff', color: '#43A047', rows: presentDetails.filter(onDay), cols: PRESENT_COLS, empty: 'No present staff found for this day.' },
+        { title: 'Late Staff', color: '#FB8C00', rows: lateDetails.filter(onDay), cols: LATE_COLS, empty: 'No late staff found for this day.' },
+        { title: 'Absent Staff', color: '#E63946', rows: absentDetails.filter(onDay), cols: ABSENT_COLS, empty: 'No absent staff found for this day.' },
+        { title: 'Approved Leaves', color: '#00ACC1', rows: leaveDetails.filter(onDay), cols: LEAVE_COLS, empty: 'No approved leave records found for this day.' },
+      ],
+    });
+  };
+
+  const openSummary = (kind: 'late' | 'absent') => {
+    const counts = kind === 'late' ? lateS : absentS;
+    const title = kind === 'late' ? 'Late Summary Details' : 'Absent Summary Details';
+    setSheet({
+      title,
+      subtitle: `Attendance window: ${dayLabel(prevDay.date)} to ${dayLabel(nextDay.date)}`,
+      badges: [
+        { label: 'Previous Day', value: counts?.previous_day ?? 0 },
+        { label: 'Today', value: counts?.today ?? 0 },
+        { label: 'Next Day', value: counts?.next_day ?? 0 },
+      ],
+      sections: [kind === 'late'
+        ? { title, color: '#FB8C00', rows: lateDetails, cols: LATE_COLS, empty: 'No late staff found in the current 3-day summary window.' }
+        : { title, color: '#E63946', rows: absentDetails, cols: ABSENT_COLS, empty: 'No absent staff found in the current 3-day summary window.' }],
+    });
+  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -734,10 +942,13 @@ const HRDashboard = () => {
         />
       )}
 
+      <DetailsModal sheet={sheet} onClose={() => setSheet(null)} />
+
       {/* Branch Modal */}
       <Modal visible={branchModalVisible} transparent animationType="slide">
         <Pressable style={styles.modalOverlay} onPress={() => setBranchModalVisible(false)}>
-          <View style={styles.modalSheet}>
+          {/* Bottom edge only: keeps the last option clear of the home indicator. */}
+          <SafeAreaView style={styles.modalSheet} edges={['bottom']}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Select Branch</Text>
             {branchOptions.map(opt => (
@@ -757,7 +968,7 @@ const HRDashboard = () => {
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </SafeAreaView>
         </Pressable>
       </Modal>
 
@@ -771,9 +982,9 @@ const HRDashboard = () => {
           {/* ── Staff Overview ─────────────────────────────────────────── */}
           <SectionTitle title="Staff Overview" />
           <View style={styles.staffRow}>
-            <StaffCard label="Total Staff" value={totalStaff} sub="Active staff in scope, excluding HR login accounts." />
-            <StaffCard label="F-11 Staff" value={f11Staff} sub="Branch Total" />
-            <StaffCard label="G-13 Staff" value={g13Staff} sub="Branch Total" />
+            <StaffCard label="Total Staff" value={totalStaff} sub="Active staff in scope, excluding HR login accounts." onPress={() => openStaff('all')} />
+            <StaffCard label="F-11 Staff" value={f11Staff} sub="Branch Total" onPress={() => openStaff('f11')} />
+            <StaffCard label="G-13 Staff" value={g13Staff} sub="Branch Total" onPress={() => openStaff('g13')} />
           </View>
 
           {/* ── Department Summary ─────────────────────────────────────── */}
@@ -817,9 +1028,9 @@ const HRDashboard = () => {
           {/* ── Attendance Summary ─────────────────────────────────────── */}
           <SectionTitle title="Attendance Summary" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attScroll}>
-            <AttendanceDayCard title="Previous Day" day={prevDay} />
-            <AttendanceDayCard title="Today" day={today} highlighted />
-            <AttendanceDayCard title="Next Day" day={nextDay} />
+            <AttendanceDayCard title="Previous Day" day={prevDay} onPress={() => openDay('Previous Day', prevDay)} />
+            <AttendanceDayCard title="Today" day={today} highlighted onPress={() => openDay('Today', today)} />
+            <AttendanceDayCard title="Next Day" day={nextDay} onPress={() => openDay('Next Day', nextDay)} />
           </ScrollView>
 
           {/* ── Late & Absent Summary ──────────────────────────────────── */}
@@ -831,6 +1042,7 @@ const HRDashboard = () => {
                 prev={lateS?.previous_day}
                 today={lateS?.today}
                 next={lateS?.next_day}
+                onPress={() => openSummary('late')}
               />
             </View>
             <View style={{ width: 10 }} />
@@ -841,6 +1053,7 @@ const HRDashboard = () => {
                 prev={absentS?.previous_day}
                 today={absentS?.today}
                 next={absentS?.next_day}
+                onPress={() => openSummary('absent')}
               />
             </View>
           </View>
@@ -1148,6 +1361,11 @@ const styles = StyleSheet.create({
   attRowAlt:   { backgroundColor: '#FAFBFD' },
   attTd:       { fontSize: 11, color: '#333', paddingHorizontal: 6 },
   attSr:       { width: 42 },
+  detailSafe:  { flex: 1, backgroundColor: '#FFE5E5' },
+  detailBody:  { flex: 1, backgroundColor: '#F5F7FA' },
+  detailSubtitle: { fontSize: 12, color: '#6B7280', marginBottom: 8 },
+  detailBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  detailSectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   attEmpty:    { fontSize: 12, color: '#999', paddingVertical: 14, textAlign: 'center' },
   attBadge:    { alignSelf: 'flex-start', marginHorizontal: 6, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
   attBadgeOk:   { backgroundColor: '#2E7D32' },

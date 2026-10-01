@@ -35,6 +35,7 @@ import { useSelector } from 'react-redux';
 
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import AccessDenied from '../../AccessDenied';
 import { isSuperAdmin } from '../../../config/permissions';
@@ -390,9 +391,13 @@ const AdminDashboardScreen = () => {
         <>
             <AppHeader
                 title="Admin Dashboard"
-                leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+                // This is Super Admin's Home (the drawer's Admin Dashboard entry
+                // switches to the Home tab too), so it always gets the burger.
+                // canGoBack() was unreliable here — tab history made it true
+                // and showed a back arrow that still opened the drawer.
+                leftIcon={<BurgerSVG width={24} height={24} />}
                 rightIcon={<NotificationSVG width={24} height={24} />}
-                onLeftPress={() => navigation.goBack()}
+                onLeftPress={() => (navigation as any).openDrawer()}
                 onRightPress={() => navigation.navigate('Notifications')}
                 backgroundColor="#FFE5E5"
             />

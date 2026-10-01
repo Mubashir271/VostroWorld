@@ -11,6 +11,7 @@ import { RootState } from '../../../redux/store';
 import { getPhysioDailyReferrals } from '../../../api/physio';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import { isPhysio } from '../../../config/permissions';
 
 interface Referral {
   id: number;
@@ -41,6 +42,8 @@ const PhysiotherapyDailyClientReferral = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
+  // Physio login: own records only, as the web scopes it.
+  const physioId = isPhysio(profile?.role) ? profile?.id : undefined;
 
   const [list, setList] = useState<Referral[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -62,6 +65,7 @@ const PhysiotherapyDailyClientReferral = () => {
     try {
       const res = await getPhysioDailyReferrals({
         branch_id: branchId,
+        physio_id: physioId,
         limit: PAGE_SIZE,
         page: targetPage,
         search: appliedSearch || undefined,
@@ -77,7 +81,7 @@ const PhysiotherapyDailyClientReferral = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [branchId, appliedSearch, appliedDate]);
+  }, [branchId, physioId, appliedSearch, appliedDate]);
 
   useFocusEffect(useCallback(() => { load(1); }, [load]));
 

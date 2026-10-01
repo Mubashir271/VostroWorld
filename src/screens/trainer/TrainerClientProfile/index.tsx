@@ -136,7 +136,7 @@ const TrainerClientProfile = () => {
       <Modal visible={toolsOpen} transparent animationType="fade" onRequestClose={() => setToolsOpen(false)}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setToolsOpen(false)}>
           <View style={styles.menu}>
-            <TouchableOpacity style={styles.menuItem} onPress={() => go('AddPreAssessment')}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('AddClientAssessment')}>
               <Icon name="clipboard-plus-outline" size={18} color="#E63946" />
               <Text style={styles.menuText}>Add Assessment</Text>
             </TouchableOpacity>

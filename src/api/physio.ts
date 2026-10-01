@@ -2,13 +2,18 @@ import api from './service';
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 
-export const getPhysioDashboard = (params: { branch_id: number | string; week_start?: string }) =>
+// `physio_id` (optional on the four calls below): the web's physio login
+// sends its own user id so it sees only its own records (HAR 2026-09-30);
+// admin views omit it and get the whole branch.
+
+export const getPhysioDashboard = (params: { branch_id: number | string; week_start?: string; physio_id?: number }) =>
   api.get('/v1/physio/dashboard', { params });
 
 // ── Appointments ─────────────────────────────────────────────────────────────
 
 export const getPhysioAppointments = (params: {
   branch_id: number | string;
+  physio_id?: number;
   limit?: number;
   page?: number;
   search?: string;
@@ -24,6 +29,7 @@ export const getPhysioAppointmentPhysios = (params: { branch_id: number | string
 
 export const getPhysioPrescriptions = (params: {
   branch_id: number | string;
+  physio_id?: number;
   limit?: number;
   page?: number;
   search?: string;
@@ -70,6 +76,7 @@ export const getPhysioGX = (params: { branch_id: number | string; search?: strin
 
 export const getPhysioDailyReferrals = (params: {
   branch_id: number | string;
+  physio_id?: number;
   limit?: number;
   page?: number;
   search?: string;

@@ -8,7 +8,7 @@ import {
   AccountTab, HomeTab, MembersTab, PackageTab, ReportsTab,
 } from '../../assets/icons';
 import { RootState } from '../../redux/store';
-import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, isTrainer, isGeneralTrainer } from '../../config/permissions';
+import { isAdmin, isHR, isSales, isNutritionist, isFitnessManager, isEmployee, isTrainer, isGeneralTrainer, isPhysio } from '../../config/permissions';
 
 // ── Stacks ───────────────────────────────────────────────────────────────────
 import HomeStack from '../stacks/HomeStack';
@@ -28,6 +28,7 @@ import ViewStaffScreen from '../../screens/HR/ViewStaff';
 import NutritionDashboardScreen from '../../screens/Nutrition/NutritionDashboard';
 import GXAttendanceScreen from '../../screens/Fitness/GXAttendance';
 import HRSessionCommissionPortal from '../../screens/HR/HRSessionCommissionPortal';
+import PhysiotherapyDashboard from '../../screens/Physiotherapy/PhysiotherapyDashboard';
 
 const Tab = createBottomTabNavigator();
 
@@ -82,6 +83,10 @@ const BottomTabNavigation = () => {
   // pair as a blank-role employee — not the personal trainer's My Clients /
   // Attendance / Roster, which is what they used to fall through to.
   const userIsGeneralTrainer = isGeneralTrainer(profile?.role);
+  // Physio (role 15): Home (their Employee Dashboard) + the Physio Dashboard.
+  // Without this they fell through to the trainer's My Clients /
+  // Attendance / Roster.
+  const userIsPhysio = isPhysio(profile?.role);
 
   // Sales works the same client/package/report surface as admin, so it gets
   // the same tab set rather than the trainer's My Clients/Attendance/Roster.
@@ -97,7 +102,13 @@ const BottomTabNavigation = () => {
         options={{ tabBarIcon: imgIcon(HomeTab) }}
       />
 
-      {userIsEmployee || userIsGeneralTrainer ? null : useAdminTabs ? (
+      {userIsEmployee || userIsGeneralTrainer ? null : userIsPhysio ? (
+        <Tab.Screen
+          name="PhysioTab"
+          component={PhysiotherapyDashboard}
+          options={{ tabBarLabel: 'Physio', tabBarIcon: mcIcon('medical-bag') }}
+        />
+      ) : useAdminTabs ? (
         /* ── Admin / Sales tabs ── */
         <>
           <Tab.Screen

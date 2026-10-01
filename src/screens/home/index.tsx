@@ -23,9 +23,10 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../redux/store';
 import { getClientsCount, getTodaySummary } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin, isSales, isEmployee, isTrainer, isGeneralTrainer, ROLE_LABELS, headerTitleOf } from '../../config/permissions';
+import { isAdmin, isSuperAdmin, isSales, isEmployee, isTrainer, isGeneralTrainer, ROLE_LABELS, headerTitleOf, isPhysio } from '../../config/permissions';
 import EmployeeDashboardScreen from '../HR/EmployeeDashboard';
 import PTDashboardScreen from '../Fitness/PTDashboard';
+import AdminDashboardScreen from '../reports/AdminDashboard';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { fetchMembers } from '../../redux/slices/membersSlice';
@@ -203,7 +204,9 @@ export default function DashboardScreen() {
         }
     }, [showStatsDashboard, branchId, profile?.id, fetchClientStats, fetchTodaySales]);
 
-    useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+    // Super Admin's Home is the Admin Dashboard, which loads its own data.
+    const userIsSuperAdmin = isSuperAdmin(profile?.role);
+    useEffect(() => { if (!userIsSuperAdmin) fetchDashboard(); }, [fetchDashboard, userIsSuperAdmin]);
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
@@ -225,7 +228,8 @@ export default function DashboardScreen() {
     // Placed after every hook above so hook order stays constant.
     // `openEdit` is set by the drawer's edit icon and carries a timestamp, so
     // tapping it repeatedly re-opens the Change Information modal.
-    if (userIsEmployee || userIsGeneralTrainer) {
+    // Physio (role 15): the web lands this login on the Employee Dashboard.
+    if (userIsEmployee || userIsGeneralTrainer || isPhysio(profile?.role)) {
         return <EmployeeDashboardScreen focusContact={(route as any)?.params?.openEdit} />;
     }
 
@@ -234,6 +238,9 @@ export default function DashboardScreen() {
     // Dashboard under the sidebar's Dashboard group, which the drawer now
     // mirrors. The employee dashboard is still reachable from there.
     if (userIsTrainer) return <PTDashboardScreen />;
+
+    // Super Admin lands on the Admin Dashboard instead of the client-stats one.
+    if (userIsSuperAdmin) return <AdminDashboardScreen />;
 
     return (
         <>
@@ -271,10 +278,11 @@ export default function DashboardScreen() {
                         {showStatsDashboard ? (
                             /* ── ADMIN / SALES DASHBOARD ─────────────────────── */
                             <>
-                                <Text style={styles.welcomeText}>Welcome, {firstName || 'User'}</Text>
+                                {/* Super admin's profile name is "Super Admin", so greet it as just "Admin". */}
+                                <Text style={styles.welcomeText}>Welcome, {isSuperAdmin(profile?.role) ? 'Admin' : firstName || 'User'}</Text>
                                 <ProfileHeader
                                     name={fullName}
-                                    role={firstName || 'Admin'}
+                                    role={isSuperAdmin(profile?.role) ? 'Admin' : firstName || 'Admin'}
                                     branch={branchName || 'Main Branch'}
                                     editIcon={Edit_fill}
                                     avatar={avatarSource}

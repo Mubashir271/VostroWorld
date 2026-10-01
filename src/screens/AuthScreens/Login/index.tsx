@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -13,20 +13,36 @@ import {
 } from 'react-native';
 import { useSnackbarStore } from '../../../redux/hooks/useSnackbar';
 import CheckBox from '../../../components/Checkbox';
-import { useDispatch } from 'react-redux';
-import { setUser } from '../../../redux/slices/userSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, setRememberMe } from '../../../redux/slices/userSlice';
+import { RootState } from '../../../redux/store';
 import api from '../../../api/service';
+import { saveLogin, getSavedLogin, forgetLogin } from '../../../services/passwordCredentials';
 
 const Login = () => {
-    const [email, setEmail] = useState('');
+    // A remembered login pre-fills the email and keeps the box ticked.
+    const rememberedEmail = useSelector((state: RootState) => state.user.rememberedEmail) ?? '';
+    const [email, setEmail] = useState(rememberedEmail);
     const [password, setPassword] = useState('');
-    const [remember, setRemember] = useState(false);
+    const [remember, setRemember] = useState(!!rememberedEmail);
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const navigation = useNavigation();
     const dispatch = useDispatch();
     const { showSnackbar } = useSnackbarStore();
+
+    // Android offers the logins saved in Google Password Manager; iOS reads
+    // the app's Keychain item. Nothing saved (or a dismissed sheet) leaves the
+    // form alone.
+    useEffect(() => {
+        getSavedLogin().then(saved => {
+            if (!saved) return;
+            setEmail(saved.id);
+            setPassword(saved.password);
+            setRemember(true);
+        });
+    }, []);
 
     const doLogin = async (loginEmail: string, loginPassword: string) => {
         setLoading(true);
@@ -43,6 +59,14 @@ const Login = () => {
             }
 
             dispatch(setUser({ token: access_token, user }));
+            // Unticked, the session ends on the next cold start (see Splash).
+            dispatch(setRememberMe({ remember, email: loginEmail.trim() }));
+            if (remember) {
+                // Android shows Google's save sheet; iOS writes the Keychain.
+                saveLogin(loginEmail.trim(), loginPassword.trim());
+            } else {
+                forgetLogin();
+            }
             showSnackbar('Login successful!');
             setTimeout(() => {
                 (navigation as any).reset({ index: 0, routes: [{ name: 'Drawer' }] });
@@ -132,6 +156,11 @@ const Login = () => {
                                 autoCapitalize="none"
                                 keyboardType="email-address"
                                 editable={!loading}
+                                // The app saves this login itself (Keychain / Credential
+                                // Manager), so keep the OS from offering to save it again.
+                                textContentType="none"
+                                importantForAutofill="no"
+                                autoCorrect={false}
                             />
                         </View>
                     </View>
@@ -152,6 +181,8 @@ const Login = () => {
                                 value={password}
                                 onChangeText={setPassword}
                                 editable={!loading}
+                                textContentType="none"
+                                importantForAutofill="no"
                             />
                             <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)}>
                                 <Image

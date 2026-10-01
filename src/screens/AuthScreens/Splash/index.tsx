@@ -9,10 +9,23 @@ import {
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
+import { performLogout } from '../../../utils/logout';
 
 const Splash = ({ navigation }: { navigation: any }) => {
   const progress = useRef(new Animated.Value(0)).current;
-  const token = useSelector((state: RootState) => state.user.token);
+  const storedToken = useSelector((state: RootState) => state.user.token);
+  const rememberMe = useSelector((state: RootState) => state.user.rememberMe);
+
+  // Splash only runs on a cold start, so this is where a session logged in
+  // without "Remember me" ends. Decided once, before the first render's
+  // navigation, so the logout below can't race the animation callback.
+  // (`rememberMe` undefined = installed before the option existed: keep them.)
+  const expired = useRef(!!storedToken && rememberMe === false).current;
+  const token = expired ? null : storedToken;
+
+  useEffect(() => {
+    if (expired) performLogout();
+  }, [expired]);
 
   useEffect(() => {
     Animated.timing(progress, {

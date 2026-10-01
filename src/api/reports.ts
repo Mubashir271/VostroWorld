@@ -621,3 +621,178 @@ export const getClientsReport = (params: {
   page?: number;
 }) =>
   api.get('/v1/clients/get', { params });
+// ── Active Clients Report ───────────────────────────────────────────────────
+// Reports › Client Reports › Active Clients Report. HAR-confirmed 2026-09-30
+// (super admin, all branches); the filter names come from the web bundle's
+// param builder, since the capture only exercised branch/client/expiry dates.
+//
+//   GET /v1/reports/active-clients?branch_id&…filters&sort_by&sort_dir&page&limit
+//     → { data: { summary, management, clients[] }, pagination }
+//
+// One call feeds every tab: `summary` is the tile row, `management` the
+// Management tab, and `clients` (the current page) the List / Detailed /
+// By Category / Expiring Soon views — the web groups and sorts that page
+// client-side for the last two. Empty filters are omitted, as the web does.
+//
+//   GET /v1/reports/active-clients/:clientId → the Full detail modal's tabs.
+export type ActiveRisk = 'critical' | 'warning' | 'ok' | 'expired';
+
+export type ActivePackageLine = {
+  order_detail_id: number;
+  package_name: string;
+  category: string;
+  category_id: string;
+  start_date: string;
+  end_date: string;
+  sale_date: string;
+  sale_type: string | null;
+  freeze_status: string | null;
+  net_price: number;
+  trainer_name: string | null;
+  sessions_total: number | null;
+  sessions_delivered: number | null;
+  sessions_remaining: number | null;
+  days_until_expiry: number | null;
+  expiry_risk: ActiveRisk;
+};
+
+export type ActiveClient = {
+  client_id: number;
+  uid: string;
+  full_name: string;
+  phone: string;
+  email: string;
+  gender: string;
+  client_type: string;
+  branch_name: string;
+  joining_date: string;
+  active_package_count: number;
+  earliest_start: string;
+  nearest_expiry: string;
+  days_until_expiry: number | null;
+  expiry_risk: ActiveRisk;
+  package_names: string;
+  categories: string[];
+  frozen_packages: number;
+  active_packages: ActivePackageLine[];
+};
+
+export type ActiveClientsSummary = {
+  branch_name: string;
+  total_active_clients: number;
+  total_active_packages: number;
+  expiring_within_30_days: number;
+  expiring_within_60_days: number;
+  expiring_within_90_days: number;
+  frozen_package_lines: number;
+};
+
+export type ActiveClientsManagement = {
+  by_branch: { branch_id: number; branch_name: string; client_count: number; package_count: number }[];
+  by_category: { category: string; category_id: string; client_count: number; package_count: number }[];
+  by_risk: { risk: ActiveRisk; label: string; client_count: number }[];
+};
+
+export type ActiveClientsFilters = {
+  search?: string;
+  category?: string;
+  package_id?: string;
+  expiry_window?: string;
+  expiry_from?: string;
+  expiry_to?: string;
+  start_from?: string;
+  start_to?: string;
+  gender?: string;
+  client_type?: string;
+  sale_type?: string;
+  risk_level?: string;
+  trainer_name?: string;
+  freeze_status?: string;
+  sort_by: string;
+  sort_dir: string;
+};
+
+export const getActiveClientsReport = async (
+  params: ActiveClientsFilters & { branch_id: number | ''; page: number; limit: number },
+) => {
+  // Drop blanks, and expiry_window's "all" sentinel, so the query matches the web's.
+  const query = Object.fromEntries(
+    Object.entries(params).filter(([k, v]) =>
+      k === 'branch_id' || (v !== '' && v != null && !(k === 'expiry_window' && v === 'all'))),
+  );
+  const res = await api.get('/v1/reports/active-clients', { params: query });
+  const body = res.data ?? {};
+  return {
+    summary: (body.data?.summary ?? null) as ActiveClientsSummary | null,
+    management: (body.data?.management ?? null) as ActiveClientsManagement | null,
+    clients: (body.data?.clients ?? []) as ActiveClient[],
+    total: Number(body.pagination?.total_record ?? 0),
+    totalPages: Number(body.pagination?.total_pages ?? 1),
+  };
+};
+
+export type ActiveClientDetailPackage = ActivePackageLine & {
+  order_id: number;
+  is_active: boolean;
+  price: number;
+  discount: number;
+  note: string | null;
+};
+
+export type ActiveClientDetail = {
+  profile: {
+    id: number;
+    uid: string;
+    full_name: string;
+    phone: string;
+    email: string;
+    gender: string;
+    branch_name: string;
+    registration_package: string | null;
+    registration_date: string | null;
+    joining_date: string | null;
+    type?: string | null;
+    cnic?: string | null;
+    address?: string | null;
+  };
+  active_packages: ActiveClientDetailPackage[];
+  package_history: ActiveClientDetailPackage[];
+  all_packages?: ActiveClientDetailPackage[];
+  gym_attendance: { id: number; date: string; checkin_time_12h: string | null; checkout_time_12h: string | null; attendance_status?: string | null }[];
+  session_attendance: { id: number; date: string; validate_status: string; package_name: string; trainer_name: string | null }[];
+  payments: { id: number; order_id: number; received: number; date: string; payment_method: string | null; payment_status?: string | null; note?: string | null }[];
+  freezing: { id: number; start_date: string; end_date: string; reason: string | null }[];
+  cards: { id: number; number: number; status: string; created_at?: string | null }[];
+  counts: {
+    active_packages: number; gym_checkins: number; payments: number;
+    history_packages?: number; total_packages?: number; sessions_delivered?: number;
+    total_price?: number; total_discount?: number; total_net_price?: number;
+  };
+};
+
+// The Client Details Report sends these as query params (HAR 2026-09-30); each
+// narrows only the package lists and their totals in `counts` — attendance,
+// payments, freezing and cards come back unfiltered.
+export type ClientDetailFilters = {
+  start_date?: string;
+  end_date?: string;
+  category?: string;
+  package_status?: '' | 'active' | 'history';
+  sale_type?: string;
+};
+
+export const getActiveClientDetail = async (clientId: number, filters: ClientDetailFilters = {}) => {
+  // Blank filters are left off, as the web does.
+  const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => !!v));
+  const res = await api.get(`/v1/reports/active-clients/${clientId}`, { params });
+  return (res.data?.data ?? null) as ActiveClientDetail | null;
+};
+
+// Package filter options — the web asks for status=2 on this list. It is
+// ~1100 packages (~0.5 MB), so the screen loads it only when the picker opens.
+export const getActiveReportPackages = async (branchId: number | '') => {
+  const res = await api.get('/v1/packages/all-with-categories', { params: { branch_id: branchId, status: '2' } });
+  return ((res.data?.data ?? []) as any[])
+    .map(p => ({ id: Number(p.id), category: String(p.category ?? ''), name: String(p.package_name ?? p.name ?? '').trim() }))
+    .filter(p => p.id && p.name);
+};

@@ -724,6 +724,42 @@ export const updateStaffProfile = async (
   return res.data;
 };
 
+// The web's Staff Profile › General Info edit (pencil next to Staff ID),
+// HAR 2026-09-30. Unlike `updateStaffProfile` above, this form posts every
+// field, blanks included, exactly as the web page does — the web's own save
+// was confirmed to leave blank-sent fields such as `type` (package
+// categories) and `monthly_medical` unchanged. `password` is only sent when
+// a new one was typed.
+export const updateStaffGeneralInfo = async (userId: number, fields: Record<string, string>) => {
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => formData.append(key, value ?? ''));
+  const res = await api.post(`/v1/auth/update/${userId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
+// Role options for the staff form: [{ code: '9', label: 'Personal Trainer' }, …].
+export const getStaffRoles = async (): Promise<{ code: string; label: string }[]> => {
+  const res = await api.get('/v1/admin/menu-access/roles');
+  return (res.data?.data ?? []).map((r: any) => ({ code: String(r.code), label: String(r.label) }));
+};
+
+// The web's duplicate checks for the staff form: 200 = free, 409 = taken by
+// someone other than `userId`. Any other failure is treated as "not taken"
+// so a flaky check never blocks a save — the server still validates.
+const takenBy409 = async (path: string) => {
+  try {
+    await api.get(path);
+    return false;
+  } catch (e: any) {
+    return e?.response?.status === 409;
+  }
+};
+export const isStaffEmailTaken = (email: string, userId: number) => takenBy409(`/v1/auth/unique-email/${email}/${userId}`);
+export const isStaffPhoneTaken = (phone: string, userId: number) => takenBy409(`/v1/auth/unique-phone/${phone}/${userId}`);
+export const isStaffCnicTaken = (cnic: string, userId: number) => takenBy409(`/v1/clients/unique-cnic/${cnic}/${userId}`);
+
 // ── 6.1 Promotions / Announcements ───────────────────────────────────────────
 
 export const getPromotions = async (params: {
