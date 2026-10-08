@@ -1,3 +1,19 @@
+// src/screens/Nutrition/AddAssessmentQuestionnaire/index.tsx
+//
+// Nutritionist Assessment Questionnaire — add / edit. Field types, option ids
+// and the save payload follow the web's form (main.f794ea60.js, read from the
+// 2026-10-06 HAR, plus the PUT it sent for form 329):
+//  • age, height, gender and the four "lifestyle" answers are free text
+//    ("24 years", "155 cm", "Personal Training"), not numbers or booleans;
+//  • P.M.H answers are the strings "Yes" / "No" / "" (tap again to clear);
+//  • plan_objectives holds ids: fat_loss, muscle_strength, disease_management;
+//  • goal_fat_loss / goal_muscle_strength / goal_disease_management are
+//    free-text notes, shown only when a record already has one;
+//  • every body entry is sent (at least 3), blank values as "", a blank date
+//    as null; nutritionist_id is the logged-in staff id;
+//  • picking a client who already has a questionnaire opens that one rather
+//    than starting a duplicate (GET …/by-client/{id}).
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
@@ -7,26 +23,38 @@ import { useSelector } from 'react-redux';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { RootState } from '../../../redux/store';
-import { getClientHub, addAssessmentForm, updateAssessmentForm } from '../../../api/nutrition';
+import { getClientHub, addAssessmentForm, updateAssessmentForm, getAssessmentFormByClient } from '../../../api/nutrition';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import { downloadQuestionnairePdf } from '../../../utils/questionnairePdf';
+import QuestionnaireSheet from './QuestionnaireSheet';
 
-const PLAN_OBJECTIVES = ['Weight Loss', 'Weight Gain', 'Muscle Gain', 'Body Toning', 'General Health Improvement'];
+const PLAN_OBJECTIVES = [
+  { id: 'fat_loss', label: 'Fat loss/weight loss' },
+  { id: 'muscle_strength', label: 'Muscle and strength gain' },
+  { id: 'disease_management', label: 'Disease management' },
+];
+const GOAL_NOTES = [
+  { key: 'goal_fat_loss', label: 'Fat Loss Note' },
+  { key: 'goal_muscle_strength', label: 'Muscle Gain Note' },
+  { key: 'goal_disease_management', label: 'Disease Management Note' },
+];
+const MIN_ENTRIES = 3;
 const STRESS_LEVELS = ['Minimal', 'Moderate', 'Unbearable'];
 const ACTIVITY_LEVELS = ['Office Job (Sedentary)', 'Light exercise', 'Moderate exercise', 'Heavy exercise', 'Athlete'];
 const PMH_FIELDS = [
-  { key: 'diabetes', label: 'Diabetes' },
-  { key: 'hypertension_cvd', label: 'Hypertension / CVD' },
-  { key: 'polycystic_ovarian_syndrome', label: 'Polycystic Ovarian Syndrome' },
+  { key: 'diabetes', label: 'Diabetes type 1 or 2' },
+  { key: 'hypertension_cvd', label: 'Hypertension or CVD' },
+  { key: 'polycystic_ovarian_syndrome', label: 'Polycystic ovarian syndrome' },
   { key: 'anemia', label: 'Anemia' },
   { key: 'ibs', label: 'IBS' },
   { key: 'h_pylori', label: 'H. Pylori' },
 ];
 const BACKGROUND_FIELDS = [
-  { key: 'tried_diet_plans', label: 'Tried Diet Plans Before' },
-  { key: 'gym_member', label: 'Gym Member' },
-  { key: 'following_diet', label: 'Currently Following a Diet' },
-  { key: 'undergoing_training', label: 'Undergoing Training' },
+  { key: 'tried_diet_plans', label: 'Have you tried any diet plans before?' },
+  { key: 'gym_member', label: 'Gym member or not' },
+  { key: 'following_diet', label: 'Already following any diet' },
+  { key: 'undergoing_training', label: 'Undergoing any type of training' },
 ];
 const MEALS = [
   { key: 'breakfast', label: 'Breakfast' },
@@ -44,6 +72,20 @@ const emptyDietary = () => {
   const obj: any = {};
   MEALS.forEach(m => { obj[`${m.key}_time`] = ''; obj[`${m.key}_spec`] = ''; });
   return obj;
+};
+
+const str = (v: any) => (v === null || v === undefined ? '' : String(v));
+
+// "2026-10-06T00:00:00Z" / "2026-10-06" → "2026-10-06", as the web normalises.
+const isoDate = (v: any) => {
+  const t = str(v).trim();
+  return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : t;
+};
+
+const padEntries = (list: any[]) => {
+  const out = [...list];
+  while (out.length < MIN_ENTRIES) out.push(emptyEntry());
+  return out;
 };
 
 const clientLabel = (c: any) => c?.full_name || `${c?.first_name ?? ''} ${c?.last_name ?? ''}`.trim() || '—';
@@ -68,16 +110,20 @@ const Field = ({ label, value, onChangeText, keyboardType, multiline }: any) => 
   </View>
 );
 
-const YesNo = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
+// "Yes" / "No" / "" — tapping the selected answer again clears it, as on the web.
+const YesNo = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <View style={styles.yesNoRow}>
     <Text style={styles.yesNoLabel}>{label}</Text>
     <View style={styles.yesNoBtns}>
-      <TouchableOpacity style={[styles.yesNoBtn, value && styles.yesNoBtnActive]} onPress={() => onChange(true)}>
-        <Text style={[styles.yesNoBtnText, value && styles.yesNoBtnTextActive]}>Yes</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.yesNoBtn, !value && styles.yesNoBtnActive]} onPress={() => onChange(false)}>
-        <Text style={[styles.yesNoBtnText, !value && styles.yesNoBtnTextActive]}>No</Text>
-      </TouchableOpacity>
+      {['Yes', 'No'].map(opt => (
+        <TouchableOpacity
+          key={opt}
+          style={[styles.yesNoBtn, value === opt && styles.yesNoBtnActive]}
+          onPress={() => onChange(value === opt ? '' : opt)}
+        >
+          <Text style={[styles.yesNoBtnText, value === opt && styles.yesNoBtnTextActive]}>{opt}</Text>
+        </TouchableOpacity>
+      ))}
     </View>
   </View>
 );
@@ -107,7 +153,8 @@ const AddAssessmentQuestionnaire = () => {
   const branchId = profile?.branchId || '';
 
   const passedClient = route.params?.client;
-  const editingForm = route.params?.form;
+  // The record being edited — from the list, or found for the picked client.
+  const [editingForm, setEditingForm] = useState<any>(route.params?.form ?? null);
 
   const [client, setClient] = useState<any>(passedClient ?? (editingForm?.client ?? null));
   const [clientSearch, setClientSearch] = useState('');
@@ -120,11 +167,11 @@ const AddAssessmentQuestionnaire = () => {
   const [height, setHeight] = useState('');
   const [gender, setGender] = useState('');
 
-  const [goals, setGoals] = useState<Record<string, boolean>>({});
-  const [bodyEntries, setBodyEntries] = useState<any[]>([emptyEntry()]);
+  const [goals, setGoals] = useState<Record<string, string>>({});
+  const [bodyEntries, setBodyEntries] = useState<any[]>(padEntries([]));
 
   const [planObjectives, setPlanObjectives] = useState<string[]>([]);
-  const [background, setBackground] = useState<Record<string, boolean>>({});
+  const [background, setBackground] = useState<Record<string, string>>({});
   const [medicineSupplements, setMedicineSupplements] = useState('');
 
   const [dietary, setDietary] = useState<any>(emptyDietary());
@@ -134,7 +181,7 @@ const AddAssessmentQuestionnaire = () => {
   const [allergicFoods, setAllergicFoods] = useState('');
   const [preferredFoods, setPreferredFoods] = useState('');
 
-  const [pmh, setPmh] = useState<Record<string, boolean>>({});
+  const [pmh, setPmh] = useState<Record<string, string>>({});
   const [musclePain, setMusclePain] = useState('');
   const [anyOtherIssue, setAnyOtherIssue] = useState('');
 
@@ -142,32 +189,26 @@ const AddAssessmentQuestionnaire = () => {
   const [activityLevel, setActivityLevel] = useState('');
 
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  // A saved questionnaire opens as the printed form, like the web's
+  // Edit/View page; Edit switches to the input form.
+  const [mode, setMode] = useState<'view' | 'edit'>(route.params?.form ? 'view' : 'edit');
 
   useEffect(() => {
     if (!editingForm) return;
-    setName(editingForm.name ?? '');
-    setAge(editingForm.age ? String(editingForm.age) : '');
-    setHeight(editingForm.height ? String(editingForm.height) : '');
-    setGender(editingForm.gender ?? '');
-    setGoals({
-      goal_fat_loss: !!editingForm.goal_fat_loss,
-      goal_muscle_strength: !!editingForm.goal_muscle_strength,
-      goal_disease_management: !!editingForm.goal_disease_management,
-    });
-    if (Array.isArray(editingForm.body_entries) && editingForm.body_entries.length) {
-      setBodyEntries(editingForm.body_entries.map((e: any) => ({
-        assessment_date: e.assessment_date ?? '', weight: String(e.weight ?? ''), bmi: String(e.bmi ?? ''),
-        chest: String(e.chest ?? ''), belly: String(e.belly ?? ''), hips: String(e.hips ?? ''),
-        arms: String(e.arms ?? ''), thighs: String(e.thighs ?? ''), fat: String(e.fat ?? ''), vf: String(e.vf ?? ''),
-      })));
-    }
+    if (editingForm.client) setClient(editingForm.client);
+    setName(str(editingForm.name));
+    setAge(str(editingForm.age));
+    setHeight(str(editingForm.height));
+    setGender(str(editingForm.gender));
+    setGoals(Object.fromEntries(GOAL_NOTES.map(g => [g.key, str(editingForm[g.key])])));
+    setBodyEntries(padEntries((Array.isArray(editingForm.body_entries) ? editingForm.body_entries : []).map((e: any) => ({
+      assessment_date: isoDate(e.assessment_date), weight: str(e.weight), bmi: str(e.bmi),
+      chest: str(e.chest), belly: str(e.belly), hips: str(e.hips),
+      arms: str(e.arms), thighs: str(e.thighs), fat: str(e.fat), vf: str(e.vf),
+    }))));
     setPlanObjectives(Array.isArray(editingForm.plan_objectives) ? editingForm.plan_objectives : []);
-    setBackground({
-      tried_diet_plans: !!editingForm.tried_diet_plans,
-      gym_member: !!editingForm.gym_member,
-      following_diet: !!editingForm.following_diet,
-      undergoing_training: !!editingForm.undergoing_training,
-    });
+    setBackground(Object.fromEntries(BACKGROUND_FIELDS.map(f => [f.key, str(editingForm[f.key])])));
     setMedicineSupplements(editingForm.medicine_supplements ?? '');
     if (editingForm.daily_dietary_intake) {
       const d: any = emptyDietary();
@@ -181,14 +222,7 @@ const AddAssessmentQuestionnaire = () => {
     setDislikedFoods(editingForm.disliked_foods ?? '');
     setAllergicFoods(editingForm.allergic_foods ?? '');
     setPreferredFoods(editingForm.preferred_foods ?? '');
-    setPmh({
-      diabetes: !!editingForm.diabetes,
-      hypertension_cvd: !!editingForm.hypertension_cvd,
-      polycystic_ovarian_syndrome: !!editingForm.polycystic_ovarian_syndrome,
-      anemia: !!editingForm.anemia,
-      ibs: !!editingForm.ibs,
-      h_pylori: !!editingForm.h_pylori,
-    });
+    setPmh(Object.fromEntries(PMH_FIELDS.map(f => [f.key, str(editingForm[f.key])])));
     setMusclePain(editingForm.muscle_pain ?? '');
     setAnyOtherIssue(editingForm.any_other_issue ?? '');
     setStressLevel(editingForm.stress_level ?? '');
@@ -216,13 +250,26 @@ const AddAssessmentQuestionnaire = () => {
     }
   }, [branchId]);
 
-  const selectClient = (c: any) => {
+  // Like the web: a client who already has a questionnaire gets that one
+  // loaded for editing; otherwise their profile seeds a new one.
+  const selectClient = async (c: any) => {
     setClient(c);
-    setName(c.full_name ?? name);
-    setGender(c.gender ?? gender);
     setClientDropOpen(false);
     setClientResults([]);
     setClientSearch('');
+    try {
+      const res = await getAssessmentFormByClient(c.id, { branch_id: branchId });
+      const existing = res?.data?.data;
+      if (res?.data?.status && existing?.id) {
+        setEditingForm(existing);
+        setMode('view');
+        return;
+      }
+    } catch {
+      // 404 = no questionnaire yet; fall through to a fresh one.
+    }
+    setName(c.full_name ?? clientLabel(c));
+    setGender(c.gender ?? gender);
   };
 
   const updateEntry = (idx: number, key: string, value: string) => {
@@ -235,6 +282,47 @@ const AddAssessmentQuestionnaire = () => {
   const toggleObjective = (opt: string) =>
     setPlanObjectives(prev => prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]);
 
+  // The questionnaire as API fields — the save payload (mirroring the web's
+  // payload builder field for field), and what the form view and PDF print.
+  const buildRecord = (): Record<string, any> => ({
+    branch_id: branchId || editingForm?.branch_id || client?.branch_id || null,
+    nutritionist_id: profile?.id,
+    client_id: client?.id ?? editingForm?.client_id ?? null,
+    name, age, height, gender,
+    goal_fat_loss: goals.goal_fat_loss ?? '',
+    goal_muscle_strength: goals.goal_muscle_strength ?? '',
+    goal_disease_management: goals.goal_disease_management ?? '',
+    plan_objectives: planObjectives,
+    ...Object.fromEntries(BACKGROUND_FIELDS.map(f => [f.key, background[f.key] ?? ''])),
+    medicine_supplements: medicineSupplements,
+    daily_dietary_intake: dietary,
+    daily_water_intake: dailyWaterIntake,
+    disliked_foods: dislikedFoods,
+    allergic_foods: allergicFoods,
+    preferred_foods: preferredFoods,
+    ...Object.fromEntries(PMH_FIELDS.map(f => [f.key, pmh[f.key] ?? ''])),
+    muscle_pain: musclePain,
+    any_other_issue: anyOtherIssue,
+    stress_level: stressLevel,
+    activity_level: activityLevel,
+    body_entries: bodyEntries.map(e => ({
+      assessment_date: e.assessment_date || null,
+      weight: e.weight, bmi: e.bmi, chest: e.chest, belly: e.belly,
+      hips: e.hips, arms: e.arms, thighs: e.thighs, fat: e.fat, vf: e.vf,
+    })),
+  });
+
+  const downloadPdf = async () => {
+    setExporting(true);
+    try {
+      await downloadQuestionnairePdf(buildRecord(), navigation);
+    } catch (e: any) {
+      Alert.alert('Download failed', e?.message || 'Could not generate the PDF.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const save = async () => {
     if (!client && !editingForm) {
       Alert.alert('Select Client', 'Please select a client for this questionnaire.');
@@ -242,58 +330,17 @@ const AddAssessmentQuestionnaire = () => {
     }
     setSaving(true);
     try {
-      const payload: any = {
-        branch_id: branchId,
-        client_id: client?.id ?? editingForm?.client_id,
-        name, age: age ? Number(age) : undefined, height: height ? Number(height) : undefined, gender,
-        goal_fat_loss: !!goals.goal_fat_loss,
-        goal_muscle_strength: !!goals.goal_muscle_strength,
-        goal_disease_management: !!goals.goal_disease_management,
-        body_entries: bodyEntries
-          .filter(e => e.assessment_date || e.weight)
-          .map(e => ({
-            assessment_date: e.assessment_date || undefined,
-            weight: e.weight ? Number(e.weight) : undefined,
-            bmi: e.bmi ? Number(e.bmi) : undefined,
-            chest: e.chest ? Number(e.chest) : undefined,
-            belly: e.belly ? Number(e.belly) : undefined,
-            hips: e.hips ? Number(e.hips) : undefined,
-            arms: e.arms ? Number(e.arms) : undefined,
-            thighs: e.thighs ? Number(e.thighs) : undefined,
-            fat: e.fat ? Number(e.fat) : undefined,
-            vf: e.vf ? Number(e.vf) : undefined,
-          })),
-        plan_objectives: planObjectives,
-        tried_diet_plans: !!background.tried_diet_plans,
-        gym_member: !!background.gym_member,
-        following_diet: !!background.following_diet,
-        undergoing_training: !!background.undergoing_training,
-        medicine_supplements: medicineSupplements || undefined,
-        daily_dietary_intake: dietary,
-        daily_water_intake: dailyWaterIntake || undefined,
-        disliked_foods: dislikedFoods || undefined,
-        allergic_foods: allergicFoods || undefined,
-        preferred_foods: preferredFoods || undefined,
-        diabetes: !!pmh.diabetes,
-        hypertension_cvd: !!pmh.hypertension_cvd,
-        polycystic_ovarian_syndrome: !!pmh.polycystic_ovarian_syndrome,
-        anemia: !!pmh.anemia,
-        ibs: !!pmh.ibs,
-        h_pylori: !!pmh.h_pylori,
-        muscle_pain: musclePain || undefined,
-        any_other_issue: anyOtherIssue || undefined,
-        stress_level: stressLevel || undefined,
-        activity_level: activityLevel || undefined,
-      };
+      const payload = buildRecord();
 
-      if (editingForm) {
-        await updateAssessmentForm(editingForm.id, payload);
-      } else {
-        await addAssessmentForm(payload);
-      }
-      Alert.alert('Success', `Questionnaire ${editingForm ? 'updated' : 'saved'} successfully.`, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      // Like the web, a successful save shows the saved form rather than
+      // leaving the screen.
+      const res = editingForm
+        ? await updateAssessmentForm(editingForm.id, payload)
+        : await addAssessmentForm(payload);
+      const saved = res?.data?.data;
+      if (saved?.id) setEditingForm(saved);
+      setMode('view');
+      Alert.alert('Success', `Questionnaire ${editingForm ? 'updated' : 'saved'} successfully.`);
     } catch {
       Alert.alert('Error', 'Could not save the questionnaire. Please try again.');
     } finally {
@@ -304,7 +351,7 @@ const AddAssessmentQuestionnaire = () => {
   return (
     <View style={styles.container}>
       <AppHeader
-        title={editingForm ? 'Edit Questionnaire' : 'New Assessment Questionnaire'}
+        title={!editingForm ? 'New Assessment Questionnaire' : mode === 'view' ? 'Questionnaire' : 'Edit Questionnaire'}
         leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
         rightIcon={<NotificationSVG width={24} height={24} />}
         onLeftPress={() => navigation.goBack()}
@@ -352,132 +399,170 @@ const AddAssessmentQuestionnaire = () => {
           )}
         </View>
 
-        {/* Personal Information */}
-        <View style={styles.card}>
-          <SectionHeader title="Personal Information" icon="account-outline" />
-          <Field label="Name" value={name} onChangeText={setName} />
-          <View style={styles.row3}>
-            <View style={{ flex: 1 }}><Field label="Age" value={age} onChangeText={setAge} keyboardType="numeric" /></View>
-            <View style={{ flex: 1 }}><Field label="Height (cm)" value={height} onChangeText={setHeight} keyboardType="numeric" /></View>
-            <View style={{ flex: 1 }}><Field label="Gender" value={gender} onChangeText={setGender} /></View>
-          </View>
-        </View>
-
-        {/* Goals */}
-        <View style={styles.card}>
-          <SectionHeader title="Goals" icon="target" />
-          <Checkbox label="Fat Loss" checked={!!goals.goal_fat_loss} onToggle={() => setGoals(g => ({ ...g, goal_fat_loss: !g.goal_fat_loss }))} />
-          <Checkbox label="Muscle Strength" checked={!!goals.goal_muscle_strength} onToggle={() => setGoals(g => ({ ...g, goal_muscle_strength: !g.goal_muscle_strength }))} />
-          <Checkbox label="Disease Management" checked={!!goals.goal_disease_management} onToggle={() => setGoals(g => ({ ...g, goal_disease_management: !g.goal_disease_management }))} />
-        </View>
-
-        {/* Body Assessment */}
-        <View style={styles.card}>
-          <SectionHeader title="Body Assessment" icon="human" />
-          {bodyEntries.map((entry, idx) => (
-            <View key={idx} style={styles.entryBox}>
-              <View style={styles.entryHeader}>
-                <Text style={styles.entryTitle}>Assessment {idx + 1}</Text>
-                {bodyEntries.length > 1 && (
-                  <TouchableOpacity onPress={() => removeEntry(idx)}>
-                    <Icon name="trash-can-outline" size={16} color="#E63946" />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <Field label="Date (YYYY-MM-DD)" value={entry.assessment_date} onChangeText={(v: string) => updateEntry(idx, 'assessment_date', v)} />
-              <View style={styles.row3}>
-                <View style={{ flex: 1 }}><Field label="Weight (kg)" value={entry.weight} onChangeText={(v: string) => updateEntry(idx, 'weight', v)} keyboardType="numeric" /></View>
-                <View style={{ flex: 1 }}><Field label="BMI" value={entry.bmi} onChangeText={(v: string) => updateEntry(idx, 'bmi', v)} keyboardType="numeric" /></View>
-                <View style={{ flex: 1 }}><Field label="Fat %" value={entry.fat} onChangeText={(v: string) => updateEntry(idx, 'fat', v)} keyboardType="numeric" /></View>
-              </View>
-              <View style={styles.row3}>
-                <View style={{ flex: 1 }}><Field label="Chest" value={entry.chest} onChangeText={(v: string) => updateEntry(idx, 'chest', v)} keyboardType="numeric" /></View>
-                <View style={{ flex: 1 }}><Field label="Belly" value={entry.belly} onChangeText={(v: string) => updateEntry(idx, 'belly', v)} keyboardType="numeric" /></View>
-                <View style={{ flex: 1 }}><Field label="Hips" value={entry.hips} onChangeText={(v: string) => updateEntry(idx, 'hips', v)} keyboardType="numeric" /></View>
-              </View>
-              <View style={styles.row3}>
-                <View style={{ flex: 1 }}><Field label="Arms" value={entry.arms} onChangeText={(v: string) => updateEntry(idx, 'arms', v)} keyboardType="numeric" /></View>
-                <View style={{ flex: 1 }}><Field label="Thighs" value={entry.thighs} onChangeText={(v: string) => updateEntry(idx, 'thighs', v)} keyboardType="numeric" /></View>
-                <View style={{ flex: 1 }}><Field label="VF" value={entry.vf} onChangeText={(v: string) => updateEntry(idx, 'vf', v)} keyboardType="numeric" /></View>
-              </View>
-            </View>
-          ))}
-          <TouchableOpacity style={styles.addEntryBtn} onPress={addEntry}>
-            <Icon name="plus" size={16} color="#E63946" />
-            <Text style={styles.addEntryText}>Add Assessment</Text>
+        {/* Actions — the web's Download PDF and an Edit / Form view switch. */}
+        <View style={styles.actionRow}>
+          {editingForm ? (
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => setMode(m => (m === 'view' ? 'edit' : 'view'))}
+              activeOpacity={0.8}
+            >
+              <Icon name={mode === 'view' ? 'pencil-outline' : 'file-document-outline'} size={15} color="#1A1A1A" />
+              <Text style={styles.actionBtnText}>{mode === 'view' ? 'Edit' : 'Form view'}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.pdfBtn]}
+            onPress={downloadPdf}
+            disabled={exporting}
+            activeOpacity={0.8}
+          >
+            {exporting
+              ? <ActivityIndicator size="small" color="#FFF" />
+              : (
+                <>
+                  <Icon name="file-pdf-box" size={15} color="#FFF" />
+                  <Text style={[styles.actionBtnText, styles.pdfBtnText]}>Download PDF</Text>
+                </>
+              )}
           </TouchableOpacity>
         </View>
 
-        {/* Plan & Background */}
-        <View style={styles.card}>
-          <SectionHeader title="Plan & Background" icon="clipboard-list-outline" />
-          <Text style={styles.fieldLabel}>Plan Objectives</Text>
-          {PLAN_OBJECTIVES.map(opt => (
-            <Checkbox key={opt} label={opt} checked={planObjectives.includes(opt)} onToggle={() => toggleObjective(opt)} />
-          ))}
-          <View style={{ height: 8 }} />
-          {BACKGROUND_FIELDS.map(f => (
-            <YesNo
-              key={f.key}
-              label={f.label}
-              value={!!background[f.key]}
-              onChange={(v) => setBackground(prev => ({ ...prev, [f.key]: v }))}
-            />
-          ))}
-          <Field label="Medicines / Supplements" value={medicineSupplements} onChangeText={setMedicineSupplements} multiline />
-        </View>
-
-        {/* Daily Dietary Intake */}
-        <View style={styles.card}>
-          <SectionHeader title="Daily Dietary Intake" icon="food-fork-drink" />
-          {MEALS.map(m => (
-            <View key={m.key} style={styles.mealRow}>
-              <Text style={styles.mealLabel}>{m.label}</Text>
-              <View style={styles.row2}>
-                <View style={{ flex: 1 }}><Field label="Time" value={dietary[`${m.key}_time`]} onChangeText={(v: string) => setDietary((d: any) => ({ ...d, [`${m.key}_time`]: v }))} /></View>
-                <View style={{ flex: 2 }}><Field label="What do you eat" value={dietary[`${m.key}_spec`]} onChangeText={(v: string) => setDietary((d: any) => ({ ...d, [`${m.key}_spec`]: v }))} /></View>
-              </View>
+        {mode === 'view' ? (
+          <QuestionnaireSheet r={buildRecord()} />
+        ) : (
+          <>
+          {/* Personal Information */}
+          <View style={styles.card}>
+            <SectionHeader title="Personal Information" icon="account-outline" />
+            <Field label="Name" value={name} onChangeText={setName} />
+            <View style={styles.row3}>
+              <View style={{ flex: 1 }}><Field label="Age" value={age} onChangeText={setAge} /></View>
+              <View style={{ flex: 1 }}><Field label="Height" value={height} onChangeText={setHeight} /></View>
+              <View style={{ flex: 1 }}><Field label="Gender" value={gender} onChangeText={setGender} /></View>
             </View>
-          ))}
-        </View>
+          </View>
 
-        {/* Food Preferences */}
-        <View style={styles.card}>
-          <SectionHeader title="Food Preferences" icon="silverware-fork-knife" />
-          <Field label="Daily Water Intake" value={dailyWaterIntake} onChangeText={setDailyWaterIntake} />
-          <Field label="Disliked Foods" value={dislikedFoods} onChangeText={setDislikedFoods} multiline />
-          <Field label="Allergic Foods" value={allergicFoods} onChangeText={setAllergicFoods} multiline />
-          <Field label="Preferred Foods" value={preferredFoods} onChangeText={setPreferredFoods} multiline />
-        </View>
+          {/* Objective of the plan */}
+          <View style={styles.card}>
+            <SectionHeader title="Objective of the Plan" icon="target" />
+            {PLAN_OBJECTIVES.map(opt => (
+              <Checkbox key={opt.id} label={opt.label} checked={planObjectives.includes(opt.id)} onToggle={() => toggleObjective(opt.id)} />
+            ))}
+            {/* Older records carry free-text goal notes; the web shows them only when present. */}
+            {GOAL_NOTES.some(g => goals[g.key]) ? (
+              <View style={{ marginTop: 8 }}>
+                {GOAL_NOTES.map(g => (
+                  <Field key={g.key} label={g.label} value={goals[g.key] ?? ''} onChangeText={(v: string) => setGoals(prev => ({ ...prev, [g.key]: v }))} />
+                ))}
+              </View>
+            ) : null}
+          </View>
 
-        {/* P.M.H */}
-        <View style={styles.card}>
-          <SectionHeader title="P.M.H (Past Medical History)" icon="medical-bag" />
-          {PMH_FIELDS.map(f => (
-            <YesNo
-              key={f.key}
-              label={f.label}
-              value={!!pmh[f.key]}
-              onChange={(v) => setPmh(prev => ({ ...prev, [f.key]: v }))}
-            />
-          ))}
-          <Field label="Muscle Pain" value={musclePain} onChangeText={setMusclePain} multiline />
-          <Field label="Any Other Issue" value={anyOtherIssue} onChangeText={setAnyOtherIssue} multiline />
-        </View>
+          {/* Body Assessment */}
+          <View style={styles.card}>
+            <SectionHeader title="Body Assessment" icon="human" />
+            {bodyEntries.map((entry, idx) => (
+              <View key={idx} style={styles.entryBox}>
+                <View style={styles.entryHeader}>
+                  <Text style={styles.entryTitle}>Assessment {idx + 1}</Text>
+                  {bodyEntries.length > 1 && (
+                    <TouchableOpacity onPress={() => removeEntry(idx)}>
+                      <Icon name="trash-can-outline" size={16} color="#E63946" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Field label="Date (YYYY-MM-DD)" value={entry.assessment_date} onChangeText={(v: string) => updateEntry(idx, 'assessment_date', v)} />
+                <View style={styles.row3}>
+                  <View style={{ flex: 1 }}><Field label="Weight (kg)" value={entry.weight} onChangeText={(v: string) => updateEntry(idx, 'weight', v)} keyboardType="numeric" /></View>
+                  <View style={{ flex: 1 }}><Field label="BMI" value={entry.bmi} onChangeText={(v: string) => updateEntry(idx, 'bmi', v)} keyboardType="numeric" /></View>
+                  <View style={{ flex: 1 }}><Field label="Fat %" value={entry.fat} onChangeText={(v: string) => updateEntry(idx, 'fat', v)} keyboardType="numeric" /></View>
+                </View>
+                <View style={styles.row3}>
+                  <View style={{ flex: 1 }}><Field label="Chest" value={entry.chest} onChangeText={(v: string) => updateEntry(idx, 'chest', v)} keyboardType="numeric" /></View>
+                  <View style={{ flex: 1 }}><Field label="Belly" value={entry.belly} onChangeText={(v: string) => updateEntry(idx, 'belly', v)} keyboardType="numeric" /></View>
+                  <View style={{ flex: 1 }}><Field label="Hips" value={entry.hips} onChangeText={(v: string) => updateEntry(idx, 'hips', v)} keyboardType="numeric" /></View>
+                </View>
+                <View style={styles.row3}>
+                  <View style={{ flex: 1 }}><Field label="Arms" value={entry.arms} onChangeText={(v: string) => updateEntry(idx, 'arms', v)} keyboardType="numeric" /></View>
+                  <View style={{ flex: 1 }}><Field label="Thighs" value={entry.thighs} onChangeText={(v: string) => updateEntry(idx, 'thighs', v)} keyboardType="numeric" /></View>
+                  <View style={{ flex: 1 }}><Field label="VF" value={entry.vf} onChangeText={(v: string) => updateEntry(idx, 'vf', v)} keyboardType="numeric" /></View>
+                </View>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.addEntryBtn} onPress={addEntry}>
+              <Icon name="plus" size={16} color="#E63946" />
+              <Text style={styles.addEntryText}>Add Assessment</Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Lifestyle & Stress */}
-        <View style={styles.card}>
-          <SectionHeader title="Lifestyle & Stress" icon="meditation" />
-          <Text style={styles.fieldLabel}>Stress Level</Text>
-          <RadioGroup options={STRESS_LEVELS} value={stressLevel} onChange={setStressLevel} />
-          <View style={{ height: 12 }} />
-          <Text style={styles.fieldLabel}>Activity Level</Text>
-          <RadioGroup options={ACTIVITY_LEVELS} value={activityLevel} onChange={setActivityLevel} />
-        </View>
+          {/* Lifestyle & fitness profile — free-text answers, as on the web */}
+          <View style={styles.card}>
+            <SectionHeader title="Lifestyle & Fitness Profile" icon="clipboard-list-outline" />
+            {BACKGROUND_FIELDS.map(f => (
+              <Field
+                key={f.key}
+                label={f.label}
+                value={background[f.key] ?? ''}
+                onChangeText={(v: string) => setBackground(prev => ({ ...prev, [f.key]: v }))}
+              />
+            ))}
+            <Field label="Currently using any medicine or supplements" value={medicineSupplements} onChangeText={setMedicineSupplements} multiline />
+          </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.saveBtnText}>{editingForm ? 'Update Questionnaire' : 'Save Questionnaire'}</Text>}
-        </TouchableOpacity>
+          {/* Daily Dietary Intake */}
+          <View style={styles.card}>
+            <SectionHeader title="Daily Dietary Intake" icon="food-fork-drink" />
+            {MEALS.map(m => (
+              <View key={m.key} style={styles.mealRow}>
+                <Text style={styles.mealLabel}>{m.label}</Text>
+                <View style={styles.row2}>
+                  <View style={{ flex: 1 }}><Field label="Time" value={dietary[`${m.key}_time`]} onChangeText={(v: string) => setDietary((d: any) => ({ ...d, [`${m.key}_time`]: v }))} /></View>
+                  <View style={{ flex: 2 }}><Field label="What do you eat" value={dietary[`${m.key}_spec`]} onChangeText={(v: string) => setDietary((d: any) => ({ ...d, [`${m.key}_spec`]: v }))} /></View>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Food Preferences */}
+          <View style={styles.card}>
+            <SectionHeader title="Food Preferences" icon="silverware-fork-knife" />
+            <Field label="Daily Water Intake" value={dailyWaterIntake} onChangeText={setDailyWaterIntake} />
+            <Field label="Disliked Foods" value={dislikedFoods} onChangeText={setDislikedFoods} multiline />
+            <Field label="Allergic Foods" value={allergicFoods} onChangeText={setAllergicFoods} multiline />
+            <Field label="Preferred Foods" value={preferredFoods} onChangeText={setPreferredFoods} multiline />
+          </View>
+
+          {/* P.M.H */}
+          <View style={styles.card}>
+            <SectionHeader title="P.M.H (Past Medical History)" icon="medical-bag" />
+            {PMH_FIELDS.map(f => (
+              <YesNo
+                key={f.key}
+                label={f.label}
+                value={pmh[f.key] ?? ''}
+                onChange={(v) => setPmh(prev => ({ ...prev, [f.key]: v }))}
+              />
+            ))}
+            <Field label="Joint mobility issue or muscle pain" value={musclePain} onChangeText={setMusclePain} multiline />
+            <Field label="Any other issue (disease or surgery)" value={anyOtherIssue} onChangeText={setAnyOtherIssue} multiline />
+          </View>
+
+          {/* Lifestyle & Stress */}
+          <View style={styles.card}>
+            <SectionHeader title="Lifestyle & Stress" icon="meditation" />
+            <Text style={styles.fieldLabel}>Stress Level</Text>
+            <RadioGroup options={STRESS_LEVELS} value={stressLevel} onChange={setStressLevel} />
+            <View style={{ height: 12 }} />
+            <Text style={styles.fieldLabel}>Activity Level</Text>
+            <RadioGroup options={ACTIVITY_LEVELS} value={activityLevel} onChange={setActivityLevel} />
+          </View>
+
+          <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
+            {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.saveBtnText}>{editingForm ? 'Update Questionnaire' : 'Save Questionnaire'}</Text>}
+          </TouchableOpacity>
+          </>
+        )}
         <View style={{ height: 30 }} />
       </ScrollView>
     </View>
@@ -488,6 +573,11 @@ const styles = StyleSheet.create({
   container:    { flex: 1, backgroundColor: '#F7F8FA' },
   body:         { flex: 1, padding: 14 },
 
+  actionRow:    { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginBottom: 12 },
+  actionBtn:    { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: '#DDD', backgroundColor: '#FFF', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 90, justifyContent: 'center' },
+  actionBtnText:{ fontSize: 12.5, fontWeight: '700', color: '#1A1A1A' },
+  pdfBtn:       { backgroundColor: '#2E7D32', borderColor: '#2E7D32', minWidth: 130 },
+  pdfBtnText:   { color: '#FFF' },
   card:         { backgroundColor: '#FFF', borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 14, fontWeight: '800', color: '#1A1A1A' },

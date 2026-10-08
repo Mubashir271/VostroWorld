@@ -23,6 +23,9 @@ const clientName = (item: any) => {
   return item?.client_name || '—';
 };
 
+// The web lists 25 per page with page controls (GET …?limit=25&page=N).
+const PAGE_SIZE = 25;
+
 const ViewAssessmentQuestionnaire = () => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
@@ -32,17 +35,24 @@ const ViewAssessmentQuestionnaire = () => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
 
-  const load = useCallback(async (isRefresh = false) => {
+  const load = useCallback(async (targetPage = 1, isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const res = await getAssessmentForms({
         branch_id: branchId,
         search: search.trim() || undefined,
-        limit: 50,
+        limit: PAGE_SIZE,
+        page: targetPage,
       });
       const data = res.data?.data ?? [];
       setRecords(Array.isArray(data) ? data : []);
+      setTotalPages(res.data?.pagination?.total_pages ?? 1);
+      setTotalRecords(res.data?.pagination?.total_record ?? 0);
+      setPage(targetPage);
     } catch {
       setRecords([]);
     } finally {
@@ -51,7 +61,8 @@ const ViewAssessmentQuestionnaire = () => {
     }
   }, [branchId, search]);
 
-  useEffect(() => { load(); }, [load]);
+  // Re-run from page 1 whenever the search changes.
+  useEffect(() => { load(1); }, [load]);
 
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const entries = item.body_entries?.length ?? 0;
@@ -59,9 +70,10 @@ const ViewAssessmentQuestionnaire = () => {
       <TouchableOpacity
         style={styles.card}
         onPress={() => navigation.navigate('AddAssessmentQuestionnaire', { form: item })}
+        activeOpacity={0.8}
       >
         <View style={styles.indexBox}>
-          <Text style={styles.indexText}>{index + 1}</Text>
+          <Text style={styles.indexText}>{(page - 1) * PAGE_SIZE + index + 1}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.clientName}>{clientName(item)}</Text>
@@ -98,7 +110,7 @@ const ViewAssessmentQuestionnaire = () => {
               placeholderTextColor="#aaa"
               value={search}
               onChangeText={setSearch}
-              onSubmitEditing={() => load()}
+              onSubmitEditing={() => load(1)}
               returnKeyType="search"
             />
           </View>
@@ -122,7 +134,27 @@ const ViewAssessmentQuestionnaire = () => {
             keyExtractor={(item) => String(item.id)}
             renderItem={renderItem}
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(page, true)} colors={['#E63946']} />}
+            ListHeaderComponent={
+              <Text style={styles.countText}>{totalRecords} questionnaire{totalRecords === 1 ? '' : 's'}</Text>
+            }
+            ListFooterComponent={totalPages > 1 ? (
+              <View style={pg.bar}>
+                <TouchableOpacity style={[pg.btn, page === 1 && pg.btnDisabled]} onPress={() => load(1)} disabled={page === 1}>
+                  <Icon name="chevron-double-left" size={14} color={page === 1 ? '#ccc' : '#555'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={[pg.btn, page === 1 && pg.btnDisabled]} onPress={() => load(page - 1)} disabled={page === 1}>
+                  <Icon name="chevron-left" size={14} color={page === 1 ? '#ccc' : '#555'} />
+                </TouchableOpacity>
+                <Text style={pg.info}>Page <Text style={pg.infoB}>{page}</Text> of <Text style={pg.infoB}>{totalPages}</Text></Text>
+                <TouchableOpacity style={[pg.btn, page === totalPages && pg.btnDisabled]} onPress={() => load(page + 1)} disabled={page === totalPages}>
+                  <Icon name="chevron-right" size={14} color={page === totalPages ? '#ccc' : '#555'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={[pg.btn, page === totalPages && pg.btnDisabled]} onPress={() => load(totalPages)} disabled={page === totalPages}>
+                  <Icon name="chevron-double-right" size={14} color={page === totalPages ? '#ccc' : '#555'} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
           />
         )}
       </View>
@@ -150,6 +182,15 @@ const styles = StyleSheet.create({
   empty:        { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyTitle:   { fontSize: 16, fontWeight: '700', color: '#333', marginTop: 8 },
   emptyText:    { fontSize: 13, color: '#999' },
+  countText:    { fontSize: 12, color: '#888', marginBottom: 8, fontWeight: '600' },
+});
+
+const pg = StyleSheet.create({
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+  btn: { width: 32, height: 32, borderRadius: 6, borderWidth: 1, borderColor: '#E0E0E0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
+  btnDisabled: { backgroundColor: '#F5F5F5', borderColor: '#EEE' },
+  info: { fontSize: 13, color: '#555', paddingHorizontal: 8 },
+  infoB: { fontWeight: '700', color: '#1A1A1A' },
 });
 
 export default ViewAssessmentQuestionnaire;

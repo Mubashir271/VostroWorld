@@ -238,19 +238,18 @@ export const hasFullAccess = (role?: string | null) => isAdmin(role);
 // generic trainer branch and `ProtectedScreen` rendered <AccessDenied/> on
 // all of them.
 //
-// The web menu also carries a 'Social Leads (Sales)' entry above 'Sales';
-// it has no screen in this app and is deliberately left out for now.
-//
-// Two web entries are omitted from both the menu and this list for now:
-// 'Active Clients Report' (/active-clients-report) and 'Client Details
-// Report' (/client-details-report) — their screens exist but are admin-only. ('Detailed Cafe Report'
-// was the third until 2026-09-07; it now exists and, like the web, appears
-// under both Cafe and Reports.)
+// Re-synced with the web's role-4 menu on 2026-10-07; the only web entry
+// without an app screen is Reports › Daily Report (/daily-report), shown SOON.
 export const SALES_ALLOWED_SCREENS = [
   'Drawer', 'Dashboard', 'Notifications', 'Account',
   // Bottom-tab route names — MembersStack/PackageStack guard themselves with
   // useRouteGuard('Members'/'Package'), so these must be listed here too.
   'Members', 'Package', 'Reports',
+  // Dashboard › Employee / Marketing Dashboard, as on the web's role-4 menu.
+  'EmployeeDashboard', 'MarketingDashboard',
+  // Sales › Sales Lead, and Reports › Client Reports — added to the role-4
+  // menu 2026-10-07 to match the web.
+  'SocialLeads', 'ActiveClientsReport', 'ClientDetailsReport',
   // Sales
   'ViewClients', 'ClientProfile', 'NewMemberRegistration', 'ClientsReport',
   'DailySalesCounter', 'CafeProducts', 'SellPackage', 'PackageSell', 'ViewFreezing',
@@ -315,15 +314,6 @@ export const NUTRITIONIST_ALLOWED_MENUS = ['Dashboard', 'Fitness', 'Nutrition', 
 // Befit, SPT, Fitness Plan, etc. — those stay admin/trainer-only).
 export const NUTRITIONIST_ALLOWED_FITNESS_CHILDREN = ['GX Classes'];
 
-// Within Nutrition, the web's nutritionist login hides 'Nutrition Packages'
-// and 'Nutrition Assessments' (admin-only) but adds 'Image Gallery', which
-// has no admin-side menu entry yet — it's nutritionist-only for now.
-export const NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN = [
-  'Meals Plan', 'Clients Details', 'Dashboard', 'Appointments',
-  'Diet Plan Issued', 'Health Camps', 'Referral Sheet', 'Image Gallery',
-  'Assessment Questionnaire',
-];
-
 // Stack screen names nutritionists are allowed to navigate to — every GX
 // Classes screen under Fitness, every screen under Nutrition, plus the
 // always-allowed shared ones.
@@ -332,6 +322,8 @@ export const NUTRITIONIST_ALLOWED_SCREENS = [
   // Fitness — GX Classes only
   'AddGXSlots', 'AddGXClass', 'GXTrainers', 'GXSlotsList', 'GXBookings',
   'GXAppointments', 'GXAttendance', 'GXAttendanceReport',
+  // The drawer's Dashboard › Employee Dashboard, as on the web's role-10 menu.
+  'EmployeeDashboard',
   // Nutrition
   'AddMealsPlan', 'ViewMealsPlan', 'MealPlanDetail', 'ClientsDetails', 'NutritionDashboard',
   'NutritionAppointments', 'AddNutritionAppointment', 'ViewDietPlanIssued',

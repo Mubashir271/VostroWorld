@@ -68,6 +68,10 @@ interface UserState {
     currency: string;
     currencyRates: CurrencyRates | null;
     profile: UserProfile | null;
+    // Bumped whenever the profile photo is replaced, and appended to its URL
+    // (see utils/avatar.ts) so FastImage fetches the new picture even if the
+    // server reuses the old file name.
+    avatarVersion?: number;
     registrationData: {
         firstName: string;
         lastName: string;
@@ -213,6 +217,20 @@ const userSlice = createSlice({
         setCurrencyRates: (state, action: PayloadAction<CurrencyRates>) => {
             state.currencyRates = action.payload;
         },
+        // Merges fresh values into the logged-in profile — used after the
+        // user edits their own details, so the drawer, home header and
+        // Account screen update without logging out and in again.
+        patchProfile: (state, action: PayloadAction<Partial<UserProfile>>) => {
+            if (!state.profile) return;
+            const next = { ...state.profile, ...action.payload };
+            if (action.payload.image !== undefined && action.payload.image !== state.profile.image) {
+                state.avatarVersion = Date.now();
+            }
+            state.profile = next;
+        },
+        bumpAvatarVersion: (state) => {
+            state.avatarVersion = Date.now();
+        },
         persistUser: (state, action) => {
             state.token = action.payload.token;
             state.profile = action.payload.profile || null;
@@ -233,6 +251,8 @@ export const {
     setAppCurrency,
     setCurrencyRates,
     persistUser,
+    patchProfile,
+    bumpAvatarVersion,
 } = userSlice.actions;
 
 export default userSlice.reducer;

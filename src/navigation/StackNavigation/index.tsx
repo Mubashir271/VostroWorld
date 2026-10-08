@@ -210,6 +210,7 @@ import TransactionReportScreen from '../../screens/reports/TransactionReport';
 // screens/reports/CafeReports component is no longer mounted.
 import SalesReportScreen from '../../screens/reports/SalesReport';
 import MISReportScreen from '../../screens/reports/MISReport';
+import PdfViewerScreen from '../../screens/reports/PdfViewer';
 import AdminDashboardScreen from '../../screens/reports/AdminDashboard';
 import FitnessDashboardScreen from '../../screens/reports/FitnessDashboard';
 import DetailedSalesReportScreen from '../../screens/reports/DetailedSalesReport';
@@ -473,6 +474,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="SalesReport" component={protect(SalesReportScreen)} />
                 <Stack.Screen name="DetailedSalesReport" component={protect(DetailedSalesReportScreen)} />
                 <Stack.Screen name="MISReport" component={protect(MISReportScreen)} />
+                {/* Shows a PDF this app just generated (local file only). */}
+                <Stack.Screen name="PdfViewer" component={PdfViewerScreen} />
                 {/* Registered without `protect`: that helper admits role '3'
                     (F-11 / G-13 admins) too, and this screen is Super Admin
                     only — it self-guards with isSuperAdmin. Same for

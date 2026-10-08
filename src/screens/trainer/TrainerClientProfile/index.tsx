@@ -141,7 +141,7 @@ const TrainerClientProfile = () => {
               <Text style={styles.menuText}>Add Assessment</Text>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem} onPress={() => go('ViewAssessment')}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => go('ViewClientAssessment')}>
               <Icon name="clipboard-text-outline" size={18} color="#E63946" />
               <Text style={styles.menuText}>View Assessments</Text>
             </TouchableOpacity>

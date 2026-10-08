@@ -21,16 +21,20 @@ import NotificationSVG from '../../assets/svg/NotificationSVG';
 import ProfileHeader from '../../components/ProfileHeader';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../redux/store';
-import { getClientsCount, getTodaySummary } from '../../api/dashboard';
+import { getClientsCount, getTodaySummary, getSalesDashboardSnapshot, SalesDashboardSnapshot } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin, isSuperAdmin, isSales, isEmployee, isTrainer, isGeneralTrainer, ROLE_LABELS, headerTitleOf, isPhysio } from '../../config/permissions';
+import { isAdmin, isSuperAdmin, isSales, isEmployee, isTrainer, isGeneralTrainer, isNutritionist, ROLE_LABELS, headerTitleOf, isPhysio } from '../../config/permissions';
 import EmployeeDashboardScreen from '../HR/EmployeeDashboard';
+import { avatarSource as avatarSourceOf } from '../../utils/avatar';
 import PTDashboardScreen from '../Fitness/PTDashboard';
+import GTDashboardScreen from '../Fitness/GTDashboard';
+import NutritionDashboardScreen from '../Nutrition/NutritionDashboard';
 import AdminDashboardScreen from '../reports/AdminDashboard';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { fetchMembers } from '../../redux/slices/membersSlice';
 import RenewalsPanel from './RenewalsPanel';
+import SalesSnapshotPanel from './SalesSnapshotPanel';
 
 // ──────────────────────────────────────────────
 // Reusable Components
@@ -61,21 +65,6 @@ const StatCard = ({ label, value, iconName }: StatCardProps) => (
 );
 
 
-// Same footprint as StatCard but tappable and value-less — mirrors the web
-// dashboard's "Sell Package" tile, which sits inline in the stats grid rather
-// than in the quick-actions row.
-const ActionCard = ({ label, iconName, onPress }: { label: string; iconName: string; onPress?: () => void }) => (
-    <TouchableOpacity style={styles.statCard} onPress={onPress} activeOpacity={0.8}>
-        <View style={styles.statCardLeft}>
-            <Text style={styles.statLabel} numberOfLines={2}>{label}</Text>
-        </View>
-        <View style={styles.statIconCircle}>
-            <Icon name={iconName} size={scale(20)} color="#fff" />
-        </View>
-    </TouchableOpacity>
-);
-
-
 type QuickActionProps = {
     icon: ImageSourcePropType;
     label: string;
@@ -102,12 +91,14 @@ export default function DashboardScreen() {
     const route = useRoute();
 
     const dispatch = useDispatch<AppDispatch>();
-    const { profile, appImage } = useSelector(
+    const { profile, appImage, avatarVersion } = useSelector(
         (state: RootState) => state.user
     );
     const membersCache = useSelector((state: RootState) => state.members);
     const formatCurrency = useCurrencyFormatter();
     const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+    // A new photo deserves a fresh attempt even if the old one failed to load.
+    useEffect(() => { setAvatarLoadFailed(false); }, [profile?.image, appImage, avatarVersion]);
 
     const firstName = profile?.firstName || 'User';
     const lastName = profile?.lastName || '';
@@ -127,8 +118,8 @@ export default function DashboardScreen() {
     const userIsEmployee = isEmployee(profile?.role);
     // Role 9 gets the PT Dashboard as its Home tab (see the early return below).
     const userIsTrainer = isTrainer(profile?.role);
-    // Role 17's whole app is the Employee Dashboard (plus a GT Dashboard not
-    // built yet), so Home is that dashboard — same as a blank-role employee.
+    // Role 17 lands on the GT Dashboard (see the early return below); its
+    // Employee Dashboard stays under the drawer's Dashboard group.
     const userIsGeneralTrainer = isGeneralTrainer(profile?.role);
     const userIsSales = isSales(profile?.role);
     // Sales sees the same client-stats dashboard as admin (confirmed against
@@ -146,9 +137,12 @@ export default function DashboardScreen() {
 
     // ── Admin stats ───────────────────────────────────────────────────────────
     const [clientsAll, setClientsAll] = useState({ all: 0, active: 0, inactive: 0, dormant: 0 });
-    const [clientsF11, setClientsF11] = useState(0);
-    const [clientsG13, setClientsG13] = useState(0);
+    const [clientsF11, setClientsF11] = useState({ all: 0, active: 0 });
+    const [clientsG13, setClientsG13] = useState({ all: 0, active: 0 });
     const [todaySales, setTodaySales] = useState(0);
+    // Sales only — /v1/sales-dashboard/snapshot, which also carries today's
+    // and the month's net sales the web's Sales Dashboard shows.
+    const [salesSnapshot, setSalesSnapshot] = useState<SalesDashboardSnapshot | null>(null);
 
     // ── Trainer (employee) stats ──────────────────────────────────────────────
     const [empStats, setEmpStats] = useState({
@@ -163,8 +157,8 @@ export default function DashboardScreen() {
             getClientsCount(1),    // G-13
         ]);
         setClientsAll({ all: all?.all_clients || 0, active: all?.active_clients || 0, inactive: all?.inactive_clients || 0, dormant: all?.dormant_clients || 0 });
-        setClientsF11(f11?.all_clients || 0);
-        setClientsG13(g13?.all_clients || 0);
+        setClientsF11({ all: f11?.all_clients || 0, active: f11?.active_clients || 0 });
+        setClientsG13({ all: g13?.all_clients || 0, active: g13?.active_clients || 0 });
     }, []);
 
     const sumTodaySales = (res: any) => {
@@ -188,7 +182,14 @@ export default function DashboardScreen() {
     const fetchDashboard = useCallback(async (isRefresh = false) => {
         try {
             if (!isRefresh) setLoading(true);
-            if (showStatsDashboard) {
+            if (userIsSales && branchId) {
+                const [, snap] = await Promise.all([
+                    fetchClientStats(),
+                    getSalesDashboardSnapshot(branchId),
+                ]);
+                setSalesSnapshot(snap);
+                setTodaySales(snap?.sales_today?.net || 0);
+            } else if (showStatsDashboard) {
                 await Promise.all([fetchClientStats(), fetchTodaySales()]);
             } else if (branchId && profile?.id) {
                 const stats = await getEmployeeDashboardStats({
@@ -202,7 +203,7 @@ export default function DashboardScreen() {
         } finally {
             if (!isRefresh) setLoading(false);
         }
-    }, [showStatsDashboard, branchId, profile?.id, fetchClientStats, fetchTodaySales]);
+    }, [showStatsDashboard, userIsSales, branchId, profile?.id, fetchClientStats, fetchTodaySales]);
 
     // Super Admin's Home is the Admin Dashboard, which loads its own data.
     const userIsSuperAdmin = isSuperAdmin(profile?.role);
@@ -215,11 +216,7 @@ export default function DashboardScreen() {
 
     const avatarSource = avatarLoadFailed
         ? require('../../assets/img/userIcon.png')
-        : appImage
-            ? { uri: appImage }
-            : profile?.image
-                ? { uri: profile.image }
-                : require('../../assets/img/userIcon.png');
+        : avatarSourceOf(profile?.image, appImage, avatarVersion);
 
     // Was hardcoded to three cases, so trainer / HR / nutritionist / fitness
     // manager all read "Vostro Employee". Now resolved per role.
@@ -229,7 +226,7 @@ export default function DashboardScreen() {
     // `openEdit` is set by the drawer's edit icon and carries a timestamp, so
     // tapping it repeatedly re-opens the Change Information modal.
     // Physio (role 15): the web lands this login on the Employee Dashboard.
-    if (userIsEmployee || userIsGeneralTrainer || isPhysio(profile?.role)) {
+    if (userIsEmployee || isPhysio(profile?.role)) {
         return <EmployeeDashboardScreen focusContact={(route as any)?.params?.openEdit} />;
     }
 
@@ -238,6 +235,13 @@ export default function DashboardScreen() {
     // Dashboard under the sidebar's Dashboard group, which the drawer now
     // mirrors. The employee dashboard is still reachable from there.
     if (userIsTrainer) return <PTDashboardScreen />;
+
+    // A general trainer lands on the GT Dashboard the same way.
+    if (userIsGeneralTrainer) return <GTDashboardScreen asHome />;
+
+    // A nutritionist lands on the Nutrition Dashboard, which the web files
+    // under their Dashboard group; Employee Dashboard stays in the drawer.
+    if (isNutritionist(profile?.role)) return <NutritionDashboardScreen asHome />;
 
     // Super Admin lands on the Admin Dashboard instead of the client-stats one.
     if (userIsSuperAdmin) return <AdminDashboardScreen />;
@@ -289,32 +293,46 @@ export default function DashboardScreen() {
                                     onEditPress={() => console.log('Edit Pressed')}
                                 />
 
-                                {/* Stats Grid — Sales mirrors the web dashboard, which
-                                    puts a "Sell Package" action tile 4th in the grid. */}
+                                {/* Stats Grid — the web's Sales Dashboard (2026-10-07)
+                                    counts each branch's *active* clients, where the
+                                    admin dashboard shows each branch's total. */}
                                 <View style={styles.statsGrid}>
                                     <StatCard label="Total Clients"    value={clientsAll.all}     iconName="account-group" />
-                                    <StatCard label="F-11 Clients"     value={clientsF11}          iconName="account" />
-                                    <StatCard label="G-13 Clients"     value={clientsG13}          iconName="account" />
-                                    {userIsSales && (
-                                        <ActionCard
-                                            label="Sell Package"
-                                            iconName="cart-plus"
-                                            onPress={() => navigation.navigate('SellPackage')}
-                                        />
-                                    )}
+                                    <StatCard label={userIsSales ? 'F-11 Active' : 'F-11 Clients'} value={userIsSales ? clientsF11.active : clientsF11.all} iconName="map-marker" />
+                                    <StatCard label={userIsSales ? 'G-13 Active' : 'G-13 Clients'} value={userIsSales ? clientsG13.active : clientsG13.all} iconName="map-marker" />
                                     <StatCard label="Active Clients"   value={clientsAll.active}   iconName="account-check" />
                                     <StatCard label="Inactive Clients" value={clientsAll.inactive} iconName="account-off" />
                                     <StatCard label="Dormant Clients"  value={clientsAll.dormant}  iconName="account-clock" />
                                 </View>
-                                <View style={[styles.statCard, styles.todaySalesCard]}>
-                                    <View style={styles.statCardLeft}>
-                                        <Text style={styles.statLabel}>Today Sales</Text>
-                                        <Text style={styles.statValue}>{formatCurrency(todaySales)}</Text>
+                                <View style={styles.salesRow}>
+                                    <View style={[styles.statCard, styles.salesCard]}>
+                                        <View style={styles.statCardLeft}>
+                                            <Text style={styles.statLabel}>Today Sales</Text>
+                                            <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatCurrency(todaySales)}</Text>
+                                        </View>
+                                        <View style={styles.statIconCircle}>
+                                            <Icon name="trending-up" size={22} color="#fff" />
+                                        </View>
                                     </View>
-                                    <View style={styles.statIconCircle}>
-                                        <Icon name="trending-up" size={22} color="#fff" />
-                                    </View>
+                                    {userIsSales && (
+                                        <View style={[styles.statCard, styles.salesCard]}>
+                                            <View style={styles.statCardLeft}>
+                                                <Text style={styles.statLabel}>Month Sales</Text>
+                                                <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatCurrency(salesSnapshot?.sales_mtd?.net || 0)}</Text>
+                                                <Text style={styles.statSub}>{new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}</Text>
+                                            </View>
+                                            <View style={styles.statIconCircle}>
+                                                <Icon name="calendar-month" size={22} color="#fff" />
+                                            </View>
+                                        </View>
+                                    )}
                                 </View>
+                                {userIsSales && (
+                                    <TouchableOpacity style={styles.sellPackageBtn} onPress={() => navigation.navigate('SellPackage')} activeOpacity={0.85}>
+                                        <Icon name="cart-plus" size={18} color="#fff" />
+                                        <Text style={styles.sellPackageText}>Sell Package</Text>
+                                    </TouchableOpacity>
+                                )}
 
                                 {/* Quick Actions — not shown for Sales: the web's Sales
                                     dashboard goes straight from the stat cards into the
@@ -337,6 +355,12 @@ export default function DashboardScreen() {
                                 {/* Renewals — Sales only, matching the web dashboard.
                                     Needs a concrete branch; Super Admin's "all
                                     branches" (branchId 0/null) has no equivalent here. */}
+                                {userIsSales && salesSnapshot ? (
+                                    <SalesSnapshotPanel
+                                        snapshot={salesSnapshot}
+                                        onOpenDetailedSales={() => navigation.navigate('DetailedSalesReport')}
+                                    />
+                                ) : null}
                                 {userIsSales && branchId ? (
                                     <RenewalsPanel branchId={branchId} />
                                 ) : null}
@@ -510,6 +534,36 @@ const styles = StyleSheet.create({
         width: '100%',
         marginTop: 10,
         marginBottom: 16,
+    },
+    salesRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 10,
+        marginBottom: 16,
+    },
+    salesCard: {
+        flex: 1,
+        width: undefined,
+    },
+    statSub: {
+        fontSize: scale(9.5),
+        color: '#94a3b8',
+        marginTop: 2,
+    },
+    sellPackageBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: '#E63946',
+        borderRadius: 12,
+        paddingVertical: 12,
+        marginBottom: 16,
+    },
+    sellPackageText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '700',
     },
     statCard: {
         width: '30%',             // 3 per row, leaves room for the 10dp gaps

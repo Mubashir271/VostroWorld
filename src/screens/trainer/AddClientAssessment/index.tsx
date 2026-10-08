@@ -94,13 +94,13 @@ const AddClientAssessment = () => {
       Alert.alert('Missing branch', 'Your profile has no branch assigned.');
       return;
     }
-    if (invalid.size > 0) {
-      Alert.alert(
-        'Incomplete',
-        `Please fill every required (*) field — ${invalid.size} still ${invalid.size === 1 ? 'needs' : 'need'} a value.`,
-      );
-      return;
-    }
+    // if (invalid.size > 0) {
+    //   Alert.alert(
+    //     'Incomplete',
+    //     `Please fill every required (*) field — ${invalid.size} still ${invalid.size === 1 ? 'needs' : 'need'} a value.`,
+    //   );
+    //   return;
+    // }
 
     setSaving(true);
     try {
@@ -123,7 +123,7 @@ const AddClientAssessment = () => {
   const downloadPdf = async () => {
     setExporting(true);
     try {
-      await downloadAssessmentPdf({ ...toApiRecord(form, clientId), client_name: clientName });
+      await downloadAssessmentPdf({ ...toApiRecord(form, clientId), client_name: clientName }, navigation);
     } catch (e: any) {
       Alert.alert('Download failed', e?.message || 'Could not generate the PDF.');
     } finally {

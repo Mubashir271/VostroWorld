@@ -26,7 +26,6 @@ import ViewStaffScreen from '../../screens/HR/ViewStaff';
 
 // ── Nutritionist / Fitness Manager screens ─────────────────────────────────────
 import NutritionDashboardScreen from '../../screens/Nutrition/NutritionDashboard';
-import GXAttendanceScreen from '../../screens/Fitness/GXAttendance';
 import HRSessionCommissionPortal from '../../screens/HR/HRSessionCommissionPortal';
 import PhysiotherapyDashboard from '../../screens/Physiotherapy/PhysiotherapyDashboard';
 
@@ -130,18 +129,16 @@ const BottomTabNavigation = () => {
       ) : userIsNutritionist || userIsFitnessManager ? (
         /* ── Nutritionist / Fitness Manager tabs ── */
         <>
-          <Tab.Screen
-            name="NutritionTab"
-            component={NutritionDashboardScreen}
-            options={{ tabBarLabel: 'Nutrition', tabBarIcon: mcIcon('food-apple') }}
-          />
-          {userIsNutritionist ? (
+          {/* A nutritionist's Home tab already is the Nutrition Dashboard. */}
+          {userIsNutritionist ? null : (
             <Tab.Screen
-              name="AttendanceTab"
-              component={GXAttendanceScreen}
-              options={{ tabBarLabel: 'Attendance', tabBarIcon: mcIcon('calendar-check') }}
+              name="NutritionTab"
+              component={NutritionDashboardScreen}
+              options={{ tabBarLabel: 'Nutrition', tabBarIcon: mcIcon('food-apple') }}
             />
-          ) : (
+          )}
+          {/* Nutritionists reach GX Attendance from the drawer only. */}
+          {userIsNutritionist ? null : (
             <Tab.Screen
               name="SessionPortalTab"
               component={HRSessionCommissionPortal}

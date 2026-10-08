@@ -145,6 +145,7 @@ export const addNutritionAssessment = (payload: any) =>
 
 export const getNutritionAppointments = (params: {
   branch_id: number | string;
+  nutritionist_id?: number | string;
   search?: string;
   conversion?: string;
   start_date?: string;
@@ -156,7 +157,7 @@ export const getNutritionAppointments = (params: {
 export const getAppointmentConversionOptions = (params: { branch_id: number | string }) =>
   api.get('/v1/nutrition/appointments/conversion-options', { params });
 
-export const getAppointmentsStatistics = (params: { branch_id: number | string }) =>
+export const getAppointmentsStatistics = (params: { branch_id: number | string; nutritionist_id?: number | string }) =>
   api.get('/v1/nutrition/appointments/statistics', { params });
 
 export const getAppointmentNutritionists = (params: { branch_id: number | string }) =>
@@ -209,7 +210,7 @@ export const getDietPlans = (params: {
   page?: number;
 }) => api.get('/v1/nutrition/diet-plans', { params });
 
-export const getDietPlansStatistics = (params: { branch_id: number | string }) =>
+export const getDietPlansStatistics = (params: { branch_id: number | string; nutritionist_id?: number | string }) =>
   api.get('/v1/nutrition/diet-plans/statistics', { params });
 
 export const getDietPlanGoalOptions = (params: { branch_id: number | string }) =>
@@ -237,7 +238,7 @@ export const getHealthCamps = (params: {
   page?: number;
 }) => api.get('/v1/nutrition/health-camps', { params });
 
-export const getHealthCampsStatistics = (params: { branch_id: number | string }) =>
+export const getHealthCampsStatistics = (params: { branch_id: number | string; nutritionist_id?: number | string }) =>
   api.get('/v1/nutrition/health-camps/statistics', { params });
 
 // ── Referral Sheet ────────────────────────────────────────────────────────────
@@ -274,7 +275,7 @@ export const deleteReferral = (id: number) =>
 export const getReferralTrainers = (params: { branch_id: number | string }) =>
   api.get('/v1/nutrition/referrals/trainers', { params });
 
-export const getReferralsStatistics = (params: { branch_id: number | string }) =>
+export const getReferralsStatistics = (params: { branch_id: number | string; nutritionist_id?: number | string }) =>
   api.get('/v1/nutrition/referrals/statistics', { params });
 
 // ── Nutritionist Assessment Questionnaire ───────────────────────────────────

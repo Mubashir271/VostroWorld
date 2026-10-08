@@ -8,6 +8,7 @@ import { resetToLoginFromRef } from '../utils/navigationRef';
 // PRODUCTION — this is the live backend. Writes here are real gym/client records.
 // Dev: https://dev-api.vostro-new.com/public/api
 export const BASE_URL = 'https://api.vostro-new.com/public/api';
+// export const BASE_URL = 'https://dev-api.vostro-new.com/public/api';
 
 const api = axios.create({
     baseURL: BASE_URL,

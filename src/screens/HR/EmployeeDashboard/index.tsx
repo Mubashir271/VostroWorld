@@ -11,12 +11,15 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
   TextInput, Alert, Modal, Linking,
 } from 'react-native';
 import { launchImageLibrary, Asset } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import FastImage from '@d11/react-native-fast-image';
+import { patchProfile } from '../../../redux/slices/userSlice';
+import { hasPhoto, withVersion } from '../../../utils/avatar';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppHeader from '../../../components/AppHeader';
@@ -174,10 +177,30 @@ const Empty = ({ icon, title, subtitle }: { icon: string; title: string; subtitl
 
 // `focusContact` is a timestamp, not a boolean, so tapping the drawer's edit
 // icon again re-triggers the jump even when the tab is already Profile.
-const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) => {
+// It arrives as a prop when this is the Home tab (blank-role employee), or as
+// route.params.openEdit when pushed as the stack route (General Trainer,
+// whose Home is the GT Dashboard).
+const EmployeeDashboardScreen = ({ focusContact: focusProp, route }: { focusContact?: number; route?: any }) => {
+  const focusContact: number | undefined = focusProp ?? route?.params?.openEdit;
   const navigation = useNavigation() as any;
-  const { profile } = useSelector((state: RootState) => state.user);
+  const { profile, avatarVersion } = useSelector((state: RootState) => state.user);
   const userId = Number(profile?.id ?? 0);
+  const dispatch = useDispatch();
+
+  // After a save, copy what the server now holds into the logged-in profile,
+  // so the drawer, home header and Account screen show the new name, email,
+  // phone and photo straight away. A changed image bumps avatarVersion,
+  // which cache-busts every FastImage showing it.
+  const syncProfile = useCallback((rec: any) => {
+    if (!rec) return;
+    const patch: Record<string, any> = {};
+    if (rec.first_name !== undefined) patch.firstName = rec.first_name;
+    if (rec.last_name !== undefined) patch.lastName = rec.last_name;
+    if (rec.email !== undefined) patch.email = rec.email;
+    if (rec.phone !== undefined) patch.phone = rec.phone;
+    if (rec.image !== undefined) patch.image = rec.image;
+    dispatch(patchProfile(patch));
+  }, [dispatch]);
   const branchId = profile?.branchId || '';
 
   const [tab, setTab] = useState<Tab>('Profile');
@@ -317,8 +340,12 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
           getPromotions({ branch_id: branchId, user_id: userId, limit: 50 }),
         ]);
         setExtra(x => ({ ...x, Salary: promos.status === 'fulfilled' ? list(promos.value) : [] }));
-        if (sal.status === 'rejected') throw sal.reason;
-        rows = list(sal.value);
+        // A 403 here is not an error for this tab: the web gets the same 403
+        // for trainers (HAR, 8 Oct 2026, role of staff 10413) and still shows
+        // the breakdown from the staff profile's salary plus promotions. So
+        // render with no salary rows rather than the "Not Available" panel.
+        if (sal.status === 'rejected' && sal.reason?.response?.status !== 403) throw sal.reason;
+        rows = sal.status === 'fulfilled' ? list(sal.value) : [];
       } else if (t === 'Leave') {
         const [apps, quota] = await Promise.allSettled([
           getLeaveApplications(common as any),
@@ -426,7 +453,7 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
         const sd = await getStaffDetail(userId, Number(branchId) || 0);
         const rec = sd?.data;
         const fresh = Array.isArray(rec) ? rec[0] : rec ?? null;
-        if (fresh) { setStaff(fresh); seedForm(fresh); }
+        if (fresh) { setStaff(fresh); seedForm(fresh); syncProfile(fresh); }
       } catch {
         // The save succeeded; a failed refresh must not report otherwise.
       }
@@ -438,7 +465,7 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
     } finally {
       setSavingIdentity(false);
     }
-  }, [identity, userId, branchId, seedForm]);
+  }, [identity, userId, branchId, seedForm, syncProfile]);
 
   const pickPhoto = () => {
     launchImageLibrary({ mediaType: 'photo' }, res => {
@@ -480,6 +507,7 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
       const fresh = Array.isArray(rec) ? rec[0] : rec ?? null;
       setStaff(fresh);
       seedForm(fresh ?? { ...form, password: '' });
+      syncProfile(fresh);
       setPhoto(null);
       Alert.alert('Saved', 'Profile updated successfully.');
     } catch (err: any) {
@@ -490,7 +518,7 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
     } finally {
       setSaving(false);
     }
-  }, [form, photo, userId, branchId, seedForm]);
+  }, [form, photo, userId, branchId, seedForm, syncProfile]);
 
   const onPickDate = (d: Date) => {
     const v = fmtDate(d);
@@ -535,7 +563,8 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
   const invalidate = (t: Tab) => setTabData(d => { const n = { ...d }; delete n[t]; return n; });
 
   const showError = (e: any, fallback: string) =>
-    Alert.alert('Not saved', e?.response?.data?.message || e?.message || fallback);
+    // Leave checks answer with `messages` (plural); other endpoints `message`.
+    Alert.alert('Not saved', e?.response?.data?.messages || e?.response?.data?.message || e?.message || fallback);
 
   const submitDutyRequest = async () => {
     if (!dutyForm.slotId) { Alert.alert('Select a slot', 'Choose the duty slot you want changed.'); return; }
@@ -584,7 +613,7 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
       });
       await submitLeaveApplication({
         branch_id: branchId, user_id: userId,
-        leave_status: 'Pending', leave_type: leaveForm.type,
+        leave_status: 'Leave', leave_type: leaveForm.type,
         category: leaveForm.category,
         from: leaveForm.from, to: leaveForm.to,
         number_of_leaves: days, reason: leaveForm.reason.trim(),
@@ -972,9 +1001,18 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
             {aux.length === 0
               ? noneYet('No leave quota assigned. HR-assigned leave quota will appear here once it is available.')
               : aux.map((q: any, i: number) => (
+                // leaves-quota rows carry number_of_leaves + leaves_taken only
+                // (no remaining_leaves / total_leaves — reading those printed
+                // "N/A left"). Same sum and wording as the web: "Taken: X of Y",
+                // "N LEFT".
                 <View key={q.id ?? i} style={s.panelRow}>
-                  <Text style={[s.listTitle, s.flex1]}>{dash(q.leave_type)}</Text>
-                  <Text style={s.listSub}>{dash(q.remaining_leaves ?? q.total_leaves)} left</Text>
+                  <View style={s.flex1}>
+                    <Text style={s.listTitle}>{dash(q.leave_type)}</Text>
+                    <Text style={s.listSub}>Taken: {Number(q.leaves_taken) || 0} of {Number(q.number_of_leaves) || 0}</Text>
+                  </View>
+                  <Text style={[s.listTitle, s.leftCount]}>
+                    {Math.max(0, (Number(q.number_of_leaves) || 0) - (Number(q.leaves_taken) || 0))} LEFT
+                  </Text>
                 </View>
               ))}
 
@@ -1232,8 +1270,11 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
           {/* Hero */}
           <View style={s.hero}>
             <View style={s.heroTop}>
-              {p.image ? (
-                <Image source={{ uri: p.image }} style={s.avatar} />
+              {hasPhoto(p.image) ? (
+                <FastImage
+                  source={{ uri: withVersion(String(p.image), avatarVersion), priority: FastImage.priority.high }}
+                  style={s.avatar}
+                />
               ) : (
                 <View style={[s.avatar, s.avatarFallback]}>
                   <Icon name="account" size={30} color="#B0B0B0" />
@@ -1432,6 +1473,7 @@ const EmployeeDashboardScreen = ({ focusContact }: { focusContact?: number }) =>
 };
 
 const s = StyleSheet.create({
+  leftCount: { color: '#0F766E' },
   screen:       { flex: 1, backgroundColor: '#F5F7FA' },
   content:      { padding: 12, paddingBottom: 32 },
   spinner:      { marginTop: 60 },

@@ -93,7 +93,11 @@ export const getGTSummary = async (params: {
  * to the dashboard's date range, which is why the web's empty state says
  * "Pick a client above to see their full history".
  *
- * The bundle reads `res.data.data`, so the rows sit one level in.
+ * The 2026-10-06 HAR shows `data` is an object, not a row array:
+ * `{ client: {id, name, …}, stats: {total, …}, timeline: [{ id, kind, date,
+ * recorded_at, added_by, metrics: {weight, body_mass_index, fat, …} }] }`.
+ * Each timeline entry is flattened into the summary's GTAssessment shape so
+ * both lists render through the same row.
  */
 export const getGTClientAssessments = async (
   clientId: number | string,
@@ -102,7 +106,21 @@ export const getGTClientAssessments = async (
     params: { client_id: clientId },
   });
   const d = res?.data?.data;
-  return Array.isArray(d) ? d : [];
+  if (Array.isArray(d)) return d;
+  const rows = Array.isArray(d?.timeline) ? d.timeline : [];
+  return rows.map((t: any) => ({
+    id: t.id,
+    client_id: Number(d?.client?.id ?? clientId),
+    client_name: d?.client?.name ?? '',
+    date: t.date,
+    weight: t.metrics?.weight ?? null,
+    body_mass_index: t.metrics?.body_mass_index ?? null,
+    fat: t.metrics?.fat ?? null,
+    category: t.type ?? 'N/A',
+    recorded_at: t.recorded_at,
+    added_by: t.added_by,
+    client_assessment_count: d?.stats?.total ?? rows.length,
+  }));
 };
 
 /**

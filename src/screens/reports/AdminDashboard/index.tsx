@@ -26,8 +26,6 @@ import {
     Modal,
 } from 'react-native';
 import Svg, { Circle, G, Rect, Polyline, Line, Text as SvgText } from 'react-native-svg';
-import { captureRef } from 'react-native-view-shot';
-import Share from 'react-native-share';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -43,8 +41,10 @@ import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import {
     getAdminDashboardSummary,
+    getMISDashboard,
     AdminDashboardSummary,
 } from '../../../api/dashboard';
+import { downloadMISReportPdf } from '../../../utils/misReportPdf';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = (size: number) => (SCREEN_WIDTH / 375) * size;
@@ -286,12 +286,6 @@ const AdminDashboardScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
-    // The ref goes on the ScrollView itself, not a wrapper: under the New
-    // Architecture `snapshotContentContainer` finds the UIScrollView via
-    // RCTScrollViewComponentView's `scrollView` property, and a wrapping view
-    // hides it (the wrapper's subview is the component view, not a
-    // UIScrollView, so the native lookup rejects).
-    const shotRef = React.useRef<ScrollView>(null);
 
     const load = useCallback(async (isRefresh = false) => {
         if (!allowed) { setLoading(false); return; }
@@ -314,56 +308,28 @@ const AdminDashboardScreen = () => {
     }, [load]);
 
     /**
-     * "Download MIS" — the web's button is html2canvas + jsPDF over the
-     * dashboard node, i.e. a picture of the page, not an API export. The
-     * app's equivalent is a full-scroll snapshot handed to the share sheet,
-     * which is also how a phone "downloads" a file.
+     * "Download MIS" — the same 5-page owner report the web downloads
+     * (MIS_Report_<Branch>_<date>.pdf), built from /v1/MISReport/get for the
+     * dashboard's branch + date. It used to be a screenshot of this screen.
      */
     const onDownloadMIS = useCallback(async () => {
-        if (!shotRef.current || exporting) { return; }
+        if (exporting) { return; }
         try {
             setExporting(true);
             setError(null);
-            const branchPart =
-                branchId === 'all' ? 'AllBranches' : branchLabel.replace(/[^A-Za-z0-9]/g, '');
-            // `useRenderInContext` is required here: the default
-            // drawViewHierarchyInRect path fails on a view this tall — the
-            // render server rejects it and the library reports success with a
-            // blank image. renderInContext is the library's documented route
-            // for large views.
-            let path: string;
-            try {
-                path = await captureRef(shotRef, {
-                    format: 'jpg',
-                    quality: 0.92,
-                    // The whole scroll content, not just what is on screen.
-                    snapshotContentContainer: true,
-                    useRenderInContext: true,
-                });
-            } catch {
-                // Last resort: the visible area, so the button still produces
-                // something rather than only an error.
-                path = await captureRef(shotRef, {
-                    format: 'jpg',
-                    quality: 0.92,
-                    useRenderInContext: true,
-                });
-            }
-            await Share.open({
-                // captureRef resolves to a bare filesystem path; the share
-                // sheet needs a URL, and silently does nothing without the
-                // scheme.
-                url: path.startsWith('file://') ? path : `file://${path}`,
-                type: 'image/jpeg',
-                filename: `MIS_Report_${branchPart}_${iso(date)}`,
-                failOnCancel: false,
-            });
+            const res = await getMISDashboard(branchId, iso(date));
+            if (!res?.data?.meta) { throw new Error('MIS report returned no data.'); }
+            await downloadMISReportPdf(res.data, navigation);
         } catch (e: any) {
-            setError(e?.message || 'Could not download MIS report.');
+            setError(e?.response?.data?.message || e?.message || 'Could not download MIS report.');
         } finally {
             setExporting(false);
         }
-    }, [branchId, branchLabel, date, exporting]);
+    }, [branchId, date, exporting, navigation]);
+
+    // "Open MIS" — the full MIS Report screen on the same branch + date.
+    const onOpenMIS = () =>
+        navigation.navigate('MISReport', { branchId, branchLabel, date: iso(date) });
 
     const onDateChange = (_e: DateTimePickerEvent, picked?: Date) => {
         setDateOpen(false);
@@ -408,7 +374,6 @@ const AdminDashboardScreen = () => {
                 </View>
             ) : (
                 <ScrollView
-                    ref={shotRef}
                     style={styles.container}
                     contentContainerStyle={styles.content}
                     showsVerticalScrollIndicator={false}
@@ -430,21 +395,31 @@ const AdminDashboardScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity
-                        style={[styles.misBtn, (!data || exporting) && styles.misBtnOff]}
-                        onPress={onDownloadMIS}
-                        disabled={!data || exporting}
-                        activeOpacity={0.8}
-                    >
-                        {exporting ? (
-                            <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                            <Icon name="download" size={scale(15)} color="#fff" />
-                        )}
-                        <Text style={styles.misBtnText}>
-                            {exporting ? 'Preparing…' : 'Download MIS'}
-                        </Text>
-                    </TouchableOpacity>
+                    <View style={styles.misRow}>
+                        <TouchableOpacity
+                            style={[styles.misBtn, styles.misBtnHalf, exporting && styles.misBtnOff]}
+                            onPress={onDownloadMIS}
+                            disabled={exporting}
+                            activeOpacity={0.8}
+                        >
+                            {exporting ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Icon name="download" size={scale(15)} color="#fff" />
+                            )}
+                            <Text style={styles.misBtnText}>
+                                {exporting ? 'Preparing…' : 'Download MIS'}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.misBtn, styles.misBtnHalf, styles.misBtnOutline]}
+                            onPress={onOpenMIS}
+                            activeOpacity={0.8}
+                        >
+                            <Icon name="file-chart" size={scale(15)} color="#E10600" />
+                            <Text style={[styles.misBtnText, styles.misBtnOutlineText]}>Open MIS</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     {dateOpen && (
                         <DateTimePicker
@@ -804,6 +779,10 @@ const styles = StyleSheet.create({
         paddingVertical: scale(11),
         marginTop: scale(10),
     },
+    misRow: { flexDirection: 'row', gap: scale(10) },
+    misBtnHalf: { flex: 1 },
+    misBtnOutline: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E10600' },
+    misBtnOutlineText: { color: '#E10600' },
     misBtnOff: { opacity: 0.5 },
     misBtnText: { fontSize: scale(12.5), color: '#fff', fontWeight: '700' },
 

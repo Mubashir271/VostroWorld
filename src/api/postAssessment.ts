@@ -57,18 +57,18 @@ export const POSTURE_FIELDS = [
  */
 export const NUMERIC_FIELDS: Record<string, { label: string; unit?: string; required?: boolean }> = {
   Age:                  { label: 'Age', required: true },
-  Height:               { label: 'Height', unit: 'Inches', required: true },
+  Height:               { label: 'Height', unit: 'cm', required: true },
   Weight:               { label: 'Weight', unit: 'Kg', required: true },
   Fat:                  { label: 'Body FAT', unit: '%', required: true },
   Vfat:                 { label: 'V-FAT', unit: '%', required: true },
   BMI:                  { label: 'BMI', unit: 'kg/m2', required: true },
-  Chest:                { label: 'Chest', unit: 'Inches', required: true },
-  upper_belly:          { label: 'Upper Belly (2in above navel)', unit: 'Inches' },
-  Waist:                { label: 'Mid Belly / Waist (at navel)', unit: 'Inches', required: true },
-  lower_belly:          { label: 'Lower Belly (2in below navel)', unit: 'Inches' },
-  Glutes:               { label: 'Hips / Glutes', unit: 'Inches', required: true },
-  Thigh:                { label: 'Thighs', unit: 'Inches', required: true },
-  Arm:                  { label: 'Arms', unit: 'Inches', required: true },
+  Chest:                { label: 'Chest', unit: 'cm', required: true },
+  upper_belly:          { label: 'Upper Belly (5 cm above navel)', unit: 'cm' },
+  Waist:                { label: 'Mid Belly / Waist (at navel)', unit: 'cm', required: true },
+  lower_belly:          { label: 'Lower Belly (5 cm below navel)', unit: 'cm' },
+  Glutes:               { label: 'Hips / Glutes', unit: 'cm', required: true },
+  Thigh:                { label: 'Thighs', unit: 'cm', required: true },
+  Arm:                  { label: 'Arms', unit: 'cm', required: true },
   Mhr:                  { label: 'Maximum Heart Rate (MHR)', unit: 'BPM', required: true },
   Rhr:                  { label: 'Resting Heart Rate (RHR)', unit: 'BPM', required: true },
   max_push_ups:         { label: 'Max Push Ups', unit: 'Reps' },
@@ -149,6 +149,17 @@ export const getClientAssessments = async (clientId: number): Promise<Record<str
   const res = await api.get('/v1/post-assessment/get', { params: { client_id: clientId } });
   const rows = res?.data?.data;
   return Array.isArray(rows) ? rows : [];
+};
+
+/**
+ * PUT /v1/post-assessment/delete/{id} — removes one Client Assessment Form.
+ * `id` is the assessment row's own id (e.g. 442), NOT the client id; the
+ * route answered "Supported methods: PUT" to a GET probe on 2026-10-06, the
+ * same PUT delete/{id} shape as the HR and finance deletes.
+ */
+export const deleteClientAssessment = async (id: number | string) => {
+  const res = await api.put(`/v1/post-assessment/delete/${id}`, {});
+  return res.data;
 };
 
 /**

@@ -581,11 +581,18 @@ export const checkLeaveAvailability = async (payload: {
   return res.data;
 };
 
-/** Final submit — call only after all 3 checks pass */
+/**
+ * Final submit — call only after all 3 checks pass.
+ *
+ * Body matches the web's Request Leave exactly (HAR, 8 Oct 2026):
+ * leave_status is the record kind ("Leave"), the approval state goes in
+ * application_status ("Pending"), plus submission_date and status "1".
+ * The app used to send leave_status "Pending" and omit the other three.
+ */
 export const submitLeaveApplication = async (payload: {
   branch_id: number | string;
   user_id: number;
-  leave_status: string;
+  leave_status?: string;
   leave_type: string;
   category: 'Full' | 'Half';
   from: string;
@@ -593,7 +600,22 @@ export const submitLeaveApplication = async (payload: {
   number_of_leaves: number;
   reason: string;
 }) => {
-  const res = await api.post('/v1/hr/leave-application/store', payload);
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const res = await api.post('/v1/hr/leave-application/store', {
+    branch_id: Number(payload.branch_id) || payload.branch_id,
+    user_id: payload.user_id,
+    leave_status: payload.leave_status ?? 'Leave',
+    from: payload.from,
+    to: payload.to,
+    reason: payload.reason,
+    leave_type: payload.leave_type,
+    category: payload.category,
+    number_of_leaves: payload.number_of_leaves,
+    application_status: 'Pending',
+    submission_date: today,
+    status: '1',
+  });
   return res.data;
 };
 

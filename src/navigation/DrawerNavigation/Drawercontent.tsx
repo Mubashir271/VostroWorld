@@ -1,5 +1,7 @@
 // src/navigation/DrawerNavigation/DrawerContent.tsx
 
+import { canEditOwnProfile, openProfileEdit } from '../../utils/profileEdit';
+import { avatarSource as avatarSource_ } from '../../utils/avatar';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
@@ -22,7 +24,6 @@ import {
   ADMIN_HIDDEN_MENUS,
   NUTRITIONIST_ALLOWED_MENUS,
   NUTRITIONIST_ALLOWED_FITNESS_CHILDREN,
-  NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN,
   FITNESS_MANAGER_ALLOWED_MENUS,
   FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN,
   FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN,
@@ -532,18 +533,6 @@ const MENU: MenuItem[] = [
   { title: 'Approval', icon: 'check-circle', screen: 'ApprovalsScreen' },
   { title: 'Notifications', icon: 'bell-outline', screen: 'Notifications' },
 ]
-// ─── Sales menu ─────────────────────────────────────────────────────────────
-// Captured 2026-09-02 from the web admin's Sales login with every section
-// expanded. Spelled out rather than filtered from MENU because the Sales menu
-// reorders its items, renames two ('View Freezing' → 'Freezing Management'),
-// and pulls in two entries that don't live in admin's Sales section at all
-// ('Daily Sales Report' → /daily-sales-counter, and 'Cafe Products').
-//
-// Omitted from this menu for now — present on the web; the screens exist in
-// the app but are only wired into the admin menu so far:
-//   Reports ▸ Active Clients Report  (/active-clients-report)
-//   Reports ▸ Client Details Report  (/client-details-report)
-// 'Social Leads (Sales)' is also on the web menu, deliberately deferred.
 // The whole menu for a blank-role staff record — confirmed live 2026-09-07
 // against the web, which shows this single entry and nothing else.
 const EMPLOYEE_MENU = [
@@ -563,6 +552,47 @@ const TRAINER_DASHBOARD = {
   icon: 'view-dashboard',
   children: [
     { title: 'Employee Dashboard', screen: 'EmployeeDashboard' },
+  ],
+};
+
+// The nutritionist's Dashboard section — the web's role-10 menu shows a
+// "Dashboard" group holding Employee Dashboard and Nutrition Dashboard.
+const NUTRITIONIST_DASHBOARD = {
+  title: 'Dashboard',
+  icon: 'view-dashboard',
+  children: [
+    { title: 'Employee Dashboard', screen: 'EmployeeDashboard' },
+    { title: 'Nutrition Dashboard', screen: 'NutritionDashboard' },
+  ],
+};
+
+// The nutritionist's Nutrition section, matching the web's role-10 menu
+// item for item. Built explicitly rather than filtered from the admin section:
+// the admin titles ("Appointments", "Meals Plan", "Diet Plan Issuance", a
+// separate "Assessment Questionnaire" group) never matched the allow-list, so
+// Referrals and the questionnaire silently dropped out of the drawer.
+const NUTRITIONIST_NUTRITION = {
+  title: 'Nutrition',
+  icon: 'food-apple',
+  children: [
+    { title: 'Clients Details', screen: 'ClientsDetails' },
+    { title: 'Appointments Details', screen: 'NutritionAppointments' },
+    { title: 'Health Camps', screen: 'HealthCamps' },
+    {
+      title: 'Assessments',
+      children: [
+        { title: 'Assessment Questionnaire', screen: 'ViewAssessmentQuestionnaire' },
+      ],
+    },
+    {
+      title: 'Meal Plans',
+      children: [
+        { title: 'Add Meals Plan', screen: 'AddMealsPlan' },
+        { title: 'View Meals Plan', screen: 'ViewMealsPlan' },
+      ],
+    },
+    { title: 'Referrals', screen: 'ReferralSheet' },
+    { title: 'Image Gallery', screen: 'NutritionImageGallery' },
   ],
 };
 
@@ -962,37 +992,79 @@ const HR_MENU = [
   },
 ];
 
+// The Sales login's menu (role '4') — the web's /admin/menu-access/mine for
+// harrison@vostroworld.com in the 2026-10-07 HAR, section for section in its
+// order and wording. The client-stats Home screen is the web's Sales ›
+// Sales Dashboard. "Vitality Studio" / "Viatlity Studio" are the web's two
+// labels for the Bootcamp and GX package pages (typo and all).
 const SALES_MENU = [
-  { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
   {
-    title: 'Sales',
-    icon: 'store',
+    title: 'Dashboard',
+    icon: 'view-dashboard',
     children: [
-      { title: 'View Clients', screen: 'ViewClients' },
+      { title: 'Employee Dashboard', screen: 'EmployeeDashboard' },
+      { title: 'Marketing Dashboard', screen: 'MarketingDashboard' },
+    ],
+  },
+  {
+    title: 'CRM / Clients',
+    icon: 'account-group',
+    children: [
+      { title: 'Clients', screen: 'ViewClients' },
       { title: 'Add Client', screen: 'NewMemberRegistration' },
-      { title: 'Clients Report', screen: 'ClientsReport' },
-      { title: 'Daily Sales Report', screen: 'DailySalesCounter' },
       {
         title: 'Packages',
         children: [
-          { title: 'Membership Packages', screen: 'MembershipPackages' },
-          { title: 'Gym Packages', screen: 'GymPackages' },
-          { title: 'Trainer Packages', screen: 'TrainerPackages' },
-          { title: 'Bootcamp Packages', screen: 'BootcampPackages' },
-          { title: 'Physiotherapy Packages', screen: 'PhysiotherapyPackages' },
+          { title: 'Membership', screen: 'MembershipPackages' },
+          { title: 'Gym', screen: 'GymPackages' },
+          { title: 'Personal Training', screen: 'TrainerPackages' },
+          { title: 'Vitality Studio', screen: 'BootcampPackages' },
+          { title: 'Physiotherapy', screen: 'PhysiotherapyPackages' },
           { title: 'Massage Chair', screen: 'MassageChair' },
-          { title: 'Small PT Group Packages', screen: 'SmallPTGroupPackages' },
-          { title: 'GX Packages', screen: 'GXPackages' },
-          { title: 'CFT', screen: 'CFTPackages' },
+          { title: 'Small Group - PT', screen: 'SmallPTGroupPackages' },
+          { title: 'Viatlity Studio', screen: 'GXPackages' },
+          { title: 'Vostro Fitness Academy', screen: 'CFTPackages' },
           { title: 'General Packages', screen: 'GeneralPackages' },
           { title: 'Detailed Packages', screen: 'DetailedPackages' },
         ],
       },
-      { title: 'Cafe Products', screen: 'CafeProducts' },
-      { title: 'Sell Package', screen: 'SellPackage' },
-      { title: 'Freezing Management', screen: 'ViewFreezing' },
-      { title: 'Assign Cards', screen: 'AssignCards' },
-      { title: 'View Cards', screen: 'ViewCards' },
+      { title: 'Freezing', screen: 'ViewFreezing' },
+      { title: 'Access Control — Assign Cards', screen: 'AssignCards' },
+      { title: 'Access Control — View Cards', screen: 'ViewCards' },
+    ],
+  },
+  {
+    title: 'Sales',
+    icon: 'store',
+    children: [
+      { title: 'Sales Dashboard', screen: 'Dashboard' },
+      // The web's Sales Lead opens its Social Leads page.
+      { title: 'Sales Lead', screen: 'SocialLeads' },
+      // Both point at /view-cards on the web.
+      { title: 'Payments / Cards', screen: 'ViewCards' },
+      { title: 'Daily Sales Report', screen: 'DailySalesCounter' },
+    ],
+  },
+  {
+    title: 'Fitness',
+    icon: 'dumbbell',
+    children: [
+      { title: 'Personal Trainer Diary', screen: 'PersonalTrainerDiary' },
+    ],
+  },
+  {
+    title: 'Nutrition',
+    icon: 'food-apple',
+    children: [
+      { title: 'Appointments Details', screen: 'NutritionAppointments' },
+      { title: 'Nutrition Packages', screen: 'NutritionPackages' },
+    ],
+  },
+  {
+    title: 'Physio',
+    icon: 'medical-bag',
+    children: [
+      { title: 'Appointments', screen: 'PhysiotherapyAppointments' },
     ],
   },
   {
@@ -1000,12 +1072,10 @@ const SALES_MENU = [
     icon: 'coffee',
     children: [
       { title: 'Cafe Dashboard', screen: 'CafeDashboard' },
-      { title: 'Cafe Categories', screen: 'CafeCategories' },
-      { title: 'Cafe Products', screen: 'CafeProducts' },
-      { title: 'Cafe Deposits', screen: 'CafeDeposits' },
+      { title: 'Client Deposits', screen: 'CafeDeposits' },
       { title: 'Add Clients Deposit', screen: 'AddClientsDeposit' },
-      { title: 'Clients Available Balance', screen: 'ClientsAvailableBalance' },
-      { title: 'Deposits History', screen: 'DepositsHistory' },
+      { title: 'Client Balance', screen: 'ClientsAvailableBalance' },
+      { title: 'Deposit History', screen: 'DepositsHistory' },
       { title: 'Cafe Sales Report', screen: 'CafeSalesReport' },
       { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
       { title: 'Management Pendings', screen: 'ManagementPendings' },
@@ -1015,36 +1085,47 @@ const SALES_MENU = [
     title: 'Reports',
     icon: 'chart-bar',
     children: [
-      { title: 'Clients Reports', screen: 'ClientsReports' },
-      { title: 'Sales', screen: 'SalesReport' },
-      { title: 'Detailed Sales Report', screen: 'DetailedSalesReport' },
-      { title: 'MIS Report', screen: 'MISReport' },
-      { title: 'Sales By Services', screen: 'SalesByServices' },
-      { title: 'Sales By Bootcamp', screen: 'SalesByBootcamp' },
-      { title: 'Cafe Sales', screen: 'CafeReports' },
-      { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
-      { title: 'Transaction Report', screen: 'TransactionReport' },
-      { title: 'Clients Attendance', screen: 'ClientsAttendance' },
-      { title: 'Footfall Report', screen: 'FootfallReport' },
+      {
+        title: 'Sales Reports',
+        children: [
+          { title: 'Sales', screen: 'SalesReport' },
+          { title: 'Detailed Sales Report', screen: 'DetailedSalesReport' },
+          // The web's /daily-report, not Daily Sales Counter — no app screen yet.
+          { title: 'Daily Report', soon: true },
+          { title: 'MIS Report', screen: 'MISReport' },
+          { title: 'Sales By Services', screen: 'SalesByServices' },
+          { title: 'Sales By Bootcamp', screen: 'SalesByBootcamp' },
+          { title: 'Transaction Report', screen: 'TransactionReport' },
+        ],
+      },
+      {
+        title: 'Client Reports',
+        children: [
+          { title: 'Clients Reports', screen: 'ClientsReports' },
+          { title: 'Active Clients Report', screen: 'ActiveClientsReport' },
+          { title: 'Client Details Report', screen: 'ClientDetailsReport' },
+          { title: 'Clients Attendance', screen: 'ClientsAttendance' },
+          { title: 'Footfall Report', screen: 'FootfallReport' },
+        ],
+      },
+      {
+        title: 'Cafe Reports',
+        children: [
+          { title: 'Cafe Sales', screen: 'CafeReports' },
+          { title: 'Detailed Cafe Report', screen: 'DetailedCafeReport' },
+        ],
+      },
     ],
   },
   {
-    title: 'Nutrition',
-    icon: 'food-apple',
+    title: 'Administration',
+    icon: 'cog',
     children: [
-      { title: 'Nutrition Packages', screen: 'NutritionPackages' },
-      { title: 'Appointments', screen: 'NutritionAppointments' },
+      // Approval Center and Approvals both open /approval on the web.
+      { title: 'Approval Center', screen: 'ApprovalsScreen' },
+      { title: 'Approvals', screen: 'ApprovalsScreen' },
     ],
   },
-  {
-    title: 'Physiotherapy',
-    icon: 'medical-bag',
-    children: [
-      { title: 'Appointments', screen: 'PhysiotherapyAppointments' },
-    ],
-  },
-  { title: 'Approval', icon: 'check-circle', screen: 'ApprovalsScreen' },
-  { title: 'Notifications', icon: 'bell-outline', screen: 'Notifications' },
 ];
 
 // ─── Navigation helper ───────────────────────────────────────────────────────
@@ -1068,6 +1149,9 @@ const navigateTo = (navigation: any, screen: string, role?: string | null) => {
     // pushing would mount a second copy over the live one, the duplicate-mount
     // problem described above.
     navigation.navigate('Main', { screen: 'Home' });
+  } else if (screen === 'GTDashboard' && isGeneralTrainer(role)) {
+    // A general trainer's Home tab *is* the GT Dashboard — same reason.
+    navigation.navigate('Main', { screen: 'Home' });
   } else if (screen === 'AdminDashboard' && isSuperAdmin(role)) {
     // Super Admin's Home tab *is* the Admin Dashboard — same reason as above.
     navigation.navigate('Main', { screen: 'Home' });
@@ -1081,10 +1165,11 @@ const navigateTo = (navigation: any, screen: string, role?: string | null) => {
   } else if (screen === 'SessionTracker' && isTrainer(role)) {
     // Same reason: Session Tracker is a bottom tab for role 9.
     navigation.navigate('Main', { screen: 'SessionTrackerTab' });
-  } else if (screen === 'NutritionDashboard' && (isNutritionist(role) || isFitnessManager(role))) {
+  } else if (screen === 'NutritionDashboard' && isNutritionist(role)) {
+    // A nutritionist's Home tab *is* the Nutrition Dashboard.
+    navigation.navigate('Main', { screen: 'Home' });
+  } else if (screen === 'NutritionDashboard' && isFitnessManager(role)) {
     navigation.navigate('Main', { screen: 'NutritionTab' });
-  } else if (screen === 'GXAttendance' && isNutritionist(role)) {
-    navigation.navigate('Main', { screen: 'AttendanceTab' });
   } else if (screen === 'SessionPortalHR' && isFitnessManager(role)) {
     navigation.navigate('Main', { screen: 'SessionPortalTab' });
   } else {
@@ -1184,6 +1269,9 @@ const filterMenuForRole = (
     return menu
       .filter(item => NUTRITIONIST_ALLOWED_MENUS.includes(item.title))
       .map(item => {
+        if (item.title === 'Dashboard') {
+          return NUTRITIONIST_DASHBOARD as typeof MENU[number];
+        }
         if (item.title === 'Fitness' && item.children) {
           return {
             ...item,
@@ -1192,13 +1280,8 @@ const filterMenuForRole = (
             ),
           };
         }
-        if (item.title === 'Nutrition' && item.children) {
-          return {
-            ...item,
-            children: item.children.filter(c =>
-              NUTRITIONIST_ALLOWED_NUTRITION_CHILDREN.includes(c.title),
-            ),
-          };
+        if (item.title === 'Nutrition') {
+          return NUTRITIONIST_NUTRITION as typeof MENU[number];
         }
         return item;
       });
@@ -1281,7 +1364,7 @@ const DrawerContent = (props: any) => {
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [active, setActive] = React.useState('Dashboard');
 
-  const { profile, appImage } = useSelector((state: RootState) => state.user);
+  const { profile, appImage, avatarVersion } = useSelector((state: RootState) => state.user);
 
   const firstName = profile?.firstName || 'User';
   const lastName = profile?.lastName || '';
@@ -1290,11 +1373,7 @@ const DrawerContent = (props: any) => {
   // as "Branch 0"; the web labels that login "All Branches".
   const branch = profile?.branchName
     || (profile?.branchId ? `Branch ${profile.branchId}` : 'All Branches');
-  const avatarSource = appImage
-    ? { uri: appImage }
-    : profile?.image
-      ? { uri: profile.image }
-      : require('../../assets/img/userIcon.png');
+  const avatarSource = avatarSource_(profile?.image, appImage, avatarVersion);
 
   const profileName = `${firstName} ${lastName}`.trim() || 'User';
 
@@ -1504,17 +1583,13 @@ const DrawerContent = (props: any) => {
         role={role}
         branch={branch || 'Main Branch'}
         avatar={avatarSource}
-        {...(isEmployee(profile?.role)
+        {...(canEditOwnProfile(profile?.role)
           ? {
-            // Opens the Employee Dashboard's "Change Information" modal.
-            // The timestamp makes each tap a distinct param value, so the
-            // modal re-opens rather than being ignored as unchanged state.
+            // Opens the Employee Dashboard's "Change Information" modal — the
+            // same target as the Account screen's pencil (utils/profileEdit).
             editIcon: Edit_fill,
             onEditPress: () => {
-              navigation.navigate('Main', {
-                screen: 'Home',
-                params: { screen: 'Dashboard', params: { openEdit: Date.now() } },
-              });
+              openProfileEdit(navigation, profile?.role);
               setTimeout(() => navigation.closeDrawer?.(), 100);
             },
           }

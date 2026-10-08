@@ -209,6 +209,37 @@ export const getTodaySummary = async (branchId: number | string) => {
     return res.data;
 };
 
+// ── Sales Dashboard ──────────────────────────────────────────────────────────
+// GET /v1/sales-dashboard/snapshot?branch_id=<id>
+// Confirmed live 2026-10-07 from a HAR of the web's Sales Dashboard (Sales
+// login, branch 15). Backs Today/Month Sales, package-wise sales, today's
+// attendance, trainer-wise sales and birthdays — the client counts and the
+// renewals table still come from /clients/count and getRenewals below.
+export interface SalesQtyNet { qty: number; price: number; discount: number; tax: number; net: number; }
+
+export interface SalesDashboardSnapshot {
+    sales_today: SalesQtyNet;
+    sales_mtd: SalesQtyNet;
+    package_sales_mtd: { name: string; net: number; qty: number }[];
+    footfall: {
+        total: number; female: number; male: number;
+        morning: number; afternoon: number; evening: number;
+        branches: { branch: string; total: number }[];
+    };
+    birthdays: { id: number; name: string; day: string; is_today: boolean; turns: number; branch: string }[];
+    trainers: { name: string; clients: number; sales: number; amount: number }[];
+    expiring_7_days: number;
+}
+
+export const getSalesDashboardSnapshot = async (
+    branchId: number | string,
+): Promise<SalesDashboardSnapshot> => {
+    const res = await api.get('/v1/sales-dashboard/snapshot', {
+        params: { branch_id: branchId },
+    });
+    return res.data?.data ?? res.data;
+};
+
 export const getPackageCategories = async () => {
   const res = await api.get('/v1/package-categories');
   return res.data;

@@ -17,13 +17,6 @@ import {
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 
-const TIME_SLOTS = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
-];
-
 const fmt = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -34,12 +27,27 @@ const display = (s: string) => {
 };
 
 const displayTime = (t: string) => {
-  if (!t) return 'Select Time Slot';
+  if (!t) return 'Select Time';
   const [h, m] = t.split(':').map(Number);
   const period = h >= 12 ? 'PM' : 'AM';
   const hour = h % 12 === 0 ? 12 : h % 12;
   return `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
 };
+
+// "HH:mm" ↔ Date for the native time picker. The picker opens on the chosen
+// time, or the next full hour when none is set yet.
+const timeToDate = (t: string) => {
+  const d = new Date();
+  if (t) {
+    const [h, m] = t.split(':').map(Number);
+    d.setHours(h, m, 0, 0);
+  } else {
+    d.setHours(d.getHours() + 1, 0, 0, 0);
+  }
+  return d;
+};
+const dateToTime = (d: Date) =>
+  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
 const clientLabel = (c: any) => c?.full_name || `${c?.first_name ?? ''} ${c?.last_name ?? ''}`.trim() || '—';
 
@@ -65,7 +73,7 @@ const AddNutritionAppointment = () => {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const [appointmentTime, setAppointmentTime] = useState('');
-  const [timeDropOpen, setTimeDropOpen] = useState(false);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
 
   const [consultation, setConsultation] = useState('');
 
@@ -267,26 +275,10 @@ const AddNutritionAppointment = () => {
           {/* Appointment Time */}
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Appointment Time</Text>
-            <TouchableOpacity style={styles.dropdown} onPress={() => setTimeDropOpen(v => !v)}>
+            <TouchableOpacity style={styles.dropdown} onPress={() => setTimePickerOpen(true)}>
               <Text style={styles.dropdownText}>{displayTime(appointmentTime)}</Text>
-              <Icon name={timeDropOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#555" />
+              <Icon name="clock-outline" size={16} color="#888" />
             </TouchableOpacity>
-            {timeDropOpen && (
-              <View style={styles.dropdownMenu}>
-                <ScrollView style={{ maxHeight: 220 }}>
-                  {TIME_SLOTS.map(slot => (
-                    <TouchableOpacity
-                      key={slot}
-                      style={[styles.dropdownItem, appointmentTime === slot && styles.dropdownItemActive]}
-                      onPress={() => { setAppointmentTime(slot); setTimeDropOpen(false); }}
-                    >
-                      <Text style={[styles.dropdownItemText, appointmentTime === slot && styles.dropdownItemTextActive]}>{displayTime(slot)}</Text>
-                      {appointmentTime === slot && <Icon name="check" size={14} color="#E63946" />}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
           </View>
 
           {/* Consultation */}
@@ -381,6 +373,14 @@ const AddNutritionAppointment = () => {
         date={new Date(appointmentDate)}
         onConfirm={handleDateConfirm}
         onCancel={() => setPickerOpen(false)}
+      />
+      {/* Native time picker — wheel on iOS, clock dialog on Android. */}
+      <DateTimePickerModal
+        isVisible={timePickerOpen}
+        mode="time"
+        date={timeToDate(appointmentTime)}
+        onConfirm={(d: Date) => { setTimePickerOpen(false); setAppointmentTime(dateToTime(d)); }}
+        onCancel={() => setTimePickerOpen(false)}
       />
     </View>
   );

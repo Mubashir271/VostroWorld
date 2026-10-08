@@ -1,41 +1,95 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native'
+import { launchImageLibrary } from 'react-native-image-picker'
 import FastImage from '@d11/react-native-fast-image'
 import DeviceInfo from 'react-native-device-info'
 import React, { useCallback, useEffect, useState } from 'react'
 import AppHeader from '../../components/AppHeader'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import BurgerSVG from '../../assets/svg/BurgerSVG';
 import { RootState } from '../../redux/store';
 import { performLogout } from '../../utils/logout';
 import { isEmployee, isNutritionist, isTrainer, isGeneralTrainer, isPhysio, roleLabelOf } from '../../config/permissions';
-import { getStaffDetail } from '../../api/employeeDashboard';
+import { getStaffDetail, updateStaffProfile } from '../../api/employeeDashboard';
+import { patchProfile, bumpAvatarVersion, clearAppImage } from '../../redux/slices/userSlice';
+import { avatarSource as avatarSourceOf } from '../../utils/avatar';
+import { canEditOwnProfile, openProfileEdit } from '../../utils/profileEdit';
 
 
 const AccountScreen = () => {
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
   const [refreshing, setRefreshing] = useState(false);
 
+  const { profile, appImage, avatarVersion } = useSelector(
+    (state: RootState) => state.user
+  );
+
+  // Pull-to-refresh re-reads the staff record (/v1/auth/get/{id}) and copies
+  // name, email, phone and photo into the stored profile, so a change made on
+  // the web shows up here, in the drawer and on Home.
   const onRefresh = useCallback(async () => {
+    const id = Number(profile?.id ?? 0);
+    if (!id) return;
     setRefreshing(true);
-
     try {
-      // Call profile API here
-      // Example:
-      // await dispatch(getProfile());
-
-      await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
+      const res = await getStaffDetail(id, Number(profile?.branchId) || 0);
+      const rec = Array.isArray(res?.data) ? res.data[0] : res?.data;
+      if (rec) {
+        dispatch(patchProfile({
+          firstName: rec.first_name ?? profile?.firstName,
+          lastName: rec.last_name ?? profile?.lastName,
+          email: rec.email ?? profile?.email,
+          phone: rec.phone ?? profile?.phone,
+          image: rec.image ?? profile?.image,
+        }));
+        const label = String(rec.designation ?? '').trim();
+        if (label && label !== 'null') setDesignation(label);
+      }
     } catch (error) {
       console.log('Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [dispatch, profile]);
 
-  const { profile, appImage } = useSelector(
-    (state: RootState) => state.user
-  );
+  const canEdit = canEditOwnProfile(profile?.role);
+
+  // Photo-only change, straight from this screen: pick from the library and
+  // upload just the image (POST /v1/auth/update/{id} with `file` — the same
+  // call the Employee Dashboard makes; empty fields are not sent, so nothing
+  // else on the record changes). The new URL is then re-read and stored, which
+  // updates the drawer, Home and this screen at once.
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const changePhoto = () => {
+    const id = Number(profile?.id ?? 0);
+    if (!id || uploadingPhoto) return;
+    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, async res => {
+      const a = res.assets?.[0];
+      if (res.didCancel || res.errorCode || !a?.uri) return;
+      setUploadingPhoto(true);
+      try {
+        await updateStaffProfile(id, {}, { uri: a.uri, type: a.type, fileName: a.fileName });
+        // A device-only photo picked in Settings would keep hiding the new one.
+        dispatch(clearAppImage());
+        try {
+          const sd = await getStaffDetail(id, Number(profile?.branchId) || 0);
+          const rec = Array.isArray(sd?.data) ? sd.data[0] : sd?.data;
+          if (rec?.image) dispatch(patchProfile({ image: rec.image }));
+          dispatch(bumpAvatarVersion());
+        } catch {
+          // Uploaded fine; still force every avatar to re-fetch.
+          dispatch(bumpAvatarVersion());
+        }
+        Alert.alert('Photo updated', 'Your profile picture has been changed.');
+      } catch (err: any) {
+        Alert.alert('Upload failed', err?.response?.data?.message || 'Could not update your photo.');
+      } finally {
+        setUploadingPhoto(false);
+      }
+    });
+  };
   const userIsNutritionist = isNutritionist(profile?.role);
   // Settings is not part of these roles' surface — the blank/Employee role's
   // whole app is the Employee Dashboard, matching the web's single menu item,
@@ -67,11 +121,7 @@ const AccountScreen = () => {
       });
     return () => { cancelled = true; };
   }, [profile?.id, profile?.branchId]);
-  const avatarSource = appImage
-    ? { uri: appImage }
-    : profile?.image
-      ? { uri: profile.image }
-      : require('../../assets/img/userIcon.png');
+  const avatarSource = avatarSourceOf(profile?.image, appImage, avatarVersion);
   const firstName = profile?.firstName || '';
   const lastName = profile?.lastName || '';
 
@@ -168,12 +218,27 @@ const AccountScreen = () => {
 
           {/* Profile Section */}
           <View style={styles.profileSection}>
-            <View style={styles.profileContent}>
+            {/* Tapping the photo (or its camera badge) changes just the photo. */}
+            <TouchableOpacity
+              style={styles.profileContent}
+              onPress={changePhoto}
+              disabled={uploadingPhoto}
+              activeOpacity={0.85}
+              accessibilityLabel="Change profile photo"
+            >
               <FastImage
                 source={avatarSource}
                 style={styles.profileImage}
               />
-            </View>
+              {uploadingPhoto ? (
+                <View style={styles.photoBusy}>
+                  <ActivityIndicator color="#fff" />
+                </View>
+              ) : null}
+              <View style={styles.editBadge}>
+                <Icon name="camera" size={14} color="#fff" />
+              </View>
+            </TouchableOpacity>
             <Text style={styles.profileName}>{profileData.name}</Text>
             <TouchableOpacity style={styles.roleTag}>
               <Text style={styles.roleText}>{profileData.role}</Text>
@@ -183,6 +248,16 @@ const AccountScreen = () => {
               <Text style={styles.verificationText}>Verified</Text>
             </View>
             <Text style={styles.branchText}>{profileData.branch}</Text>
+            {canEdit ? (
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => openProfileEdit(navigation, profile?.role)}
+                activeOpacity={0.8}
+              >
+                <Icon name="account-edit-outline" size={16} color="#E10600" />
+                <Text style={styles.editBtnText}>Edit Profile</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Account Information */}
@@ -248,6 +323,42 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     backgroundColor: '#E0E0E0',
+  },
+  photoBusy: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E10600',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: '#E10600',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  editBtnText: {
+    color: '#E10600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   profileName: {
     fontSize: 18,

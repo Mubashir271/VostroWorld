@@ -103,7 +103,11 @@ const PanelHeader = ({ title, badge }: { title: string; badge: string }) => (
   </View>
 );
 
-const AssessmentRow = ({ a, first }: { a: GTAssessment; first: boolean }) => (
+// Mirrors the web table's per-row ACTION column: "Timeline" loads that
+// client's full history into the panel, "View" opens their assessment forms.
+const AssessmentRow = ({ a, first, onTimeline, onView }: {
+  a: GTAssessment; first: boolean; onTimeline?: () => void; onView: () => void;
+}) => (
   <View style={[styles.stackRow, !first && styles.rowBorder]}>
     <View style={styles.panelRow}>
       <Text style={[styles.rowName, styles.flex1]} numberOfLines={1}>{a.client_name}</Text>
@@ -123,16 +127,29 @@ const AssessmentRow = ({ a, first }: { a: GTAssessment; first: boolean }) => (
         <Text style={styles.metricLabel}>Fat %</Text>
       </View>
     </View>
-    <Text style={styles.rowMeta} numberOfLines={1}>
-      {a.category && a.category !== 'N/A' ? `${a.category} · ` : ''}
-      Added by {a.added_by || '—'}
-    </Text>
+    <View style={styles.panelRow}>
+      <Text style={[styles.rowMeta, styles.flex1]} numberOfLines={1}>
+        Added by {a.added_by || '—'}
+        {a.client_assessment_count ? ` · ${a.client_assessment_count} total` : ''}
+      </Text>
+      {onTimeline ? (
+        <TouchableOpacity style={styles.rowBtn} onPress={onTimeline}>
+          <Text style={styles.rowBtnText}>Timeline</Text>
+        </TouchableOpacity>
+      ) : null}
+      <TouchableOpacity style={styles.rowBtn} onPress={onView}>
+        <Text style={styles.rowBtnText}>View</Text>
+      </TouchableOpacity>
+    </View>
   </View>
 );
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-const GTDashboard = () => {
+// `asHome` is set when this is the General Trainer's Home tab, where the left
+// action must always open the drawer — canGoBack() is not a reliable signal
+// from inside the tab.
+const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
 
@@ -290,7 +307,18 @@ const GTDashboard = () => {
     return rows.slice(0, 80);
   }, [clients, query]);
 
-  const timelineClient = clients.find(c => c.id === timelineId);
+  // Falls back on the assessment rows' own name when "Timeline" picks a client
+  // before the (large) client-name list has loaded.
+  const timelineClient = clients.find(c => c.id === timelineId)
+    ?? (() => {
+      const a = assessments.find(x => x.client_id === timelineId);
+      return a ? { id: a.client_id, name: a.client_name } : undefined;
+    })();
+
+  // A row's "View" — the web opens the client's Client Assessment Forms
+  // (GET post-assessment/get?client_id=), i.e. the View Assessment page.
+  const openForms = (a: GTAssessment) =>
+    navigation.navigate('ViewClientAssessment', { clientId: a.client_id, clientName: a.client_name });
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -299,12 +327,12 @@ const GTDashboard = () => {
       <AppHeader
         title="GT Dashboard"
         leftIcon={
-          navigation.canGoBack()
+          !asHome && navigation.canGoBack()
             ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
             : <BurgerSVG width={24} height={24} />
         }
         rightIcon={<NotificationSVG width={24} height={24} />}
-        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
+        onLeftPress={() => (!asHome && navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
         onRightPress={() => navigation.navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />
@@ -375,16 +403,16 @@ const GTDashboard = () => {
               <TouchableOpacity
                 style={[styles.smallBtn, !timelineId && styles.smallBtnOff]}
                 disabled={!timelineId}
-                onPress={() => navigation.navigate('AddPreAssessment', {
+                onPress={() => navigation.navigate('AddClientAssessment', {
                   clientId: timelineId, clientName: timelineClient?.name,
                 })}
               >
-                <Text style={[styles.smallBtnText, !timelineId && styles.smallBtnTextOff]}>Add Pre</Text>
+                <Text style={[styles.smallBtnText, !timelineId && styles.smallBtnTextOff]}>Add Assessment</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.smallBtn, !timelineId && styles.smallBtnOff]}
                 disabled={!timelineId}
-                onPress={() => navigation.navigate('ViewAssessment', {
+                onPress={() => navigation.navigate('ViewClientAssessment', {
                   clientId: timelineId, clientName: timelineClient?.name,
                 })}
               >
@@ -399,7 +427,9 @@ const GTDashboard = () => {
                 <Text style={styles.emptyText}>No assessments recorded for this client.</Text>
               ) : (
                 <ScrollView style={{ maxHeight: PANEL_MAX_H }} nestedScrollEnabled>
-                  {timeline!.map((a, i) => <AssessmentRow key={a.id} a={a} first={i === 0} />)}
+                  {timeline!.map((a, i) => (
+                    <AssessmentRow key={a.id} a={a} first={i === 0} onView={() => openForms(a)} />
+                  ))}
                 </ScrollView>
               )
             ) : assessments.length === 0 ? (
@@ -408,7 +438,15 @@ const GTDashboard = () => {
               </Text>
             ) : (
               <ScrollView style={{ maxHeight: PANEL_MAX_H }} nestedScrollEnabled>
-                {assessments.map((a, i) => <AssessmentRow key={a.id} a={a} first={i === 0} />)}
+                {assessments.map((a, i) => (
+                  <AssessmentRow
+                    key={a.id}
+                    a={a}
+                    first={i === 0}
+                    onTimeline={() => setTimelineId(a.client_id)}
+                    onView={() => openForms(a)}
+                  />
+                ))}
               </ScrollView>
             )}
           </View>
@@ -710,6 +748,11 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 11.5, color: '#666', marginTop: 3 },
   rowDate: { fontSize: 11, color: '#999', fontWeight: '600' },
   rowMeta: { fontSize: 10.5, color: '#AAA', marginTop: 3, fontWeight: '500' },
+  rowBtn: {
+    marginLeft: 6, marginTop: 4, borderWidth: 1, borderColor: '#FFCDD2', backgroundColor: '#FFF',
+    borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  rowBtnText: { fontSize: 11, fontWeight: '700', color: '#E63946' },
 
   metricRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   metric: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 8, paddingVertical: 7, alignItems: 'center' },

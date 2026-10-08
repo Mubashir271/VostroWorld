@@ -2,13 +2,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { ImageSourcePropType } from 'react-native';
-import FastImage from '@d11/react-native-fast-image';
+import FastImage, { Source } from '@d11/react-native-fast-image';
 
 interface ProfileHeaderProps {
   name: string;
   role: string;
   branch: string;
-  avatar?: string | ImageSourcePropType; // support URI string OR local image
+  avatar?: string | ImageSourcePropType | Source; // URI string, FastImage source, or local image
   // The edit affordance only renders when both are supplied. Callers with
   // nothing to open must omit onEditPress rather than pass a no-op — an icon
   // that looks tappable and does nothing reads as a broken screen.

@@ -151,7 +151,7 @@ const LeaveApplications = () => {
       loadData();
     } catch (e: any) {
       const status  = e?.response?.status;
-      const message = e?.response?.data?.message;
+      const message = e?.response?.data?.messages ?? e?.response?.data?.message;
       if (status === 409) {
         dispatch(showSnackbar({ message: message ?? 'Leave conflict — overlapping dates or quota exceeded.', type: 'error' }));
       } else {

@@ -152,7 +152,7 @@ const ViewAssessment = () => {
             <Text style={styles.emptyText}>{error}</Text>
             <TouchableOpacity
               style={styles.addBtn}
-              onPress={() => navigation.replace('AddPreAssessment', { clientId, clientName: name })}
+              onPress={() => navigation.replace('AddClientAssessment', { clientId, clientName: name })}
             >
               <Text style={styles.addBtnText}>Add Assessment</Text>
             </TouchableOpacity>
