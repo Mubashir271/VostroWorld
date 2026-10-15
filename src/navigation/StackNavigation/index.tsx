@@ -99,6 +99,7 @@ import CFTPackages from '../../screens/Sales/CFTPackages';
 import GeneralPackages from '../../screens/Sales/GeneralPackages';
 import DetailedPackages from '../../screens/Sales/DetailedPackages';
 import HRDashboard from '../../screens/HR/HRDashboard';
+import HRLeaveApplications from '../../screens/HR/HRLeaveApplications';
 import ViewStaff from '../../screens/HR/ViewStaff';
 import EmployeeMaster from '../../screens/HR/EmployeeMaster';
 import EmployeeAttendance from '../../screens/HR/EmployeeAttendance';
@@ -307,6 +308,10 @@ const ProtectedScreen = ({
 };
 
 // Wraps a screen so non-admins see <AccessDenied /> instead of the real screen
+// Physio › Assessments (web /physio/assessments) is the GT Dashboard's
+// client-assessment panel on its own.
+const PhysiotherapyAssessments = () => <GTDashboard assessmentsOnly />;
+
 const protect = (Comp: React.ComponentType<any>) =>
     (props: any) => <ProtectedScreen component={Comp} {...props} />;
 
@@ -358,6 +363,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="SessionTracker" component={SessionTrackerScreen} />
                 <Stack.Screen name="PTDashboard" component={PTDashboard} />
                 <Stack.Screen name="GTDashboard" component={GTDashboard} />
+                {/* Physio › Assessments — the GT Dashboard's assessment panel alone. */}
+                <Stack.Screen name="PhysiotherapyAssessments" component={PhysiotherapyAssessments} />
                 <Stack.Screen name="PersonalTrainerDiary" component={TrainerRoster} />
                 {/* Trainer's own client surface, reached from a red client name
                     in the Personal Training Roster — the app's counterpart of
@@ -440,6 +447,8 @@ const AppNavigator = () => {
 
                 {/* ── Admin: Human Resource ── */}
                 <Stack.Screen name="HRDashboard" component={protect(HRDashboard)} />
+                {/* HR › Leave Application — staff-wide add / approve / reject / delete. */}
+                <Stack.Screen name="HRLeaveApplications" component={protect(HRLeaveApplications)} />
                 <Stack.Screen name="ViewStaff" component={protect(ViewStaff)} />
                 <Stack.Screen name="EmployeeMaster" component={protect(EmployeeMaster)} />
                 <Stack.Screen name="DetailedHRReport" component={protect(DetailedHRReport)} />

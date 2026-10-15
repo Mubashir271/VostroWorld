@@ -180,7 +180,15 @@ export interface FitnessDashboardSummary {
         trainer_id: number; trainer: string; sales: number; clients: number;
         total_price: number; discount: number; tax: number; net_price: number;
     }[];
+    // BeFit referrals by General Trainer this month — added to the response by
+    // 2026-10-15 (Fitness Manager HAR). Optional so older payloads still parse.
+    gt_referrals?: {
+        rows: (GTReferralCounts & { trainer_id: number; name: string })[];
+        totals: GTReferralCounts;
+    };
 }
+
+export interface GTReferralCounts { total: number; converted: number; pending: number; not_converted: number; }
 
 export const getFitnessDashboardSummary = async (
     branchId: number | 'all',

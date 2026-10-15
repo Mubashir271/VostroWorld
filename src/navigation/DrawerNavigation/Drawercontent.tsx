@@ -24,9 +24,6 @@ import {
   ADMIN_HIDDEN_MENUS,
   NUTRITIONIST_ALLOWED_MENUS,
   NUTRITIONIST_ALLOWED_FITNESS_CHILDREN,
-  FITNESS_MANAGER_ALLOWED_MENUS,
-  FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN,
-  FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN,
   roleLabelOf,
   isEmployee,
   isSuperAdmin,
@@ -607,11 +604,67 @@ const GENERAL_TRAINER_FITNESS = {
   ],
 };
 
+// The Fitness Manager login's menu (role '11'), from the web's sidebar
+// re-checked 2026-10-15: Fitness (the same list the super admin sees, minus
+// its SOON Fitness Reports row), Human Resource › SOPs, and Reports › Fitness
+// Reports. No Dashboard, Nutrition or Session Portal any more.
+const FITNESS_MANAGER_MENU = [
+  {
+    title: 'Fitness',
+    icon: 'dumbbell',
+    children: [
+      { title: 'Personal Trainer Diary', screen: 'PersonalTrainerDiary' },
+      { title: 'PT Sales', screen: 'PTSalesReport' },
+      { title: 'Session Tracker', screen: 'SessionTracker' },
+      {
+        // Vitality Studio is the service the app calls GX.
+        title: 'Vitality Studio',
+        children: [
+          { title: 'Add Class', screen: 'AddGXClass' },
+          { title: 'GX Slots List', screen: 'GXSlotsList' },
+          { title: 'GX Appointments', screen: 'GXAppointments' },
+          { title: 'GX Attendance', screen: 'GXAttendance' },
+          { title: 'GX Attendance Report', screen: 'GXAttendanceReport' },
+        ],
+      },
+      {
+        title: 'Fitness Plans',
+        children: [
+          { title: 'View Plans', screen: 'ViewFitnessPlans' },
+          { title: 'Add Plans', screen: 'AddFitnessPlan' },
+          { title: 'Manage Exercises', screen: 'ManageExercises' },
+        ],
+      },
+      { title: 'GT Dashboard', screen: 'GTDashboard' },
+      { title: 'Fitness Dashboard', screen: 'FitnessDashboard' },
+    ],
+  },
+  {
+    title: 'Human Resource',
+    icon: 'briefcase-account',
+    children: [
+      { title: 'SOPs', screen: 'SOPs' },
+    ],
+  },
+  {
+    title: 'Reports',
+    icon: 'chart-bar',
+    children: [
+      {
+        title: 'Fitness Reports',
+        children: [
+          { title: 'PT Sales Report', screen: 'PTSalesReport' },
+        ],
+      },
+    ],
+  },
+];
+
 // The Physio login's menu (role '15'), from its /admin/menu-access/mine in
 // the 2026-09-30 HAR: Dashboard › Employee Dashboard, then Physio with eight
-// links in the web's order and wording. Assessments has no app screen yet
-// (the admin menu marks it SOON too). Notifications is appended as for the
-// other role menus.
+// links in the web's order and wording. Assessments (/physio/assessments) is
+// the GT Dashboard's assessment panel on its own — 2026-10-15 HAR. Notifications
+// is appended as for the other role menus.
 const PHYSIO_MENU = [
   {
     title: 'Dashboard',
@@ -627,7 +680,7 @@ const PHYSIO_MENU = [
       { title: 'Physio Dashboard', screen: 'PhysiotherapyDashboard' },
       { title: 'Clients / Patient Details', screen: 'PhysiotherapyPatientDetails' },
       { title: 'Appointments', screen: 'PhysiotherapyAppointments' },
-      { title: 'Assessments', soon: true },
+      { title: 'Assessments', screen: 'PhysiotherapyAssessments' },
       { title: 'Prescriptions', screen: 'PhysiotherapyPrescriptions' },
       { title: 'Sessions / GX', screen: 'PhysiotherapyGX' },
       { title: 'Referrals', screen: 'PhysiotherapyDailyClientReferral' },
@@ -954,40 +1007,56 @@ const buildSuperAdminMenu = (): MenuItem[] => {
   ];
 };
 
-// HR login's own menu — mirrors the web HR-login sidebar item-for-item
-// (checked 2026-09-18): a flat "HR" section in the web's order and wording,
-// mapped onto the existing Human Resource screens. The admin's grouped
-// "Manage Staff" layout doesn't match what HR sees on the web.
+// HR login's own menu — the web's /admin/menu-access/mine for the HR login
+// (hr@vostroworld.com, role '12') in the 2026-10-15 HAR, section for section
+// in its order and wording. HR Dashboard is this login's Home tab, so its
+// entry opens Home rather than stacking a second copy.
 const HR_MENU = [
-  { title: 'Dashboard', icon: 'view-dashboard', screen: 'Dashboard' },
   {
-    title: 'HR',
+    title: 'Human Resource',
     icon: 'briefcase-account',
     children: [
-      { title: 'HR Dashboard', screen: 'HRDashboard' },
+      { title: 'HR Dashboard', screen: 'Dashboard' },
+      { title: 'SOPs', screen: 'SOPs' },
       { title: 'Employee Master', screen: 'EmployeeMaster' },
       { title: 'Add Employee', screen: 'AddStaff' },
-      { title: 'Attendance', screen: 'StaffAttendanceReport' },
-      { title: 'Employee Attendance', screen: 'EmployeeAttendance' },
-      { title: 'PT Attendance', screen: 'PTAttendance' },
+      // /employee-attendance on the web.
+      { title: 'Attendance Report', screen: 'EmployeeAttendance' },
+      { title: 'Loan and Advances', screen: 'StaffLoans' },
+      { title: 'Salary Management', screen: 'SalaryManagement' },
+      { title: 'Salary Components', screen: 'SalaryComponent' },
+      { title: 'Session Portal', screen: 'SessionPortalHR' },
+      { title: 'Fines & Penalties', screen: 'StaffFinance' },
+      { title: 'Letters & Certificates', screen: 'LetterManagement' },
+      { title: 'Promotions & Disciplinary', screen: 'StaffPromotion' },
       { title: 'Staff Duty Hours', screen: 'StaffDutyHours' },
+      { title: 'Resource Management', screen: 'ResourceManager' },
       {
         title: 'Leave Management',
         children: [
+          { title: 'Leave Application', screen: 'HRLeaveApplications' },
           { title: 'Leave Quota', screen: 'LeaveQuota' },
-          { title: 'Leave Application', screen: 'LeaveApplications' },
         ],
       },
-      { title: 'Salary Management', screen: 'SalaryManagement' },
-      { title: 'Salary Components', screen: 'SalaryComponent' },
-      { title: 'Loans / Advances', screen: 'StaffLoans' },
-      { title: 'Staff Advances', screen: 'StaffAdvances' },
-      { title: 'Fines & Penalties', screen: 'StaffFinance' },
-      { title: 'Promotions & Disciplinary', screen: 'StaffPromotion' },
-      { title: 'Session Portal', screen: 'SessionPortalHR' },
-      { title: 'Resource Management', screen: 'ResourceManager' },
-      { title: 'Letters & Certificates', screen: 'LetterManagement' },
-      { title: 'HR Reports', screen: 'DetailedHRReport' },
+    ],
+  },
+  {
+    title: 'Reports',
+    icon: 'chart-bar',
+    children: [
+      {
+        title: 'HR Reports',
+        children: [
+          { title: 'Detailed HR Report', screen: 'DetailedHRReport' },
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Administration',
+    icon: 'cog',
+    children: [
+      { title: 'Announcements', screen: 'Announcements' },
     ],
   },
 ];
@@ -1155,23 +1224,18 @@ const navigateTo = (navigation: any, screen: string, role?: string | null) => {
   } else if (screen === 'AdminDashboard' && isSuperAdmin(role)) {
     // Super Admin's Home tab *is* the Admin Dashboard — same reason as above.
     navigation.navigate('Main', { screen: 'Home' });
-  } else if (screen === 'EmployeeDashboard' && isPhysio(role)) {
-    // A physio's Home tab is their Employee Dashboard (the web lands them
-    // there) — switch tab focus, same duplicate-mount reason as above.
-    navigation.navigate('Main', { screen: 'Home' });
   } else if (screen === 'PhysiotherapyDashboard' && isPhysio(role)) {
-    // …and their Physio tab is the Physio Dashboard.
-    navigation.navigate('Main', { screen: 'PhysioTab' });
+    // A physio's Home tab *is* the Physio Dashboard — same reason as above.
+    navigation.navigate('Main', { screen: 'Home' });
   } else if (screen === 'SessionTracker' && isTrainer(role)) {
     // Same reason: Session Tracker is a bottom tab for role 9.
     navigation.navigate('Main', { screen: 'SessionTrackerTab' });
   } else if (screen === 'NutritionDashboard' && isNutritionist(role)) {
     // A nutritionist's Home tab *is* the Nutrition Dashboard.
     navigation.navigate('Main', { screen: 'Home' });
-  } else if (screen === 'NutritionDashboard' && isFitnessManager(role)) {
-    navigation.navigate('Main', { screen: 'NutritionTab' });
-  } else if (screen === 'SessionPortalHR' && isFitnessManager(role)) {
-    navigation.navigate('Main', { screen: 'SessionPortalTab' });
+  } else if (screen === 'FitnessDashboard' && isFitnessManager(role)) {
+    // A fitness manager's Home tab *is* the Fitness Dashboard.
+    navigation.navigate('Main', { screen: 'Home' });
   } else {
     navigation.navigate(screen);
   }
@@ -1181,6 +1245,11 @@ const navigateTo = (navigation: any, screen: string, role?: string | null) => {
 };
 
 // ─── Role-based menu filter ──────────────────────────────────────────────────
+
+const withoutNotifications = (items: any[]): typeof MENU =>
+  items
+    .filter(item => item.screen !== 'Notifications')
+    .map(item => (item.children ? { ...item, children: withoutNotifications(item.children) } : item));
 
 const filterMenuForRole = (
   menu: typeof MENU,
@@ -1219,47 +1288,10 @@ const filterMenuForRole = (
   }
 
   if (isFitnessManager(role)) {
-    // Fitness Manager: Dashboard, Human Resource › Session Portal, Fitness
-    // (curated subset), Nutrition (curated subset), Notifications — web
-    // Fitness-Manager login menu, re-checked 2026-09-14. No Staff Commissions.
-    // Session Portal sits in its own "Human Resource" section, directly under
-    // Dashboard — matching the web's Fitness-Manager drawer (Employee
-    // Dashboard, Announcements, Human Resource › Session Portal, Fitness,
-    // Nutrition), not appended to Fitness.
-    const hrForFitnessManager = {
-      title: 'Human Resource',
-      icon: 'briefcase-account',
-      children: [{ title: 'Session Portal', screen: 'SessionPortalHR' }],
-    };
-
-    const filtered = menu
-      .filter(item => FITNESS_MANAGER_ALLOWED_MENUS.includes(item.title))
-      .map(item => {
-        if (item.title === 'Fitness' && item.children) {
-          return {
-            ...item,
-            children: item.children.filter(c =>
-              FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN.includes(c.title),
-            ),
-          };
-        }
-        if (item.title === 'Nutrition' && item.children) {
-          return {
-            ...item,
-            children: item.children.filter(c =>
-              FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN.includes(c.title),
-            ),
-          };
-        }
-        return item;
-      });
-
-    const dashIdx = filtered.findIndex(item => item.title === 'Dashboard');
     return [
-      ...filtered.slice(0, dashIdx + 1),
-      hrForFitnessManager as typeof MENU[number],
-      ...filtered.slice(dashIdx + 1),
-    ];
+      ...FITNESS_MANAGER_MENU,
+      ...menu.filter(item => item.title === 'Notifications'),
+    ] as typeof MENU;
   }
 
   if (isNutritionist(role)) {
@@ -1377,7 +1409,9 @@ const DrawerContent = (props: any) => {
 
   const profileName = `${firstName} ${lastName}`.trim() || 'User';
 
-  const visibleMenu = filterMenuForRole(MENU, profile?.role);
+  // Notifications is never a drawer entry, for any role: every screen's header
+  // bell already opens it, as on the web. The route itself stays allowed.
+  const visibleMenu = withoutNotifications(filterMenuForRole(MENU, profile?.role));
 
   const handleLogout = () => {
     performLogout();

@@ -104,9 +104,10 @@ const PanelHeader = ({ title, badge }: { title: string; badge: string }) => (
 );
 
 // Mirrors the web table's per-row ACTION column: "Timeline" loads that
-// client's full history into the panel, "View" opens their assessment forms.
-const AssessmentRow = ({ a, first, onTimeline, onView }: {
-  a: GTAssessment; first: boolean; onTimeline?: () => void; onView: () => void;
+// client's full history into the panel, "View" opens their assessment forms,
+// "Add" (Physio's Assessments page only) records a new one for that client.
+const AssessmentRow = ({ a, first, onTimeline, onView, onAdd }: {
+  a: GTAssessment; first: boolean; onTimeline?: () => void; onView: () => void; onAdd?: () => void;
 }) => (
   <View style={[styles.stackRow, !first && styles.rowBorder]}>
     <View style={styles.panelRow}>
@@ -140,6 +141,11 @@ const AssessmentRow = ({ a, first, onTimeline, onView }: {
       <TouchableOpacity style={styles.rowBtn} onPress={onView}>
         <Text style={styles.rowBtnText}>View</Text>
       </TouchableOpacity>
+      {onAdd ? (
+        <TouchableOpacity style={styles.rowBtn} onPress={onAdd}>
+          <Text style={styles.rowBtnText}>Add</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   </View>
 );
@@ -149,7 +155,15 @@ const AssessmentRow = ({ a, first, onTimeline, onView }: {
 // `asHome` is set when this is the General Trainer's Home tab, where the left
 // action must always open the drawer — canGoBack() is not a reliable signal
 // from inside the tab.
-const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
+//
+// `assessmentsOnly` is the Physio login's Assessments page (web
+// /physio/assessments): the 2026-10-15 HAR shows it making the same
+// general-trainer/summary + client-assessments + post-assessment/get calls,
+// but rendering only the client-assessment panel — no tiles, no BeFit
+// referral form or conversions — with an extra per-row "Add".
+const GTDashboard = ({ asHome = false, assessmentsOnly = false }: {
+  asHome?: boolean; assessmentsOnly?: boolean;
+}) => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
 
@@ -319,13 +333,15 @@ const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
   // (GET post-assessment/get?client_id=), i.e. the View Assessment page.
   const openForms = (a: GTAssessment) =>
     navigation.navigate('ViewClientAssessment', { clientId: a.client_id, clientName: a.client_name });
+  const addFor = (a: GTAssessment) =>
+    navigation.navigate('AddClientAssessment', { clientId: a.client_id, clientName: a.client_name });
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>
       <AppHeader
-        title="GT Dashboard"
+        title={assessmentsOnly ? 'Assessments' : 'GT Dashboard'}
         leftIcon={
           !asHome && navigation.canGoBack()
             ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
@@ -348,11 +364,19 @@ const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
           }
         >
           {/* ── Title + range ── */}
-          <Text style={styles.eyebrow}>GENERAL TRAINER</Text>
-          <Text style={styles.pageTitle}>
-            {`${profile?.firstName ?? ''} ${profile?.lastName ?? ''}`.trim() || 'GT Dashboard'}
-          </Text>
-          <Text style={styles.pageDate}>{fmtLongToday()}</Text>
+          {assessmentsOnly ? (
+            <Text style={styles.pageDate}>
+              Post assessments recorded by GT and PT. Add, view, and download from here.
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.eyebrow}>GENERAL TRAINER</Text>
+              <Text style={styles.pageTitle}>
+                {`${profile?.firstName ?? ''} ${profile?.lastName ?? ''}`.trim() || 'GT Dashboard'}
+              </Text>
+              <Text style={styles.pageDate}>{fmtLongToday()}</Text>
+            </>
+          )}
 
           <View style={styles.rangeRow}>
             <TouchableOpacity style={styles.dateBtn} onPress={() => setPicker('start')}>
@@ -374,21 +398,25 @@ const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
           ) : null}
 
           {/* ── At a glance ── */}
-          <Text style={styles.sectionTitle}>{rangeLabel(start, end)} at a glance</Text>
-          <View style={styles.statsGrid}>
-            {statCards.map(c => <StatCard key={c.label} {...c} />)}
-          </View>
+          {assessmentsOnly ? null : (
+            <>
+              <Text style={styles.sectionTitle}>{rangeLabel(start, end)} at a glance</Text>
+              <View style={styles.statsGrid}>
+                {statCards.map(c => <StatCard key={c.label} {...c} />)}
+              </View>
 
-          {/* ── Client assessments ── */}
-          <Text style={styles.sectionTitle}>Client assessments</Text>
+              {/* ── Client assessments ── */}
+              <Text style={styles.sectionTitle}>Client assessments</Text>
+            </>
+          )}
 
-          <View style={styles.card}>
+          <View style={[styles.card, assessmentsOnly && styles.cardGap]}>
             <PanelHeader
-              title="Assessment timeline"
+              title={assessmentsOnly ? 'Client assessments' : 'Assessment timeline'}
               badge={`${assessments.length} record${assessments.length === 1 ? '' : 's'} in range`}
             />
 
-            <Text style={styles.fieldLabel}>CLIENT TIMELINE</Text>
+            <Text style={styles.fieldLabel}>{assessmentsOnly ? 'CLIENT' : 'CLIENT TIMELINE'}</Text>
             <TouchableOpacity style={styles.select} onPress={() => setTimelineOpen(true)}>
               <Text
                 style={[styles.selectText, !timelineClient && styles.selectPlaceholder]}
@@ -400,6 +428,11 @@ const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
             </TouchableOpacity>
 
             <View style={styles.actionRow}>
+              {assessmentsOnly ? (
+                <TouchableOpacity style={styles.smallBtn} onPress={() => load(true)}>
+                  <Text style={styles.smallBtnText}>Refresh</Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity
                 style={[styles.smallBtn, !timelineId && styles.smallBtnOff]}
                 disabled={!timelineId}
@@ -416,7 +449,9 @@ const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
                   clientId: timelineId, clientName: timelineClient?.name,
                 })}
               >
-                <Text style={[styles.smallBtnText, !timelineId && styles.smallBtnTextOff]}>Full page</Text>
+                <Text style={[styles.smallBtnText, !timelineId && styles.smallBtnTextOff]}>
+                  {assessmentsOnly ? 'View / Download' : 'Full page'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -445,12 +480,14 @@ const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
                     first={i === 0}
                     onTimeline={() => setTimelineId(a.client_id)}
                     onView={() => openForms(a)}
+                    onAdd={assessmentsOnly ? () => addFor(a) : undefined}
                   />
                 ))}
               </ScrollView>
             )}
           </View>
 
+          {assessmentsOnly ? null : (<>
           {/* ── Refer to BeFit ── */}
           <View style={[styles.card, styles.cardGap]}>
             <PanelHeader title="Refer to BeFit" badge="Push client to a PT" />
@@ -542,6 +579,7 @@ const GTDashboard = ({ asHome = false }: { asHome?: boolean }) => {
               </ScrollView>
             )}
           </View>
+          </>)}
         </ScrollView>
       )}
 

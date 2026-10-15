@@ -26,6 +26,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import AppHeader from '../../../components/AppHeader';
 import StaffNameCell from '../../../components/StaffNameCell';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
@@ -159,7 +160,9 @@ const StaffTable = ({ rows, offset }: { rows: any[]; offset: number }) => (
     </ScrollView>
 );
 
-const EmployeeMaster = () => {
+// `asTab` is set when this is a bottom tab on the HR login, where there is
+// nothing to go back to and the left action opens the drawer instead.
+const EmployeeMaster = ({ asTab = false }: { asTab?: boolean }) => {
     const navigation = useNavigation<any>();
 
     // Filter options
@@ -284,9 +287,9 @@ const EmployeeMaster = () => {
         <View style={styles.container}>
             <AppHeader
                 title="Employee Master"
-                leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+                leftIcon={asTab ? <BurgerSVG width={24} height={24} /> : <Icon name="arrow-left" size={24} color="#1A1A1A" />}
                 rightIcon={<NotificationSVG width={24} height={24} />}
-                onLeftPress={() => navigation.goBack()}
+                onLeftPress={() => (asTab ? (navigation as any).openDrawer() : navigation.goBack())}
                 onRightPress={() => navigation.navigate('Notifications')}
                 backgroundColor="#FFE5E5"
             />

@@ -6,6 +6,7 @@ import {
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import BurgerSVG from '../../assets/svg/BurgerSVG';
 import AppHeader from '../../components/AppHeader';
 import NotificationSVG from '../../assets/svg/NotificationSVG';
 import { RootState } from '../../redux/store';
@@ -79,7 +80,9 @@ const COLS = [
 
 const TABLE_W = COLS.reduce((s, c) => s + c.width, 0);
 
-const SalaryManagement = () => {
+// `asTab` is set when this is a bottom tab on the HR login, where there is
+// nothing to go back to and the left action opens the drawer instead.
+const SalaryManagement = ({ asTab = false }: { asTab?: boolean }) => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
@@ -162,9 +165,9 @@ const SalaryManagement = () => {
     <View style={s.container}>
       <AppHeader
         title="Staff Members Salary"
-        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        leftIcon={asTab ? <BurgerSVG width={24} height={24} /> : <Icon name="arrow-left" size={24} color="#1A1A1A" />}
         rightIcon={<NotificationSVG width={24} height={24} />}
-        onLeftPress={() => navigation.goBack()}
+        onLeftPress={() => (asTab ? (navigation as any).openDrawer() : navigation.goBack())}
         onRightPress={() => navigation.navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Modal, Pressable, Platform,
@@ -8,116 +8,25 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
-import { getHRDashboard, getStaffList, getBranchesNameList } from '../../../api/employeeDashboard';
+import { getStaffList, getBranchesNameList, getDepartmentNames, getDesignationNames } from '../../../api/employeeDashboard';
 import api from '../../../api/service';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface BranchBreakdown {
-  present?: number;
-  late?: number;
-  absent?: number;
-  on_leave?: number;
-  onLeave?: number;
-}
-
-interface AttendanceDay {
-  date?: string;
-  present?: number;
-  on_leave?: number;
-  onLeave?: number;
-  late?: number;
-  absent?: number;
-  f11?: BranchBreakdown;
-  g13?: BranchBreakdown;
-  'f-11'?: BranchBreakdown;
-  'g-13'?: BranchBreakdown;
-}
-
-interface DeptSummary {
-  name?: string;
-  department?: string;
-  total?: number;
-  count?: number;
-  f11?: number;
-  g13?: number;
-  'f-11'?: number;
-  'g-13'?: number;
-  roles?: string;
-  designations?: string;
-}
-
-interface PersonRow {
-  name?: string;
-  employee?: string;
-  employee_name?: string;
-  branch?: string;
-  designation?: string;
-  department?: string;
-  date?: string;
-  birthday?: string;
-  anniversary?: string;
-  age?: number | string;
-}
-
-interface HRDashData {
-  // Staff overview - multiple possible shapes
-  staff_overview?: { total?: number; f11?: number; g13?: number };
-  staffOverview?: { total?: number; f11?: number; g13?: number };
-  total_staff?: number;
-  totalStaff?: number;
-  f11_staff?: number;
-  g13_staff?: number;
-  // Departments
-  departments?: DeptSummary[];
-  department_summary?: DeptSummary[];
-  // Attendance
-  attendance?: {
-    previous_day?: AttendanceDay;
-    previousDay?: AttendanceDay;
-    today?: AttendanceDay;
-    next_day?: AttendanceDay;
-    nextDay?: AttendanceDay;
-  };
-  // Summaries
-  late_summary?: { previous_day?: number; today?: number; next_day?: number };
-  lateSummary?: { previousDay?: number; today?: number; nextDay?: number };
-  absent_summary?: { previous_day?: number; today?: number; next_day?: number };
-  absentSummary?: { previousDay?: number; today?: number; nextDay?: number };
-  // Approvals
-  approvals?: {
-    pending_duty_hour_requests?: number;
-    pending_document_reviews?: number;
-    pendingDutyHourRequests?: number;
-    pendingDocumentReviews?: number;
-  };
-  // Birthdays / anniversaries
-  birthdays?: PersonRow[];
-  anniversaries?: PersonRow[];
-  // Expandable details
-  details?: {
-    staff_details?: any[];
-    staffDetails?: any[];
-    department_details?: any[];
-    departmentDetails?: any[];
-    present_details?: any[];
-    presentDetails?: any[];
-    late_details?: any[];
-    lateDetails?: any[];
-    absent_details?: any[];
-    absentDetails?: any[];
-    leave_details?: any[];
-    leaveDetails?: any[];
-    duty_hour_requests?: any[];
-    dutyHourRequests?: any[];
-    document_approval_requests?: any[];
-    documentApprovalRequests?: any[];
-  };
-}
+// The web's HR dashboard (/hr-dashboard) builds every figure in the browser
+// from the calls below — HAR 2026-10-15, HR login. There is no summary
+// endpoint: /v1/hr/dashboard is never called by the web.
+//   /v1/auth/get?status=1&limit=1000&account_type=staff          roster
+//   /v1/attendance/index?category=2&type=Staff&start_date=prev&end_date=next
+//   /v1/hr/leave-application/index?status=1&limit=1000           every application
+//   /v1/hr/employee-duty-hour-requests/index?approval_status=Pending  (404 when none)
+//   /v1/hr/staff-documents/index?approval_status=Pending              (404 when none)
+// Every count below was checked against that capture: 79 staff (F-11 55,
+// G-13 24); today F-11 45 present / 12 late, G-13 23 / 2; Present Details
+// 140, Late 29, Absent 3, Leave 2; approved leave 127 / 24 / 12 = 163.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,24 +37,30 @@ const fmtDate = (d: Date) => {
   return `${y}-${m}-${dy}`;
 };
 
-const fmtDisplay = (d: Date) => {
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const fmtDisplay = (d: Date) =>
+  d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+/** "YYYY-MM-DD" as a local date — `new Date(iso)` is UTC and can slip a day. */
+const parseIso = (iso?: string | null): Date | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ''));
+  if (!m || m[1] === '0000') return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 };
 
 const dayLabel = (iso?: string) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const d = parseIso(iso);
+  return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 };
 
-const getAttendanceDay = (data: HRDashData, key: 'previous_day' | 'today' | 'next_day'): AttendanceDay => {
-  const camKey: Record<string, string> = { previous_day: 'previousDay', today: 'today', next_day: 'nextDay' };
-  return (data.attendance as any)?.[key] ?? (data.attendance as any)?.[camKey[key]] ?? {};
-};
+const monthDay = (d: Date) =>
+  d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 
-const getBranchBreakdown = (day: AttendanceDay, branch: 'f11' | 'g13'): BranchBreakdown => {
-  return (day as any)[branch] ?? (day as any)[branch === 'f11' ? 'f-11' : 'g-13'] ?? {};
-};
+/** Whole years from `from` to `at` — the web's "Age" and anniversary "Years". */
+const completedYears = (from: Date, at: Date) =>
+  at.getFullYear() - from.getFullYear() -
+  (at.getMonth() < from.getMonth() || (at.getMonth() === from.getMonth() && at.getDate() < from.getDate()) ? 1 : 0);
+
+const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 
 // ── Attendance row helpers, ported from the web's own dashboard logic ────────
 // (main.1010f2c7.js, captured 2026-09-17).
@@ -184,131 +99,26 @@ const lateInfo = (a: any, dutyStart: string | null): { isLate: boolean; text: st
   return { isLate: true, text: `${h > 0 ? `${h}h ` : ''}${diff % 60}m`.trim(), minutes: diff };
 };
 
-const DEPT_COLORS = ['#E63946', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1', '#D81B60', '#F57F17'];
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-const SectionTitle = ({ title }: { title: string }) => (
-  <Text style={styles.sectionTitle}>{title}</Text>
-);
-
-const StaffCard = ({ label, value, sub, onPress }: { label: string; value: any; sub?: string; onPress?: () => void }) => (
-  <TouchableOpacity style={styles.staffCard} onPress={onPress} disabled={!onPress} activeOpacity={0.7}>
-    <Text style={styles.staffValue}>{value ?? '—'}</Text>
-    <Text style={styles.staffLabel}>{label}</Text>
-    {sub ? <Text style={styles.staffSub}>{sub}</Text> : null}
-  </TouchableOpacity>
-);
-
-const AttendanceDayCard = ({
-  title,
-  highlighted,
-  day,
-  onPress,
-}: {
-  title: string;
-  highlighted?: boolean;
-  day: AttendanceDay;
-  onPress?: () => void;
-}) => {
-  const f11 = getBranchBreakdown(day, 'f11');
-  const g13 = getBranchBreakdown(day, 'g13');
-  const present = day.present ?? 0;
-  const onLeave = day.on_leave ?? day.onLeave ?? 0;
-  const late = day.late ?? 0;
-  const absent = day.absent ?? 0;
-
-  return (
-    <TouchableOpacity
-      style={[styles.attCard, highlighted && styles.attCardHighlighted]}
-      onPress={onPress}
-      disabled={!onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.attCardHeader}>
-        <Text style={[styles.attCardTitle, highlighted && styles.attCardTitleHighlighted]}>{title}</Text>
-        {day.date ? <Text style={styles.attCardDate}>{dayLabel(day.date)}</Text> : null}
-      </View>
-      <View style={styles.attGrid}>
-        <View style={styles.attCell}>
-          <Text style={styles.attCellLabel}>Present</Text>
-          <Text style={[styles.attCellVal, { color: '#43A047' }]}>{present}</Text>
-        </View>
-        <View style={styles.attCell}>
-          <Text style={styles.attCellLabel}>On Leave</Text>
-          <Text style={styles.attCellVal}>{onLeave}</Text>
-        </View>
-        <View style={styles.attCell}>
-          <Text style={styles.attCellLabel}>Late</Text>
-          <Text style={[styles.attCellVal, { color: '#FB8C00' }]}>{late}</Text>
-        </View>
-        <View style={styles.attCell}>
-          <Text style={styles.attCellLabel}>Absent</Text>
-          <Text style={[styles.attCellVal, { color: '#E63946' }]}>{absent}</Text>
-        </View>
-      </View>
-      {(f11.present != null || g13.present != null) && (
-        <View style={styles.branchBreakdown}>
-          <Text style={styles.branchBreakText}>
-            F-11: P {f11.present ?? 0} | L {f11.late ?? 0} | A {f11.absent ?? 0} | Lv {f11.on_leave ?? f11.onLeave ?? 0}
-          </Text>
-          <Text style={styles.branchBreakText}>
-            G-13: P {g13.present ?? 0} | L {g13.late ?? 0} | A {g13.absent ?? 0} | Lv {g13.on_leave ?? g13.onLeave ?? 0}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+/** Records from either `{data: [...]}` or Laravel's `{data: {data: [...]}}`. */
+const listOf = (res: any): any[] => {
+  const d = res?.data;
+  if (Array.isArray(d)) return d;
+  if (Array.isArray(d?.data)) return d.data;
+  return [];
 };
 
-const SummaryBanner = ({
-  title,
-  color,
-  prev,
-  today,
-  next,
-  onPress,
-}: {
-  title: string;
-  color: string;
-  prev: any;
-  today: any;
-  next: any;
-  onPress?: () => void;
-}) => (
-  <TouchableOpacity
-    style={[styles.summaryBanner, { borderLeftColor: color }]}
-    onPress={onPress}
-    disabled={!onPress}
-    activeOpacity={0.7}
-  >
-    <View style={styles.summaryBannerHeader}>
-      <Text style={[styles.summaryBannerTitle, { color }]}>{title}</Text>
-      <View style={[styles.summaryBannerBadge, { backgroundColor: color }]}>
-        <Text style={styles.summaryBannerBadgeText}>{(prev ?? 0) + (today ?? 0) + (next ?? 0)}</Text>
-      </View>
-    </View>
-    <Text style={styles.summaryBannerSub}>Quick day-wise summary</Text>
-    <View style={styles.summaryChips}>
-      <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Previous Day: {prev ?? 0}</Text></View>
-      <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Today: {today ?? 0}</Text></View>
-      <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Next Day: {next ?? 0}</Text></View>
-    </View>
-  </TouchableOpacity>
-);
+const BRANCH_COLORS = { f11: '#1E88E5', g13: '#43A047' };
+const DEPT_COLORS = ['#E63946', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1', '#D81B60', '#F57F17'];
 
-const ApprovalCard = ({ label, value, color }: { label: string; value: any; color: string }) => (
-  <View style={styles.approvalCard}>
-    <Text style={styles.approvalLabel}>{label}</Text>
-    <Text style={[styles.approvalValue, { color }]}>{value ?? 0}</Text>
-    <Text style={styles.approvalNote}>
-      {label.includes('Duty') ? 'Employees can request new timings, but changes only apply after HR approval.' : 'Approved documents become view-only on the employee dashboard.'}
-    </Text>
-  </View>
-);
+type BranchKey = 'f11' | 'g13' | 'other';
+type DayStats = { present: number; onTime: number; late: number; absent: number; leave: number };
+type DayKey = 'prev' | 'today' | 'next';
 
-// Column sets for the attendance detail tables, matching the web's HR
-// dashboard exactly (confirmed against the 2026-09-17 capture).
+const DAY_TITLES: Record<DayKey, string> = { prev: 'Previous Day', today: 'Today', next: 'Next Day' };
+const ZERO_DAY: DayStats = { present: 0, onTime: 0, late: 0, absent: 0, leave: 0 };
+
+// ── Tables ────────────────────────────────────────────────────────────────────
+
 type AttCol = { label: string; key: string; w: number; badge?: 'status' | 'late'; date?: boolean };
 
 const PRESENT_COLS: AttCol[] = [
@@ -345,7 +155,7 @@ const ABSENT_COLS: AttCol[] = [
   { label: 'Department', key: 'department', w: 140 },
 ];
 
-// Staff Register — the Total / F-11 / G-13 staff popups.
+// Staff Register — the Staff Details section and the Total / F-11 / G-13 popups.
 const STAFF_COLS: AttCol[] = [
   { label: 'Employee', key: 'name', w: 170 },
   { label: 'Employee ID', key: 'uid', w: 110 },
@@ -356,7 +166,7 @@ const STAFF_COLS: AttCol[] = [
   { label: 'Phone', key: 'phone', w: 130 },
 ];
 
-// Approved Leaves — the day popups.
+// Approved Leaves — one row per person per day of the window.
 const LEAVE_COLS: AttCol[] = [
   { label: 'Employee', key: 'name', w: 150 },
   { label: 'Date', key: 'date', w: 100, date: true },
@@ -369,20 +179,49 @@ const LEAVE_COLS: AttCol[] = [
   { label: 'Department', key: 'department', w: 140 },
 ];
 
-const AttTable = ({ rows, cols, empty }: { rows: any[]; cols: AttCol[]; empty: string }) => {
+// Pending leave applications.
+const LEAVE_REQUEST_COLS: AttCol[] = [
+  { label: 'Employee', key: 'name', w: 150 },
+  { label: 'Branch', key: 'branch', w: 70 },
+  { label: 'Leave Type', key: 'leave_type', w: 90 },
+  { label: 'From', key: 'from', w: 100, date: true },
+  { label: 'To', key: 'to', w: 100, date: true },
+  { label: 'Days', key: 'days', w: 50 },
+  { label: 'Reason', key: 'reason', w: 220 },
+  { label: 'Submitted', key: 'submitted', w: 100, date: true },
+];
+
+// Duty-hour and document requests 404 when there are none, so no row has
+// been captured yet; these read the field names the other HR lists use.
+const REQUEST_COLS: AttCol[] = [
+  { label: 'Employee', key: 'name', w: 170 },
+  { label: 'Branch', key: 'branch', w: 70 },
+  { label: 'Date', key: 'date', w: 100, date: true },
+  { label: 'Status', key: 'status', w: 90 },
+];
+
+const DEPT_DETAIL_COLS: AttCol[] = [
+  { label: 'Department', key: 'name', w: 170 },
+  { label: 'F-11', key: 'f11', w: 50 },
+  { label: 'G-13', key: 'g13', w: 50 },
+  { label: 'Total', key: 'total', w: 50 },
+  { label: 'Designations', key: 'designations', w: 280 },
+];
+
+const AttTable = ({ rows, cols, empty, index = true }: { rows: any[]; cols: AttCol[]; empty: string; index?: boolean }) => {
   if (!rows || rows.length === 0) return <Text style={styles.attEmpty}>{empty}</Text>;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View>
         <View style={styles.attHeadRow}>
-          <Text style={[styles.attTh, styles.attSr]}>S.No</Text>
+          {index && <Text style={[styles.attTh, styles.attSr]}>S.No</Text>}
           {cols.map(c => (
             <Text key={c.key} style={[styles.attTh, { width: c.w }]}>{c.label}</Text>
           ))}
         </View>
         {rows.map((r, i) => (
           <View key={r.id ?? i} style={[styles.attRow, i % 2 === 1 && styles.attRowAlt]}>
-            <Text style={[styles.attTd, styles.attSr]}>{i + 1}</Text>
+            {index && <Text style={[styles.attTd, styles.attSr]}>{i + 1}</Text>}
             {cols.map(c => {
               const v = r[c.key];
               if (c.badge) {
@@ -409,16 +248,205 @@ const AttTable = ({ rows, cols, empty }: { rows: any[]; cols: AttCol[]; empty: s
   );
 };
 
-const CollapsibleSection = ({
-  title,
-  count,
-  color,
-  children,
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+const SectionTitle = ({ title, note }: { title: string; note?: string }) => (
+  <View>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    {note ? <Text style={styles.sectionNote}>{note}</Text> : null}
+  </View>
+);
+
+const Card = ({ title, note, children }: { title: string; note?: string; children?: React.ReactNode }) => (
+  <View style={styles.card}>
+    <Text style={styles.cardTitle}>{title}</Text>
+    {note ? <Text style={styles.cardNote}>{note}</Text> : null}
+    {children}
+  </View>
+);
+
+const StaffCard = ({ label, value, sub, color, onPress }: { label: string; value: any; sub?: string; color: string; onPress?: () => void }) => (
+  <TouchableOpacity style={[styles.staffCard, { borderTopColor: color }]} onPress={onPress} disabled={!onPress} activeOpacity={0.7}>
+    <Text style={styles.staffLabel}>{label}</Text>
+    <Text style={[styles.staffValue, { color }]}>{value ?? '—'}</Text>
+    {sub ? <Text style={styles.staffSub}>{sub}</Text> : null}
+  </TouchableOpacity>
+);
+
+const Legend = ({ items }: { items: { label: string; color: string }[] }) => (
+  <View style={styles.legend}>
+    {items.map(i => (
+      <View key={i.label} style={styles.legendItem}>
+        <View style={[styles.legendDot, { backgroundColor: i.color }]} />
+        <Text style={styles.legendText}>{i.label}</Text>
+      </View>
+    ))}
+  </View>
+);
+
+/** Donut split across slices, same drawing as the Admin Dashboard's. */
+const Donut = ({ parts, size, centre, caption }: {
+  parts: { value: number; color: string }[]; size: number; centre: number; caption: string;
+}) => {
+  const total = parts.reduce((s, p) => s + p.value, 0);
+  const r = size / 2 - 14;
+  const c = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <Svg width={size} height={size}>
+      <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke="#E2E8F0" strokeWidth={20} fill="none" />
+        {total > 0 && parts.map((p, i) => {
+          const len = (p.value / total) * c;
+          const el = (
+            <Circle
+              key={i}
+              cx={size / 2} cy={size / 2} r={r}
+              stroke={p.color} strokeWidth={20} fill="none"
+              strokeDasharray={`${len} ${c - len}`}
+              strokeDashoffset={-offset}
+            />
+          );
+          offset += len;
+          return el;
+        })}
+      </G>
+      <SvgText x={size / 2} y={size / 2 + 2} fontSize={18} fontWeight="800" fill="#1a1a1a" textAnchor="middle">{centre}</SvgText>
+      <SvgText x={size / 2} y={size / 2 + 18} fontSize={11} fill="#888" textAnchor="middle">{caption}</SvgText>
+    </Svg>
+  );
+};
+
+/**
+ * The web's bar charts as labelled horizontal bars — readable at phone width,
+ * where the web's vertical bars with rotated axis labels are not.
+ */
+type BarGroup = { label: string; bars: { value: number; color: string }[] };
+const BarGroups = ({ groups }: { groups: BarGroup[] }) => {
+  const max = Math.max(1, ...groups.flatMap(g => g.bars.map(b => b.value)));
+  return (
+    <View style={styles.barGroups}>
+      {groups.map(g => (
+        <View key={g.label} style={styles.barGroup}>
+          <Text style={styles.barGroupLabel}>{g.label}</Text>
+          {g.bars.map((b, i) => (
+            <View key={i} style={styles.barLine}>
+              <View style={styles.barTrack}>
+                <View style={[styles.barFill, { width: `${(b.value / max) * 100}%`, backgroundColor: b.color }]} />
+              </View>
+              <Text style={styles.barValue}>{b.value}</Text>
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const BranchPerformance = ({ title, staff, day, color }: { title: string; staff: number; day: DayStats; color: string }) => (
+  <View style={[styles.card, styles.perfCard, { borderTopColor: color }]}>
+    <View style={styles.perfHead}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      <Text style={styles.perfStaff}>{staff} staff</Text>
+    </View>
+    <View style={styles.perfGrid}>
+      {([
+        ['Present', day.present, '#1a1a1a'],
+        ['On time', day.onTime, '#43A047'],
+        ['Late', day.late, '#FB8C00'],
+        ['Absent', day.absent, '#E63946'],
+        ['On leave', day.leave, '#1E88E5'],
+      ] as const).map(([label, value, c]) => (
+        <View key={label} style={styles.perfCell}>
+          <Text style={styles.perfLabel}>{label}</Text>
+          <Text style={[styles.perfValue, { color: c }]}>{value}</Text>
+        </View>
+      ))}
+    </View>
+    <Text style={styles.cardNote}>
+      {day.onTime} on time out of {day.present} present ({pct(day.onTime, day.present)}%).
+    </Text>
+  </View>
+);
+
+const AttendanceDayCard = ({
+  title, date, day, f11, g13, highlighted, onPress,
 }: {
-  title: string;
-  count: number;
-  color: string;
-  children?: React.ReactNode;
+  title: string; date: string; day: DayStats; f11: DayStats; g13: DayStats; highlighted?: boolean; onPress?: () => void;
+}) => (
+  <TouchableOpacity
+    style={[styles.attCard, highlighted && styles.attCardHighlighted]}
+    onPress={onPress}
+    disabled={!onPress}
+    activeOpacity={0.7}
+  >
+    <View style={styles.attCardHeader}>
+      <Text style={[styles.attCardTitle, highlighted && styles.attCardTitleHighlighted]}>{title}</Text>
+      <Text style={styles.attCardDate}>{dayLabel(date)}</Text>
+    </View>
+    <View style={styles.attGrid}>
+      <View style={styles.attCell}>
+        <Text style={styles.attCellLabel}>Present</Text>
+        <Text style={[styles.attCellVal, { color: '#43A047' }]}>{day.present}</Text>
+      </View>
+      <View style={styles.attCell}>
+        <Text style={styles.attCellLabel}>On Leave</Text>
+        <Text style={styles.attCellVal}>{day.leave}</Text>
+      </View>
+      <View style={styles.attCell}>
+        <Text style={styles.attCellLabel}>Late</Text>
+        <Text style={[styles.attCellVal, { color: '#FB8C00' }]}>{day.late}</Text>
+      </View>
+      <View style={styles.attCell}>
+        <Text style={styles.attCellLabel}>Absent</Text>
+        <Text style={[styles.attCellVal, { color: '#E63946' }]}>{day.absent}</Text>
+      </View>
+    </View>
+    <View style={styles.branchBreakdown}>
+      <Text style={styles.branchBreakText}>F-11: P {f11.present} | L {f11.late} | A {f11.absent} | Lv {f11.leave}</Text>
+      <Text style={styles.branchBreakText}>G-13: P {g13.present} | L {g13.late} | A {g13.absent} | Lv {g13.leave}</Text>
+    </View>
+  </TouchableOpacity>
+);
+
+const SummaryBanner = ({
+  title, color, counts, onPress,
+}: {
+  title: string; color: string; counts: Record<DayKey, number>; onPress?: () => void;
+}) => (
+  <TouchableOpacity
+    style={[styles.summaryBanner, { borderLeftColor: color }]}
+    onPress={onPress}
+    disabled={!onPress}
+    activeOpacity={0.7}
+  >
+    <View style={styles.summaryBannerHeader}>
+      <Text style={[styles.summaryBannerTitle, { color }]}>{title}</Text>
+      <View style={[styles.summaryBannerBadge, { backgroundColor: color }]}>
+        <Text style={styles.summaryBannerBadgeText}>{counts.prev + counts.today + counts.next}</Text>
+      </View>
+    </View>
+    <Text style={styles.summaryBannerSub}>Quick day-wise summary</Text>
+    <View style={styles.summaryChips}>
+      <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Previous Day: {counts.prev}</Text></View>
+      <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Today: {counts.today}</Text></View>
+      <View style={styles.summaryChip}><Text style={styles.summaryChipText}>Next Day: {counts.next}</Text></View>
+    </View>
+  </TouchableOpacity>
+);
+
+const ApprovalCard = ({ label, value, color, note }: { label: string; value: number; color: string; note: string }) => (
+  <View style={styles.approvalCard}>
+    <Text style={styles.approvalLabel}>{label}</Text>
+    <Text style={[styles.approvalValue, { color }]}>{value}</Text>
+    <Text style={styles.approvalNote}>{note}</Text>
+  </View>
+);
+
+const CollapsibleSection = ({
+  title, count, color, children,
+}: {
+  title: string; count: number; color: string; children?: React.ReactNode;
 }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -430,7 +458,7 @@ const CollapsibleSection = ({
         </View>
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} color="#999" style={{ marginLeft: 'auto' }} />
       </TouchableOpacity>
-      {open && children}
+      {open && <View style={{ marginTop: 10 }}>{children}</View>}
     </View>
   );
 };
@@ -466,7 +494,7 @@ const DetailsModal = ({ sheet, onClose }: { sheet: DetailSheet | null; onClose: 
           ))}
         </View>
         {sheet?.sections.map(sec => (
-          <View key={sec.title} style={styles.detailsCard}>
+          <View key={sec.title} style={styles.card}>
             <View style={styles.detailSectionHead}>
               <Text style={[styles.collapseTitle, { color: sec.color }]}>{sec.title}</Text>
               <View style={[styles.collapseBadge, { backgroundColor: sec.color + '20' }]}>
@@ -482,762 +510,850 @@ const DetailsModal = ({ sheet, onClose }: { sheet: DetailSheet | null; onClose: 
   </Modal>
 );
 
+// ── Picker sheet (branch / department / designation) ─────────────────────────
+
+type Option = { id: string; label: string; value?: number };
+type Picker = { title: string; options: Option[]; selected: string; onPick: (o: Option) => void };
+
+const PickerModal = ({ picker, onClose }: { picker: Picker | null; onClose: () => void }) => (
+  <Modal visible={!!picker} transparent animationType="slide" onRequestClose={onClose}>
+    <Pressable style={styles.modalOverlay} onPress={onClose}>
+      {/* Bottom edge only: keeps the last option clear of the home indicator. */}
+      <SafeAreaView style={styles.modalSheet} edges={['bottom']}>
+        <View style={styles.modalHandle} />
+        <Text style={styles.modalTitle}>{picker?.title}</Text>
+        <ScrollView style={{ maxHeight: 420 }}>
+          {picker?.options.map(opt => {
+            const on = picker.selected === opt.id;
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                style={[styles.modalOption, on && styles.modalOptionSelected]}
+                onPress={() => { picker.onPick(opt); onClose(); }}
+              >
+                <Icon name={on ? 'check-circle' : 'circle-outline'} size={20} color={on ? '#E63946' : '#ccc'} style={{ marginRight: 10 }} />
+                <Text style={[styles.modalOptionText, on && { color: '#E63946', fontWeight: '700' }]}>{opt.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </SafeAreaView>
+    </Pressable>
+  </Modal>
+);
+
+const FilterField = ({ icon, text, onPress }: { icon: string; text: string; onPress: () => void }) => (
+  <TouchableOpacity style={styles.filterField} onPress={onPress}>
+    <Icon name={icon} size={16} color="#666" style={{ marginRight: 6 }} />
+    <Text style={styles.filterFieldText} numberOfLines={1}>{text}</Text>
+    <Icon name="chevron-down" size={16} color="#666" />
+  </TouchableOpacity>
+);
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-const ALL_BRANCHES_OPTION = { id: '0', label: 'All Branches', branch_id: undefined as number | undefined };
+const ALL_BRANCHES: Option = { id: '0', label: 'All Branches', value: undefined };
+const ALL_DEPTS: Option = { id: '0', label: 'All departments' };
+const ALL_DESIGS: Option = { id: '0', label: 'All designations' };
 
-const HRDashboard = () => {
+type Raw = { staff: any[]; att: any[]; leaves: any[]; duty: any[]; docs: any[]; branchId?: number; date: Date };
+
+// `asHome` is set when this is the HR login's Home tab, where the left action
+// opens the drawer instead of going back.
+const HRDashboard = ({ asHome = false }: { asHome?: boolean }) => {
   const navigation = useNavigation<any>();
   const { profile } = useSelector((state: RootState) => state.user);
 
-  const [data, setData] = useState<HRDashData | null>(null);
+  const [raw, setRaw] = useState<Raw | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Branch-scoped logins (e.g. the F-11 / G-13 admins) only get their own
   // branch; "All Branches" is for users with no branch (HR, super admin).
-  const ownBranchOption = profile?.branchId
-    ? { id: String(profile.branchId), label: profile.branchName ?? 'My Branch', branch_id: profile.branchId as number | undefined }
+  const ownBranch: Option | null = profile?.branchId
+    ? { id: String(profile.branchId), label: profile.branchName ?? 'My Branch', value: profile.branchId as number }
     : null;
 
-  // Fetched from /v1/branches/branches-name-list — HAR-confirmed real ids are
-  // F 11 = 15, G 13 = 1 (not the reverse), so this must stay dynamic rather
-  // than hardcoded.
-  const [branchOptions, setBranchOptions] = useState([ownBranchOption ?? ALL_BRANCHES_OPTION]);
-  const [selectedBranch, setSelectedBranch] = useState(ownBranchOption ?? ALL_BRANCHES_OPTION);
-  const [branchModalVisible, setBranchModalVisible] = useState(false);
-
-  useEffect(() => {
-    if (profile?.branchId) return;
-    getBranchesNameList()
-      .then(res => {
-        const branches = res?.data ?? [];
-        setBranchOptions([
-          ALL_BRANCHES_OPTION,
-          ...branches.map((b: any) => ({ id: String(b.id), label: b.name, branch_id: b.id as number | undefined })),
-        ]);
-      })
-      .catch(() => {});
-  }, [profile?.branchId]);
-
+  // Real ids come from /v1/branches/branches-name-list: F 11 = 15, G 13 = 1
+  // (not the reverse), so this stays dynamic rather than hardcoded.
+  const [branchOptions, setBranchOptions] = useState<Option[]>([ownBranch ?? ALL_BRANCHES]);
+  const [branch, setBranch] = useState<Option>(ownBranch ?? ALL_BRANCHES);
+  const [deptOptions, setDeptOptions] = useState<Option[]>([ALL_DEPTS]);
+  const [dept, setDept] = useState<Option>(ALL_DEPTS);
+  const [desigOptions, setDesigOptions] = useState<Option[]>([ALL_DESIGS]);
+  const [desig, setDesig] = useState<Option>(ALL_DESIGS);
+  const [picker, setPicker] = useState<Picker | null>(null);
   const [sheet, setSheet] = useState<DetailSheet | null>(null);
 
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  useEffect(() => {
+    const named = (res: any): Option[] =>
+      (res?.data ?? []).map((x: any) => ({ id: String(x.id), label: x.name, value: Number(x.id) }));
+    if (!profile?.branchId) {
+      getBranchesNameList().then(res => setBranchOptions([ALL_BRANCHES, ...named(res)])).catch(() => {});
+    }
+    getDepartmentNames().then(res => setDeptOptions([ALL_DEPTS, ...named(res)])).catch(() => {});
+    getDesignationNames().then(res => setDesigOptions([ALL_DESIGS, ...named(res)])).catch(() => {});
+  }, [profile?.branchId]);
+
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const todayStr = fmtDate(date);
       const prevStr = fmtDate(new Date(date.getTime() - 86400000));
       const nextStr = fmtDate(new Date(date.getTime() + 86400000));
-      const bId = selectedBranch.branch_id;
-
-      // Try dedicated dashboard endpoint first (may not exist on backend yet)
-      const dashParams: any = { date: todayStr };
-      if (bId !== undefined) dashParams.branch_id = bId;
-      const dashRes = await getHRDashboard(dashParams);
-      const dashData = dashRes?.data ?? dashRes;
-      if (dashData && (dashData.total_staff || dashData.staff_overview || dashData.departments)) {
-        setData(dashData);
-        return;
-      }
-
-      // Fallback: combine multiple endpoints, matching the web admin's own
-      // HR dashboard network calls (HAR-confirmed 2026-07-15):
-      //   /v1/auth/get?status=1&limit=1000                (staff roster)
-      //   /v1/attendance/index?category=2&type=Staff&start_date=prev&end_date=next  (ONE 3-day range call, not 3 separate ones)
-      //   /v1/hr/employee-duty-hour-requests/index, /v1/hr/staff-documents/index    (approvals)
-      // Real branch ids from /v1/branches/branches-name-list: F 11 = 15, G 13 = 1.
-      const f11Id = branchOptions.find(o => o.label === 'F 11')?.branch_id ?? 15;
-      const g13Id = branchOptions.find(o => o.label === 'G 13')?.branch_id ?? 1;
-
-      const [staffRes, attRes, dutyReqRes, docReqRes, leaveRes] = await Promise.allSettled([
+      const bId = branch.value;
+      const [staffRes, attRes, leaveRes, dutyRes, docRes] = await Promise.allSettled([
         // account_type=staff, as the web sends: without it the server's
-        // default can count login accounts into Total Staff.
+        // default counts login accounts into Total Staff.
         getStaffList({ branch_id: bId, status: 1, limit: 1000, account_type: 'staff' }),
         api.get('/v1/attendance/index', {
-          params: { branch_id: bId, category: 2, type: 'Staff', start_date: prevStr, end_date: nextStr, limit: 1000, page: 1 },
+          params: { category: 2, type: 'Staff', branch_id: bId, start_date: prevStr, end_date: nextStr, limit: 1000, page: 1 },
         }),
+        api.get('/v1/hr/leave-application/index', { params: { page: 1, branch_id: bId, status: 1, limit: 1000 } }),
         api.get('/v1/hr/employee-duty-hour-requests/index', {
-          params: { branch_id: bId, approval_status: 'Pending', limit: 1 },
+          params: { branch_id: bId, approval_status: 'Pending', status: 1, limit: 1000 },
         }),
         api.get('/v1/hr/staff-documents/index', {
-          params: { branch_id: bId, approval_status: 'Pending', limit: 1 },
-        }),
-        // The day cards' "On Leave" and "Approved Leaves" come from here, not
-        // from attendance rows (HAR 2026-09-30).
-        api.get('/v1/hr/leave-application/index', {
-          params: { page: 1, branch_id: bId, status: 1, limit: 1000 },
+          params: { page: 1, branch_id: bId, approval_status: 'Pending', status: 1, limit: 1000 },
         }),
       ]);
-
-      const ok = <T,>(r: PromiseSettledResult<T>): T | null =>
-        r.status === 'fulfilled' ? r.value : null;
-
-      // ── Staff roster (source of truth for headcount / dept / birthdays / anniversaries) ──
-      const staffRaw = ok(staffRes);
-      // The API does not enforce branch scoping (verified 2026-09-14), so rows
-      // are also narrowed here whenever a single branch is selected.
-      const inBranch = (r: any) => bId === undefined || Number(r?.branch_id) === Number(bId);
-      const staff: any[] = (staffRaw?.data?.data ?? []).filter(inBranch);
-
-      // The web counts attendance only for people on this roster.
-      const staffById: Record<string, any> = {};
-      staff.forEach((s: any) => { staffById[String(s.id)] = s; });
-
-      // Staff Register rows for the Total / F-11 / G-13 cards, sorted by
-      // department then name like the web's.
-      const staffRegister = staff
-        .map((s: any) => ({
-          id: s.id,
-          branch_id: s.branch_id,
-          name: s.name || 'N/A',
-          uid: s.uid || 'N/A',
-          branch: s.branch_name || 'N/A',
-          department: s.department_name || s.department || 'N/A',
-          designation: s.designation_name || s.designation || 'N/A',
-          joining: s.joining,
-          phone: s.phone || 'N/A',
-        }))
-        .sort((x: any, y: any) => x.department.localeCompare(y.department) || x.name.localeCompare(y.name));
-
-      const totalStaff = staff.length;
-      const f11Total = staff.filter((s: any) => s.branch_id === f11Id).length;
-      const g13Total = staff.filter((s: any) => s.branch_id === g13Id).length;
-
-      const deptMap: Record<string, { total: number; f11: number; g13: number }> = {};
-      staff.forEach((s: any) => {
-        const dept = s.department || 'Other';
-        if (!deptMap[dept]) deptMap[dept] = { total: 0, f11: 0, g13: 0 };
-        deptMap[dept].total++;
-        if (s.branch_id === f11Id) deptMap[dept].f11++;
-        if (s.branch_id === g13Id) deptMap[dept].g13++;
-      });
-      const depts = Object.entries(deptMap)
-        .sort((a, b) => b[1].total - a[1].total)
-        .map(([name, d]) => ({ name, total: d.total, f11: d.f11, g13: d.g13 }));
-
-      const nowMonth = date.getMonth();
-      const validDate = (s?: string) => s && s !== '0000-00-00';
-      const birthdays: PersonRow[] = staff
-        .filter((s: any) => validDate(s.dob) && new Date(s.dob).getMonth() === nowMonth)
-        .map((s: any) => ({
-          name: s.name, branch: s.branch, designation: s.designation, department: s.department,
-          date: s.dob, age: new Date().getFullYear() - new Date(s.dob).getFullYear(),
-        }));
-      const anniversaries: PersonRow[] = staff
-        .filter((s: any) => validDate(s.join_date) && new Date(s.join_date).getMonth() === nowMonth)
-        .map((s: any) => ({
-          name: s.name, branch: s.branch, designation: s.designation, department: s.department,
-          date: s.join_date, age: new Date().getFullYear() - new Date(s.join_date).getFullYear(),
-        }));
-
-      // ── Attendance (one 3-day-range call, split client-side by row.date) ──
-      const attRaw = ok(attRes);
-      const attList: any[] = ((attRaw as any)?.data?.data?.data ?? [])
-        .filter(inBranch)
-        .filter((a: any) => staffById[String(a.attendee_id)]);
-
-      // Approved leave applications, expanded to one row per day of the
-      // window they cover — the web's "On Leave" count and "Approved Leaves".
-      const leaveRaw = ok(leaveRes) as any;
-      const leaveApps: any[] = Array.isArray(leaveRaw?.data?.data)
-        ? leaveRaw.data.data
-        : (leaveRaw?.data?.data?.data ?? []);
-      const leaveRows = leaveApps
-        .filter((l: any) => l.application_status === 'Approved' && inBranch(l))
-        .flatMap((l: any) => {
-          const uid = String(l.user_id ?? l.user_info?.id ?? '');
-          const from = l.from ?? l.leave_from_date;
-          const to = l.to ?? l.leave_to_date;
-          if (!uid || !from || !to) return [];
-          const who = staffById[uid] ?? {};
-          return [prevStr, todayStr, nextStr]
-            .filter(d => d >= from && d <= to)
-            .map(d => ({
-              id: `${l.id}-${uid}-${d}`,
-              branch_id: l.branch_id ?? who.branch_id,
-              name: l.user_info?.name || who.name || 'N/A',
-              date: d,
-              leave_from_date: from,
-              leave_to_date: to,
-              leave_type: l.leave_type || 'N/A',
-              reason: l.reason || l.remarks || 'N/A',
-              branch: l.branch_info?.name || who.branch_name || 'N/A',
-              designation: who.designation_name || who.designation || 'N/A',
-              department: who.department_name || who.department || 'N/A',
-            }));
-        })
-        .sort((x: any, y: any) => x.date.localeCompare(y.date) || x.name.localeCompare(y.name));
-
-      const parseAttDay = (dateStr: string) => {
-        const list = attList.filter((a: any) => a.date === dateStr);
-        const leaves = leaveRows.filter((l: any) => l.date === dateStr);
-        const byBranch = (branchId: number) => {
-          const l = list.filter((a: any) => a.branch_id === branchId);
-          return {
-            present: l.filter((a: any) => a.attendance_status === 'Present').length,
-            late:    l.filter((a: any) => a.is_late === 1).length,
-            absent:  l.filter((a: any) => a.attendance_status === 'Absent').length,
-            on_leave: leaves.filter((x: any) => Number(x.branch_id) === Number(branchId)).length,
-          };
-        };
-        return {
-          date: dateStr,
-          present: list.filter((a: any) => a.attendance_status === 'Present').length,
-          late:    list.filter((a: any) => a.is_late === 1).length,
-          absent:  list.filter((a: any) => a.attendance_status === 'Absent').length,
-          on_leave: leaves.length,
-          total: list.length,
-          f11: byBranch(f11Id),
-          g13: byBranch(g13Id),
-          _list: list,
-        };
-      };
-
-      const prevDay  = parseAttDay(prevStr);
-      const todayDay = parseAttDay(todayStr);
-      const nextDay  = parseAttDay(nextStr);
-
-      const branchLabel = (id: any) =>
-        Number(id) === Number(f11Id) ? 'F 11' : Number(id) === Number(g13Id) ? 'G 13' : 'N/A';
-
-      // Normalised rows for the Present / Late / Absent tables, matching the
-      // web's columns. Built once over the whole window and sorted by date
-      // then name, the way the web's own list is.
-      const attDetail = [...prevDay._list, ...todayDay._list, ...nextDay._list]
-        .map((a: any) => {
-          const d = dutyWindowOf(a);
-          const late = lateInfo(a, d.start);
-          return {
-            id: `${a.id ?? a.attendee_id}-${a.date}`,
-            name: `${a.attendee?.first_name ?? ''} ${a.attendee?.last_name ?? ''}`.trim() || a.user_name || 'N/A',
-            date: a.date,
-            duty_hours: d.start && d.end ? `${d.start} - ${d.end}` : 'N/A',
-            checkin_time: a.checkin_time_12h ?? 'N/A',
-            checkout_time: a.checkout_time_12h ?? 'N/A',
-            working_hours: a.working_hours ?? 'N/A',
-            branch: branchLabel(a.branch_id),
-            designation: a.designation ?? 'N/A',
-            department: a.attendee?.department_name ?? a.attendee?.department ?? 'N/A',
-            reason: a.reason ?? 'N/A',
-            remarks: a.remarks ?? 'N/A',
-            late_time: late.text,
-            _lateMin: late.minutes,
-            status: late.isLate ? 'Late' : 'Present',
-            _present: a.attendance_status === 'Present',
-            _late: a.attendance_status === 'Present' && late.isLate,
-            _absent: a.attendance_status === 'Absent',
-          };
-        })
-        .sort((x, y) => String(x.date).localeCompare(String(y.date)) || x.name.localeCompare(y.name));
-
-      // Pending approvals
-      const dutyRaw = ok(dutyReqRes);
-      const docRaw  = ok(docReqRes);
-      const pendingDuty = dutyRaw?.data?.data?.total ?? dutyRaw?.data?.total ?? 0;
-      const pendingDocs = docRaw?.data?.data?.total  ?? docRaw?.data?.total  ?? 0;
-
-      setData({
-        total_staff: totalStaff,
-        f11_staff:   f11Total,
-        g13_staff:   g13Total,
-        departments: depts,
-        birthdays,
-        anniversaries,
-        attendance: {
-          previous_day: prevDay,
-          today:        todayDay,
-          next_day:     nextDay,
-        },
-        late_summary: {
-          previous_day: prevDay.late,
-          today:        todayDay.late,
-          next_day:     nextDay.late,
-        },
-        absent_summary: {
-          previous_day: prevDay.absent,
-          today:        todayDay.absent,
-          next_day:     nextDay.absent,
-        },
-        approvals: {
-          pending_duty_hour_requests: pendingDuty,
-          pending_document_reviews:   pendingDocs,
-        },
-        // The web's Present/Late/Absent tables span the whole loaded window
-        // (previous + today + next), not just today — confirmed 2026-09-17,
-        // where "Present Details 116" carried both Sep 16 and Sep 17 rows.
-        // Late staff are a SUBSET of Present: a late person is counted in both
-        // and shows a "Late" badge in the Present table.
-        details: {
-          present_details: attDetail.filter(r => r._present),
-          // Late: by date, then most-late first, as the web sorts it.
-          late_details:    attDetail.filter(r => r._late)
-            .sort((x, y) => String(x.date).localeCompare(String(y.date)) || y._lateMin - x._lateMin),
-          absent_details:  attDetail.filter(r => r._absent),
-          staff_details:   staffRegister,
-          leave_details:   leaveRows,
-        },
+      // A rejected call (the two request lists 404 when empty) reads as no rows.
+      const rows = (r: PromiseSettledResult<any>, unwrap = true) =>
+        r.status === 'fulfilled' ? listOf(unwrap ? r.value?.data : r.value) : [];
+      setRaw({
+        staff: rows(staffRes, false),
+        att: rows(attRes),
+        leaves: rows(leaveRes),
+        duty: rows(dutyRes),
+        docs: rows(docRes),
+        branchId: bId,
+        date,
       });
     } catch {
-      setData(null);
+      setRaw(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [date, selectedBranch, branchOptions]);
+  }, [date, branch]);
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Derived data ───────────────────────────────────────────────────────────
+  // ── Everything the page shows, derived from the five lists ────────────────
+  // Department / designation narrow the roster client-side — the web sends
+  // neither to the API (department_id is blank on its /auth/get call).
+  const d = useMemo(() => {
+    if (!raw) return null;
+    const f11Id = branchOptions.find(o => o.label === 'F 11')?.value ?? 15;
+    const g13Id = branchOptions.find(o => o.label === 'G 13')?.value ?? 1;
+    const keyOf = (id: any): BranchKey =>
+      Number(id) === Number(f11Id) ? 'f11' : Number(id) === Number(g13Id) ? 'g13' : 'other';
+    const branchName = (id: any) => ({ f11: 'F 11', g13: 'G 13', other: 'N/A' }[keyOf(id)]);
+    // The API does not enforce branch scoping (verified 2026-09-14).
+    const inBranch = (r: any) => raw.branchId === undefined || Number(r?.branch_id) === Number(raw.branchId);
+    const narrowed = dept.id !== '0' || desig.id !== '0';
 
-  const totalStaff = data?.staff_overview?.total ?? data?.staffOverview?.total ?? data?.total_staff ?? data?.totalStaff ?? 0;
-  const f11Staff = data?.staff_overview?.f11 ?? data?.staffOverview?.f11 ?? data?.f11_staff ?? 0;
-  const g13Staff = data?.staff_overview?.g13 ?? data?.staffOverview?.g13 ?? data?.g13_staff ?? 0;
+    const staff = raw.staff
+      .filter(inBranch)
+      .filter(s => dept.id === '0' || String(s.department_id) === dept.id)
+      .filter(s => desig.id === '0' || String(s.designation_id) === desig.id);
+    const staffById: Record<string, any> = {};
+    staff.forEach(s => { staffById[String(s.id)] = s; });
 
-  const depts: DeptSummary[] = data?.departments ?? data?.department_summary ?? [];
+    const prevStr = fmtDate(new Date(raw.date.getTime() - 86400000));
+    const todayStr = fmtDate(raw.date);
+    const nextStr = fmtDate(new Date(raw.date.getTime() + 86400000));
+    const dates: Record<DayKey, string> = { prev: prevStr, today: todayStr, next: nextStr };
 
-  const prevDay = getAttendanceDay(data ?? {}, 'previous_day');
-  const today = getAttendanceDay(data ?? {}, 'today');
-  const nextDay = getAttendanceDay(data ?? {}, 'next_day');
+    const staffCount = { f11: 0, g13: 0, other: 0, total: staff.length };
+    staff.forEach(s => { staffCount[keyOf(s.branch_id)]++; });
 
-  const lateS = data?.late_summary ?? (data?.lateSummary ? {
-    previous_day: (data.lateSummary as any).previousDay,
-    today: (data.lateSummary as any).today,
-    next_day: (data.lateSummary as any).nextDay,
-  } : undefined);
+    // Attendance counts only people on this roster — that is how the web gets
+    // G-13 today to 23 present / 2 late from 24 / 3 raw rows.
+    const att = raw.att.filter(inBranch).filter(a => staffById[String(a.attendee_id)]);
+    const attRows = att
+      .map((a: any) => {
+        const w = dutyWindowOf(a);
+        const late = lateInfo(a, w.start);
+        const who = staffById[String(a.attendee_id)];
+        const present = a.attendance_status === 'Present';
+        return {
+          id: `${a.id ?? a.attendee_id}-${a.date}`,
+          branch_id: a.branch_id,
+          department_id: who?.department_id,
+          name: `${a.attendee?.first_name ?? ''} ${a.attendee?.last_name ?? ''}`.trim() || who?.name || 'N/A',
+          date: a.date,
+          duty_hours: w.start && w.end ? `${w.start} - ${w.end}` : 'N/A',
+          checkin_time: a.checkin_time_12h ?? 'N/A',
+          checkout_time: a.checkout_time_12h ?? 'N/A',
+          working_hours: a.working_hours ?? 'N/A',
+          branch: branchName(a.branch_id),
+          designation: a.designation ?? who?.designation ?? 'N/A',
+          department: who?.department ?? 'N/A',
+          reason: a.reason ?? 'N/A',
+          remarks: a.remarks ?? 'N/A',
+          late_time: late.text,
+          _lateMin: late.minutes,
+          status: late.isLate ? 'Late' : 'Present',
+          _present: present,
+          _late: present && late.isLate,
+          _absent: a.attendance_status === 'Absent',
+        };
+      })
+      .sort((x, y) => String(x.date).localeCompare(String(y.date)) || x.name.localeCompare(y.name));
 
-  const absentS = data?.absent_summary ?? (data?.absentSummary ? {
-    previous_day: (data.absentSummary as any).previousDay,
-    today: (data.absentSummary as any).today,
-    next_day: (data.absentSummary as any).nextDay,
-  } : undefined);
+    // Leave applications. Approvals and leave types count every application
+    // in scope (the web's "Other" column is a third branch, id 33); "On leave"
+    // counts approved ones covering a window day for someone on the roster.
+    const apps = raw.leaves
+      .filter(inBranch)
+      .filter(l => !narrowed || staffById[String(l.user_id ?? l.user_info?.id)]);
+    const leaveRows = apps
+      .filter(l => l.application_status === 'Approved')
+      .flatMap(l => {
+        const uid = String(l.user_id ?? l.user_info?.id ?? '');
+        const who = staffById[uid];
+        if (!who || !l.from || !l.to) return [];
+        return [prevStr, todayStr, nextStr]
+          .filter(day => day >= l.from && day <= l.to)
+          .map(day => ({
+            id: `${l.id}-${uid}-${day}`,
+            branch_id: l.branch_id ?? who.branch_id,
+            department_id: who.department_id,
+            name: l.user_info?.name || who.name || 'N/A',
+            date: day,
+            leave_from_date: l.from,
+            leave_to_date: l.to,
+            leave_type: l.leave_type || 'N/A',
+            reason: l.reason || 'N/A',
+            branch: l.branch_info?.name || who.branch_name || 'N/A',
+            designation: who.designation || 'N/A',
+            department: who.department || 'N/A',
+          }));
+      })
+      .sort((x, y) => x.date.localeCompare(y.date) || x.name.localeCompare(y.name));
 
-  const pendingDutyHours = data?.approvals?.pending_duty_hour_requests ?? data?.approvals?.pendingDutyHourRequests ?? 0;
-  const pendingDocReviews = data?.approvals?.pending_document_reviews ?? data?.approvals?.pendingDocumentReviews ?? 0;
+    const statsOf = (day: string, match: (r: any) => boolean = () => true): DayStats => {
+      const rows = attRows.filter(r => r.date === day && match(r));
+      const present = rows.filter(r => r._present).length;
+      const late = rows.filter(r => r._late).length;
+      return {
+        present, late, onTime: present - late,
+        absent: rows.filter(r => r._absent).length,
+        leave: leaveRows.filter(r => r.date === day && match(r)).length,
+      };
+    };
+    const isF11 = (r: any) => keyOf(r.branch_id) === 'f11';
+    const isG13 = (r: any) => keyOf(r.branch_id) === 'g13';
+    const days = {} as Record<DayKey, { all: DayStats; f11: DayStats; g13: DayStats }>;
+    (Object.keys(dates) as DayKey[]).forEach(k => {
+      days[k] = { all: statsOf(dates[k]), f11: statsOf(dates[k], isF11), g13: statsOf(dates[k], isG13) };
+    });
 
-  const birthdays: PersonRow[] = data?.birthdays ?? [];
-  const anniversaries: PersonRow[] = data?.anniversaries ?? [];
+    // Departments: totals per branch plus a designation breakdown, largest first.
+    const deptMap: Record<string, { id: any; total: number; f11: number; g13: number; desigs: Record<string, number> }> = {};
+    staff.forEach(s => {
+      const name = s.department || 'Other';
+      if (!deptMap[name]) deptMap[name] = { id: s.department_id, total: 0, f11: 0, g13: 0, desigs: {} };
+      const e = deptMap[name];
+      e.total++;
+      const k = keyOf(s.branch_id);
+      if (k !== 'other') e[k]++;
+      const dn = s.designation || 'N/A';
+      e.desigs[dn] = (e.desigs[dn] ?? 0) + 1;
+    });
+    const depts = Object.entries(deptMap)
+      .map(([name, e]) => ({
+        name, id: e.id, total: e.total, f11: e.f11, g13: e.g13,
+        designations: Object.entries(e.desigs).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n} (${c})`).join(', '),
+      }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 
-  const details = data?.details;
-  const staffDetails = details?.staff_details ?? details?.staffDetails ?? [];
-  const deptDetails = details?.department_details ?? details?.departmentDetails ?? [];
-  const presentDetails = details?.present_details ?? details?.presentDetails ?? [];
-  const lateDetails = details?.late_details ?? details?.lateDetails ?? [];
-  const absentDetails = details?.absent_details ?? details?.absentDetails ?? [];
-  const leaveDetails = details?.leave_details ?? details?.leaveDetails ?? [];
-  const dutyHourReqs = details?.duty_hour_requests ?? details?.dutyHourRequests ?? [];
-  const docApprovalReqs = details?.document_approval_requests ?? details?.documentApprovalRequests ?? [];
+    // Selected day by department — alphabetical, as the web lists it.
+    const fmtStats = (s: DayStats) => `${s.present} / ${s.late} / ${s.absent} / ${s.leave}`;
+    const deptDay = [...depts]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(dp => {
+        const inDept = (r: any) => String(r.department_id) === String(dp.id);
+        return {
+          id: dp.name,
+          name: dp.name,
+          f11: fmtStats(statsOf(todayStr, r => inDept(r) && isF11(r))),
+          g13: fmtStats(statsOf(todayStr, r => inDept(r) && isG13(r))),
+        };
+      });
+
+    // Birthdays (everyone born this month) and anniversaries (whose next
+    // anniversary falls this month — so past ones drop out, exactly as on the
+    // web, where only Ghulam Fareed's Oct 17 showed on Oct 15). Ages and
+    // years are completed years at the selected date.
+    const sel = raw.date;
+    const person = (s: any) => ({
+      id: s.id, branch_id: s.branch_id, name: s.name || 'N/A', branch: s.branch_name || 'N/A',
+      designation: s.designation || 'N/A', department: s.department || 'N/A',
+    });
+    const birthdays = staff
+      .map(s => ({ s, dob: parseIso(s.dob) }))
+      .filter(({ dob }) => dob && dob.getMonth() === sel.getMonth())
+      .map(({ s, dob }) => ({ ...person(s), day: dob!.getDate(), when: monthDay(dob!), years: completedYears(dob!, sel) }))
+      .sort((a, b) => a.day - b.day);
+    const anniversaries = staff
+      .map(s => ({ s, j: parseIso(s.joining) }))
+      .filter(({ j }) => !!j)
+      .map(({ s, j }) => {
+        let next = new Date(sel.getFullYear(), j!.getMonth(), j!.getDate());
+        if (next < new Date(sel.getFullYear(), sel.getMonth(), sel.getDate())) next = new Date(sel.getFullYear() + 1, j!.getMonth(), j!.getDate());
+        return { s, j: j!, next };
+      })
+      .filter(({ next }) => next.getMonth() === sel.getMonth() && next.getFullYear() === sel.getFullYear())
+      .map(({ s, j, next }) => ({ ...person(s), day: next.getDate(), when: dayLabel(fmtDate(next)), years: completedYears(j, sel) }))
+      .sort((a, b) => a.day - b.day);
+
+    // Per-branch tallies for the tables with F-11 / G-13 / Other / Total.
+    const tally = (rows: any[], branchOf: (r: any) => any = r => r.branch_id) => {
+      const t = { f11: 0, g13: 0, other: 0, total: rows.length };
+      rows.forEach(r => { t[keyOf(branchOf(r))]++; });
+      return t;
+    };
+    const pendingApps = apps.filter(l => l.application_status === 'Pending');
+    const approvedApps = apps.filter(l => l.application_status === 'Approved');
+    const duty = raw.duty.filter(inBranch);
+    const docs = raw.docs.filter(inBranch);
+    const approvalsTable = [
+      { id: 'pl', name: 'Pending leave', ...tally(pendingApps) },
+      { id: 'al', name: 'Approved leave', ...tally(approvedApps) },
+      { id: 'dh', name: 'Duty-hour requests', ...tally(duty) },
+      { id: 'dr', name: 'Document reviews', ...tally(docs) },
+      { id: 'bd', name: 'Birthdays this month', ...tally(birthdays) },
+      { id: 'an', name: 'Anniversaries this month', ...tally(anniversaries) },
+    ];
+
+    const byType = (list: any[]) => {
+      const m: Record<string, any[]> = {};
+      list.forEach(l => {
+        const t = l.leave_type || 'Unspecified';
+        (m[t] = m[t] ?? []).push(l);
+      });
+      return Object.entries(m)
+        .map(([name, rows]) => ({ id: name, name, ...tally(rows) }))
+        .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    };
+
+    const bucket = (s: any) => {
+      const j = parseIso(s.joining);
+      const y = j ? completedYears(j, sel) : 0;
+      return y < 1 ? 0 : y < 3 ? 1 : y < 5 ? 2 : 3;
+    };
+    const service = ['Under 1 year', '1–3 years', '3–5 years', '5 years or more'].map((name, i) => ({
+      id: name, name, ...tally(staff.filter(s => bucket(s) === i)),
+    }));
+
+    const staffRegister = staff
+      .map(s => ({
+        id: s.id, branch_id: s.branch_id, name: s.name || 'N/A', uid: s.uid || 'N/A',
+        branch: s.branch_name || 'N/A', department: s.department || 'N/A',
+        designation: s.designation || 'N/A', joining: s.joining, phone: s.phone || 'N/A',
+      }))
+      .sort((x, y) => x.department.localeCompare(y.department) || x.name.localeCompare(y.name));
+
+    const leaveRequests = pendingApps.map(l => ({
+      id: l.id, name: l.user_info?.name || 'N/A', branch: l.branch_info?.name || branchName(l.branch_id),
+      leave_type: l.leave_type || 'Unspecified', from: l.from, to: l.to, days: l.number_of_leaves ?? 'N/A',
+      reason: l.reason || 'N/A', submitted: l.submission_date,
+    }));
+    const requestRows = (list: any[]) => list.map((r, i) => ({
+      id: r.id ?? i,
+      name: r.user_info?.name || r.staff_info?.name || r.name || 'N/A',
+      branch: r.branch_info?.name || branchName(r.branch_id),
+      date: r.date || r.created_at,
+      status: r.approval_status || 'Pending',
+    }));
+
+    return {
+      f11Id, g13Id, dates, staffCount, days, depts, deptDay, birthdays, anniversaries,
+      approvalsTable, pendingLeaveTypes: byType(pendingApps), approvedLeaveTypes: byType(approvedApps), service,
+      counts: { pendingLeave: pendingApps.length, approvedLeave: approvedApps.length, duty: duty.length, docs: docs.length },
+      details: {
+        staff: staffRegister,
+        present: attRows.filter(r => r._present),
+        // Late: by date, then most-late first, as the web sorts it.
+        late: attRows.filter(r => r._late)
+          .sort((x, y) => String(x.date).localeCompare(String(y.date)) || y._lateMin - x._lateMin),
+        absent: attRows.filter(r => r._absent),
+        leave: leaveRows,
+        leaveRequests,
+        duty: requestRows(duty),
+        docs: requestRows(docs),
+      },
+    };
+  }, [raw, dept, desig, branchOptions]);
+
+  // Which branches the selected scope covers.
+  const showF11 = !!d && (branch.value === undefined || branch.value === d.f11Id);
+  const showG13 = !!d && (branch.value === undefined || branch.value === d.g13Id);
+  const branchSeries = [
+    ...(showF11 ? [{ key: 'f11' as const, label: 'F-11', color: BRANCH_COLORS.f11 }] : []),
+    ...(showG13 ? [{ key: 'g13' as const, label: 'G-13', color: BRANCH_COLORS.g13 }] : []),
+  ];
+  const scopeLabel = branch.value === undefined ? 'All Branches' : branch.label;
 
   // ── Card popups (same content as the web's) ────────────────────────────────
   const openStaff = (scope: 'all' | 'f11' | 'g13') => {
-    const f11Id = branchOptions.find(o => o.label === 'F 11')?.branch_id ?? 15;
-    const g13Id = branchOptions.find(o => o.label === 'G 13')?.branch_id ?? 1;
+    if (!d) return;
     const rows = scope === 'all'
-      ? staffDetails
-      : staffDetails.filter((r: any) => Number(r.branch_id) === Number(scope === 'f11' ? f11Id : g13Id));
+      ? d.details.staff
+      : d.details.staff.filter(r => Number(r.branch_id) === Number(scope === 'f11' ? d.f11Id : d.g13Id));
     setSheet({
       title: { all: 'Total Staff Details', f11: 'F-11 Staff Details', g13: 'G-13 Staff Details' }[scope],
-      subtitle: `Current scope: ${selectedBranch.label}`,
+      subtitle: `Current scope: ${scopeLabel}`,
       badges: [{ label: 'Records', value: rows.length }],
       sections: [{ title: 'Staff Register', color: '#1a1a1a', rows, cols: STAFF_COLS, empty: 'No staff records found for this scope.' }],
     });
   };
 
-  const openDay = (label: string, day: AttendanceDay) => {
-    const onDay = (r: any) => r.date === day.date;
+  const openDay = (k: DayKey) => {
+    if (!d) return;
+    const day = d.dates[k];
+    const s = d.days[k].all;
+    const onDay = (r: any) => r.date === day;
     setSheet({
-      title: `${label} Details`,
-      subtitle: dayLabel(day.date),
+      title: `${DAY_TITLES[k]} Details`,
+      subtitle: dayLabel(day),
       badges: [
-        { label: 'Present', value: day.present ?? 0 },
-        { label: 'Late', value: day.late ?? 0 },
-        { label: 'Absent', value: day.absent ?? 0 },
-        { label: 'On Leave', value: day.on_leave ?? day.onLeave ?? 0 },
+        { label: 'Present', value: s.present },
+        { label: 'Late', value: s.late },
+        { label: 'Absent', value: s.absent },
+        { label: 'On Leave', value: s.leave },
       ],
       sections: [
-        { title: 'Present Staff', color: '#43A047', rows: presentDetails.filter(onDay), cols: PRESENT_COLS, empty: 'No present staff found for this day.' },
-        { title: 'Late Staff', color: '#FB8C00', rows: lateDetails.filter(onDay), cols: LATE_COLS, empty: 'No late staff found for this day.' },
-        { title: 'Absent Staff', color: '#E63946', rows: absentDetails.filter(onDay), cols: ABSENT_COLS, empty: 'No absent staff found for this day.' },
-        { title: 'Approved Leaves', color: '#00ACC1', rows: leaveDetails.filter(onDay), cols: LEAVE_COLS, empty: 'No approved leave records found for this day.' },
+        { title: 'Present Staff', color: '#43A047', rows: d.details.present.filter(onDay), cols: PRESENT_COLS, empty: 'No present staff found for this day.' },
+        { title: 'Late Staff', color: '#FB8C00', rows: d.details.late.filter(onDay), cols: LATE_COLS, empty: 'No late staff found for this day.' },
+        { title: 'Absent Staff', color: '#E63946', rows: d.details.absent.filter(onDay), cols: ABSENT_COLS, empty: 'No absent staff found for this day.' },
+        { title: 'Approved Leaves', color: '#00ACC1', rows: d.details.leave.filter(onDay), cols: LEAVE_COLS, empty: 'No approved leave records found for this day.' },
       ],
     });
   };
 
   const openSummary = (kind: 'late' | 'absent') => {
-    const counts = kind === 'late' ? lateS : absentS;
+    if (!d) return;
     const title = kind === 'late' ? 'Late Summary Details' : 'Absent Summary Details';
     setSheet({
       title,
-      subtitle: `Attendance window: ${dayLabel(prevDay.date)} to ${dayLabel(nextDay.date)}`,
-      badges: [
-        { label: 'Previous Day', value: counts?.previous_day ?? 0 },
-        { label: 'Today', value: counts?.today ?? 0 },
-        { label: 'Next Day', value: counts?.next_day ?? 0 },
-      ],
+      subtitle: `Attendance window: ${dayLabel(d.dates.prev)} to ${dayLabel(d.dates.next)}`,
+      badges: (['prev', 'today', 'next'] as DayKey[]).map(k => ({ label: DAY_TITLES[k], value: d.days[k].all[kind] })),
       sections: [kind === 'late'
-        ? { title, color: '#FB8C00', rows: lateDetails, cols: LATE_COLS, empty: 'No late staff found in the current 3-day summary window.' }
-        : { title, color: '#E63946', rows: absentDetails, cols: ABSENT_COLS, empty: 'No absent staff found in the current 3-day summary window.' }],
+        ? { title, color: '#FB8C00', rows: d.details.late, cols: LATE_COLS, empty: 'No late staff found in the current 3-day summary window.' }
+        : { title, color: '#E63946', rows: d.details.absent, cols: ABSENT_COLS, empty: 'No absent staff found in the current 3-day summary window.' }],
     });
   };
 
+  const branchCols = (first: string, w = 150): AttCol[] => [
+    { label: first, key: 'name', w },
+    { label: 'F-11', key: 'f11', w: 50 },
+    { label: 'G-13', key: 'g13', w: 50 },
+    { label: 'Other', key: 'other', w: 50 },
+    { label: 'Total', key: 'total', w: 50 },
+  ];
+
+  const PeopleTable = ({ rows, kind }: { rows: any[]; kind: 'birthday' | 'anniversary' }) => (
+    <>
+      {branchSeries.map(b => {
+        const list = rows.filter(r => Number(r.branch_id) === Number(b.key === 'f11' ? d?.f11Id : d?.g13Id));
+        return (
+          <View key={b.key} style={{ marginTop: 8 }}>
+            <View style={styles.peopleHead}>
+              <Text style={styles.peopleBranch}>{b.label}</Text>
+              <Text style={styles.peopleCount}>{list.length}</Text>
+            </View>
+            {list.length === 0 ? (
+              <Text style={styles.attEmpty}>
+                No {kind === 'birthday' ? 'birthdays' : 'anniversaries'} at {b.label} this month.
+              </Text>
+            ) : list.map((p, i) => (
+              <View key={p.id} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.peopleName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.peopleSub} numberOfLines={1}>{p.designation} · {p.department}</Text>
+                </View>
+                <View style={[styles.tag, { backgroundColor: kind === 'birthday' ? '#E63946' : '#1a1a1a' }]}>
+                  <Text style={styles.tagText}>{p.when}</Text>
+                </View>
+                <View style={[styles.tag, { backgroundColor: kind === 'birthday' ? '#00ACC1' : '#43A047' }]}>
+                  <Text style={styles.tagText}>{p.years} years</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        );
+      })}
+    </>
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  const today = d?.days.today;
 
   return (
     <View style={styles.container}>
-      {/* The hand-rolled back/title/refresh bar this replaced was the only
-          screen-specific header left in the HR section. The refresh action is
-          not lost: the scroll view below already carries pull-to-refresh on
-          the same `load(true)`. */}
       <AppHeader
         title="HR Dashboard"
         leftIcon={
-          navigation.canGoBack()
+          !asHome && navigation.canGoBack()
             ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
             : <BurgerSVG width={24} height={24} />
         }
         rightIcon={<NotificationSVG width={24} height={24} />}
-        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
+        onLeftPress={() => (!asHome && navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
         onRightPress={() => navigation.navigate('Notifications')}
         backgroundColor="#FFE5E5"
       />
 
-      {/* Filters */}
-      <View style={styles.filtersBar}>
-        <Text style={styles.filtersSubtitle}>Filter the branch and date, then refresh the dashboard summary.</Text>
-        <View style={styles.filterRow}>
-          {/* Branch selector */}
-          <TouchableOpacity style={styles.filterField} onPress={() => setBranchModalVisible(true)}>
-            <Icon name="office-building" size={16} color="#666" style={{ marginRight: 6 }} />
-            <Text style={styles.filterFieldText} numberOfLines={1}>{selectedBranch.label}</Text>
-            <Icon name="chevron-down" size={16} color="#666" />
-          </TouchableOpacity>
-
-          {/* Date selector */}
-          <TouchableOpacity style={styles.filterField} onPress={() => setShowDatePicker(true)}>
-            <Icon name="calendar" size={16} color="#666" style={{ marginRight: 6 }} />
-            <Text style={styles.filterFieldText}>{fmtDisplay(date)}</Text>
-            <Icon name="chevron-down" size={16} color="#666" />
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.refreshBtn} onPress={() => load()}>
-          <Text style={styles.refreshBtnText}>Refresh Dashboard</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.scopeText}>Current Scope: {selectedBranch.label}. Summary cards stay visible, while details remain collapsed at the bottom unless opened.</Text>
-      </View>
-
-      {/* DatePicker */}
       {showDatePicker && (
         <DateTimePicker
           value={date}
           mode="date"
           display={Platform.OS === 'ios' ? 'inline' : 'default'}
-          onChange={(_, d) => {
+          onChange={(_, picked) => {
             setShowDatePicker(Platform.OS === 'ios');
-            if (d) setDate(d);
+            if (picked) setDate(picked);
           }}
         />
       )}
 
       <DetailsModal sheet={sheet} onClose={() => setSheet(null)} />
+      <PickerModal picker={picker} onClose={() => setPicker(null)} />
 
-      {/* Branch Modal */}
-      <Modal visible={branchModalVisible} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => setBranchModalVisible(false)}>
-          {/* Bottom edge only: keeps the last option clear of the home indicator. */}
-          <SafeAreaView style={styles.modalSheet} edges={['bottom']}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Select Branch</Text>
-            {branchOptions.map(opt => (
-              <TouchableOpacity
-                key={opt.id}
-                style={[styles.modalOption, selectedBranch.id === opt.id && styles.modalOptionSelected]}
-                onPress={() => { setSelectedBranch(opt); setBranchModalVisible(false); }}
-              >
-                <Icon
-                  name={selectedBranch.id === opt.id ? 'check-circle' : 'circle-outline'}
-                  size={20}
-                  color={selectedBranch.id === opt.id ? '#E63946' : '#ccc'}
-                  style={{ marginRight: 10 }}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
+      >
+        {/* ── Filters ───────────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <Text style={styles.cardNote}>Filter the branch and date, then refresh the dashboard summary.</Text>
+          <View style={styles.filterRow}>
+            <FilterField
+              icon="office-building"
+              text={branch.label}
+              onPress={() => setPicker({ title: 'Select Branch', options: branchOptions, selected: branch.id, onPick: setBranch })}
+            />
+            <FilterField icon="calendar" text={fmtDisplay(date)} onPress={() => setShowDatePicker(true)} />
+          </View>
+          <View style={styles.filterRow}>
+            <FilterField
+              icon="domain"
+              text={dept.label}
+              onPress={() => setPicker({ title: 'Select Department', options: deptOptions, selected: dept.id, onPick: setDept })}
+            />
+            <FilterField
+              icon="badge-account-outline"
+              text={desig.label}
+              onPress={() => setPicker({ title: 'Select Designation', options: desigOptions, selected: desig.id, onPick: setDesig })}
+            />
+          </View>
+          {d && (
+            <Text style={styles.cardNote}>
+              Attendance window: {dayLabel(d.dates.prev)} to {dayLabel(d.dates.next)}.
+            </Text>
+          )}
+          <TouchableOpacity style={styles.refreshBtn} onPress={() => load()}>
+            <Text style={styles.refreshBtnText}>Refresh Dashboard</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading || !d || !today ? (
+          <View style={styles.center}>
+            {loading
+              ? <ActivityIndicator size="large" color="#E63946" />
+              : <Text style={styles.emptyText}>Could not load the dashboard. Pull down to retry.</Text>}
+          </View>
+        ) : (
+          <>
+            {/* ── Staff Overview ───────────────────────────────────────── */}
+            <SectionTitle title="Staff Overview" />
+            <StaffCard
+              label="Total Staff"
+              value={d.staffCount.total}
+              color="#E63946"
+              sub="Active staff in scope (system logins & partners excluded; electricians included)."
+              onPress={() => openStaff('all')}
+            />
+            <View style={styles.staffRow}>
+              {showF11 && <StaffCard label="F-11 Staff" value={d.staffCount.f11} color="#00ACC1" sub="Branch Total" onPress={() => openStaff('f11')} />}
+              {showG13 && <StaffCard label="G-13 Staff" value={d.staffCount.g13} color="#43A047" sub="Branch Total" onPress={() => openStaff('g13')} />}
+            </View>
+
+            {/* ── Branch performance ───────────────────────────────────── */}
+            <SectionTitle
+              title="Branch performance"
+              note={`Today · ${dayLabel(d.dates.today)}. On time is present minus late.`}
+            />
+            {showF11 && <BranchPerformance title="F-11" staff={d.staffCount.f11} day={today.f11} color={BRANCH_COLORS.f11} />}
+            {showG13 && <BranchPerformance title="G-13" staff={d.staffCount.g13} day={today.g13} color={BRANCH_COLORS.g13} />}
+
+            {/* ── Charts ───────────────────────────────────────────────── */}
+            <Card title="Staff by branch" note={`${d.staffCount.total} active staff in the current filter.`}>
+              <View style={styles.donutWrap}>
+                <Donut
+                  size={150}
+                  centre={d.staffCount.total}
+                  caption="Staff"
+                  parts={branchSeries.map(b => ({ value: d.staffCount[b.key], color: b.color }))}
                 />
-                <Text style={[styles.modalOptionText, selectedBranch.id === opt.id && { color: '#E63946', fontWeight: '700' }]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </SafeAreaView>
-        </Pressable>
-      </Modal>
+              </View>
+              <Legend items={branchSeries.map(b => ({ label: `${b.label} (${d.staffCount[b.key]})`, color: b.color }))} />
+            </Card>
 
-      {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color="#E63946" /></View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={['#E63946']} />}
-        >
-          {/* ── Staff Overview ─────────────────────────────────────────── */}
-          <SectionTitle title="Staff Overview" />
-          <View style={styles.staffRow}>
-            <StaffCard label="Total Staff" value={totalStaff} sub="Active staff in scope, excluding HR login accounts." onPress={() => openStaff('all')} />
-            <StaffCard label="F-11 Staff" value={f11Staff} sub="Branch Total" onPress={() => openStaff('f11')} />
-            <StaffCard label="G-13 Staff" value={g13Staff} sub="Branch Total" onPress={() => openStaff('g13')} />
-          </View>
+            <Card title="Selected day by branch" note="Present, on time, late, absent and leave for the day shown above.">
+              <BarGroups
+                groups={([
+                  ['Present', 'present'], ['On time', 'onTime'], ['Late', 'late'], ['Absent', 'absent'], ['On leave', 'leave'],
+                ] as const).map(([label, k]) => ({
+                  label,
+                  bars: branchSeries.map(b => ({ value: today[b.key][k], color: b.color })),
+                }))}
+              />
+              <Legend items={branchSeries} />
+            </Card>
 
-          {/* ── Department Summary ─────────────────────────────────────── */}
-          <SectionTitle title="Department Summary" />
-          {depts.length > 0 ? (
-            <View style={styles.deptGrid}>
-              {depts.map((dept, i) => {
-                const deptName = dept.name ?? dept.department ?? `Dept ${i + 1}`;
-                const deptTotal = dept.total ?? dept.count ?? 0;
-                const df11 = dept.f11 ?? (dept as any)['f-11'];
-                const dg13 = dept.g13 ?? (dept as any)['g-13'];
-                const color = DEPT_COLORS[i % DEPT_COLORS.length];
-                return (
-                  <View key={`${deptName}-${i}`} style={styles.deptCard}>
-                    <View style={styles.deptCardHeader}>
-                      <Text style={styles.deptCardName}>{deptName}</Text>
-                      <View style={[styles.deptBadge, { backgroundColor: color }]}>
-                        <Text style={styles.deptBadgeText}>{deptTotal}</Text>
-                      </View>
-                    </View>
-                    {(df11 != null || dg13 != null) && (
-                      <View style={styles.deptBranchRow}>
-                        {df11 != null && <Text style={styles.deptBranchChip}>F-11: {df11}</Text>}
-                        {dg13 != null && <Text style={styles.deptBranchChip}>G-13: {dg13}</Text>}
-                      </View>
-                    )}
-                    {(dept.roles ?? dept.designations) ? (
-                      <Text style={styles.deptRoles}>{dept.roles ?? dept.designations}</Text>
-                    ) : null}
+            <Card title="Attendance window by branch" note="Each bar is the branch count already shown on the day cards.">
+              <BarGroups
+                groups={(['prev', 'today', 'next'] as DayKey[]).map(k => ({
+                  label: DAY_TITLES[k],
+                  bars: branchSeries.flatMap(b => [
+                    { value: d.days[k][b.key].present, color: b.color },
+                    { value: d.days[k][b.key].absent, color: b.key === 'f11' ? '#C62828' : '#FB8C00' },
+                  ]),
+                }))}
+              />
+              <Legend
+                items={branchSeries.flatMap(b => [
+                  { label: `${b.label} present`, color: b.color },
+                  { label: `${b.label} absent`, color: b.key === 'f11' ? '#C62828' : '#FB8C00' },
+                ])}
+              />
+            </Card>
+
+            <Card title="Late and leave by branch" note="Late staff are also included in present.">
+              <BarGroups
+                groups={(['prev', 'today', 'next'] as DayKey[]).map(k => ({
+                  label: DAY_TITLES[k],
+                  bars: branchSeries.flatMap(b => [
+                    { value: d.days[k][b.key].late, color: b.key === 'f11' ? '#B5541C' : '#E0A526' },
+                    { value: d.days[k][b.key].leave, color: b.key === 'f11' ? '#1565C0' : '#00796B' },
+                  ]),
+                }))}
+              />
+              <Legend
+                items={branchSeries.flatMap(b => [
+                  { label: `${b.label} late`, color: b.key === 'f11' ? '#B5541C' : '#E0A526' },
+                  { label: `${b.label} on leave`, color: b.key === 'f11' ? '#1565C0' : '#00796B' },
+                ])}
+              />
+            </Card>
+
+            <Card title="Departments by branch" note="Bar length uses the same totals as the department cards.">
+              <BarGroups
+                groups={d.depts.map(dp => ({
+                  label: dp.name,
+                  bars: branchSeries.map(b => ({ value: dp[b.key], color: b.color })),
+                }))}
+              />
+              <Legend items={branchSeries} />
+            </Card>
+
+            {/* ── Tables ───────────────────────────────────────────────── */}
+            <Card title="Selected day by department" note="Present / late / absent / leave. Each person is counted in the branch they belong to.">
+              <AttTable
+                index={false}
+                rows={d.deptDay}
+                cols={[
+                  { label: 'Department', key: 'name', w: 170 },
+                  ...(showF11 ? [{ label: 'F-11 P / L / A / Lv', key: 'f11', w: 130 }] : []),
+                  ...(showG13 ? [{ label: 'G-13 P / L / A / Lv', key: 'g13', w: 130 }] : []),
+                ]}
+                empty="No departments in the current filter."
+              />
+            </Card>
+
+            <Card title="Approvals and this month" note="Pending work and celebrations, split by branch.">
+              <AttTable index={false} rows={d.approvalsTable} cols={branchCols('Item', 170)} empty="" />
+            </Card>
+
+            <Card title="Service length" note="Grouped from each staff member's joining date.">
+              <AttTable index={false} rows={d.service} cols={branchCols('Service')} empty="" />
+            </Card>
+
+            <Card title="Leave types" note="Pending and approved applications, counted once each.">
+              <Text style={styles.subHead}>Pending</Text>
+              <AttTable index={false} rows={d.pendingLeaveTypes} cols={branchCols('Type')} empty="No pending applications." />
+              <Text style={styles.subHead}>Approved</Text>
+              <AttTable index={false} rows={d.approvedLeaveTypes} cols={branchCols('Type')} empty="No approved applications." />
+            </Card>
+
+            {/* ── Department Summary ───────────────────────────────────── */}
+            <SectionTitle title="Department Summary" />
+            {d.depts.length > 0 ? d.depts.map((dp, i) => (
+              <View key={dp.name} style={styles.card}>
+                <View style={styles.deptCardHeader}>
+                  <Text style={styles.deptCardName}>{dp.name}</Text>
+                  <View style={[styles.deptBadge, { backgroundColor: DEPT_COLORS[i % DEPT_COLORS.length] }]}>
+                    <Text style={styles.deptBadgeText}>{dp.total}</Text>
                   </View>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={styles.emptyBox}>
-              <Icon name="domain" size={32} color="#ccc" />
-              <Text style={styles.emptyText}>No department data available</Text>
-            </View>
-          )}
+                </View>
+                <View style={styles.deptBranchRow}>
+                  {showF11 && <Text style={styles.deptBranchChip}>F-11: {dp.f11}</Text>}
+                  {showG13 && <Text style={styles.deptBranchChip}>G-13: {dp.g13}</Text>}
+                </View>
+                <View style={styles.splitBar}>
+                  {showF11 && <View style={{ flex: dp.f11, backgroundColor: BRANCH_COLORS.f11 }} />}
+                  {showG13 && <View style={{ flex: dp.g13, backgroundColor: BRANCH_COLORS.g13 }} />}
+                </View>
+                <Text style={styles.deptRoles}>{dp.designations}</Text>
+              </View>
+            )) : (
+              <View style={[styles.card, styles.emptyBox]}>
+                <Icon name="domain" size={32} color="#ccc" />
+                <Text style={styles.emptyText}>No department data available</Text>
+              </View>
+            )}
 
-          {/* ── Attendance Summary ─────────────────────────────────────── */}
-          <SectionTitle title="Attendance Summary" />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attScroll}>
-            <AttendanceDayCard title="Previous Day" day={prevDay} onPress={() => openDay('Previous Day', prevDay)} />
-            <AttendanceDayCard title="Today" day={today} highlighted onPress={() => openDay('Today', today)} />
-            <AttendanceDayCard title="Next Day" day={nextDay} onPress={() => openDay('Next Day', nextDay)} />
-          </ScrollView>
+            {/* ── Attendance Summary ───────────────────────────────────── */}
+            <SectionTitle title="Attendance Summary" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attScroll}>
+              {(['prev', 'today', 'next'] as DayKey[]).map(k => (
+                <AttendanceDayCard
+                  key={k}
+                  title={DAY_TITLES[k]}
+                  date={d.dates[k]}
+                  day={d.days[k].all}
+                  f11={d.days[k].f11}
+                  g13={d.days[k].g13}
+                  highlighted={k === 'today'}
+                  onPress={() => openDay(k)}
+                />
+              ))}
+            </ScrollView>
 
-          {/* ── Late & Absent Summary ──────────────────────────────────── */}
-          <View style={styles.summaryRow}>
-            <View style={{ flex: 1 }}>
-              <SummaryBanner
-                title="Late Summary"
+            <SummaryBanner
+              title="Late Summary"
+              color="#FB8C00"
+              counts={{ prev: d.days.prev.all.late, today: d.days.today.all.late, next: d.days.next.all.late }}
+              onPress={() => openSummary('late')}
+            />
+            <SummaryBanner
+              title="Absent Summary"
+              color="#E63946"
+              counts={{ prev: d.days.prev.all.absent, today: d.days.today.all.absent, next: d.days.next.all.absent }}
+              onPress={() => openSummary('absent')}
+            />
+
+            {/* ── Approvals ────────────────────────────────────────────── */}
+            <SectionTitle title="Approvals" />
+            <View style={styles.approvalRow}>
+              <ApprovalCard
+                label="Pending Leave Applications"
+                value={d.counts.pendingLeave}
                 color="#FB8C00"
-                prev={lateS?.previous_day}
-                today={lateS?.today}
-                next={lateS?.next_day}
-                onPress={() => openSummary('late')}
+                note="Review, approve, or reject leave requests below. Quota updates on approval."
+              />
+              <ApprovalCard
+                label="Approved Leave Applications"
+                value={d.counts.approvedLeave}
+                color="#43A047"
+                note="Approved leave records currently loaded for the selected branch."
               />
             </View>
-            <View style={{ width: 10 }} />
-            <View style={{ flex: 1 }}>
-              <SummaryBanner
-                title="Absent Summary"
-                color="#E63946"
-                prev={absentS?.previous_day}
-                today={absentS?.today}
-                next={absentS?.next_day}
-                onPress={() => openSummary('absent')}
+            <View style={styles.approvalRow}>
+              <ApprovalCard
+                label="Pending Duty-Hour Requests"
+                value={d.counts.duty}
+                color="#FB8C00"
+                note="Employees can request new timings, but changes only apply after HR approval."
+              />
+              <ApprovalCard
+                label="Pending Document Reviews"
+                value={d.counts.docs}
+                color="#00ACC1"
+                note="Approved documents become view-only on the employee dashboard."
               />
             </View>
-          </View>
 
-          {/* ── Approvals ─────────────────────────────────────────────── */}
-          <SectionTitle title="Approvals" />
-          <View style={styles.approvalRow}>
-            <ApprovalCard label="Pending Duty-Hour Requests" value={pendingDutyHours} color="#FB8C00" />
-            <View style={{ width: 10 }} />
-            <ApprovalCard label="Pending Document Reviews" value={pendingDocReviews} color="#1E88E5" />
-          </View>
+            {/* ── Birthdays / Anniversaries ────────────────────────────── */}
+            <Card title={`Birthdays This Month (${raw!.date.toLocaleDateString('en-US', { month: 'long' })})`}>
+              <PeopleTable rows={d.birthdays} kind="birthday" />
+            </Card>
+            <Card title={`Anniversaries This Month (${raw!.date.toLocaleDateString('en-US', { month: 'long' })})`}>
+              <PeopleTable rows={d.anniversaries} kind="anniversary" />
+            </Card>
 
-          {/* ── Birthdays ─────────────────────────────────────────────── */}
-          <SectionTitle title={`Birthdays This Month`} />
-          {birthdays.length > 0 ? (
-            <View style={styles.tableCard}>
-              <View style={styles.tableHeader}>
-                {['Employee', 'Branch', 'Designation', 'Dept', 'Date', 'Age'].map(h => (
-                  <Text key={h} style={[styles.tableHeaderCell, h === 'Employee' && { flex: 2 }]}>{h}</Text>
-                ))}
-              </View>
-              {birthdays.map((b, i) => (
-                <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
-                  <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{b.name ?? b.employee ?? b.employee_name ?? '—'}</Text>
-                  <Text style={styles.tableCell} numberOfLines={1}>{b.branch ?? '—'}</Text>
-                  <Text style={styles.tableCell} numberOfLines={1}>{b.designation ?? '—'}</Text>
-                  <Text style={styles.tableCell} numberOfLines={1}>{b.department ?? '—'}</Text>
-                  <View style={[styles.tableCellTag, { backgroundColor: getAgeColor(b.age) }]}>
-                    <Text style={styles.tableCellTagText}>{b.date ?? b.birthday ?? '—'}</Text>
-                  </View>
-                  <View style={[styles.tableCellTag, { backgroundColor: '#E63946' }]}>
-                    <Text style={styles.tableCellTagText}>{b.age ? `${b.age} yrs` : '—'}</Text>
-                  </View>
-                </View>
-              ))}
+            {/* ── Details (collapsible) ────────────────────────────────── */}
+            <SectionTitle title="Details" note="All detailed views stay collapsed by default and appear only when opened." />
+            <View style={styles.detailsCard}>
+              <CollapsibleSection title="Staff Details" count={d.details.staff.length} color="#E63946">
+                <AttTable rows={d.details.staff} cols={STAFF_COLS} empty="No staff records found for this scope." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Department Details" count={d.depts.length} color="#1a1a1a">
+                <AttTable rows={d.depts} cols={DEPT_DETAIL_COLS} empty="No departments in the current filter." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Present Details" count={d.details.present.length} color="#43A047">
+                <AttTable rows={d.details.present} cols={PRESENT_COLS} empty="No present staff found in this window." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Late Details" count={d.details.late.length} color="#FB8C00">
+                <AttTable rows={d.details.late} cols={LATE_COLS} empty="No late staff found in this window." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Absent Details" count={d.details.absent.length} color="#E63946">
+                <AttTable rows={d.details.absent} cols={ABSENT_COLS} empty="No absent staff found in this window." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Leave Details" count={d.details.leave.length} color="#00ACC1">
+                <AttTable rows={d.details.leave} cols={LEAVE_COLS} empty="No approved leave in this window." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Leave Application Requests" count={d.details.leaveRequests.length} color="#FB8C00">
+                <AttTable rows={d.details.leaveRequests} cols={LEAVE_REQUEST_COLS} empty="No pending leave applications." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Duty-Hour Change Requests" count={d.details.duty.length} color="#FB8C00">
+                <AttTable rows={d.details.duty} cols={REQUEST_COLS} empty="No pending duty-hour requests." />
+              </CollapsibleSection>
+              <View style={styles.divider} />
+              <CollapsibleSection title="Document Approval Requests" count={d.details.docs.length} color="#E63946">
+                <AttTable rows={d.details.docs} cols={REQUEST_COLS} empty="No pending document reviews." />
+              </CollapsibleSection>
             </View>
-          ) : (
-            <View style={styles.emptyBox}>
-              <Icon name="cake-variant" size={28} color="#ccc" />
-              <Text style={styles.emptyText}>No birthdays this month</Text>
-            </View>
-          )}
 
-          {/* ── Anniversaries ─────────────────────────────────────────── */}
-          <SectionTitle title="Anniversaries This Month" />
-          {anniversaries.length > 0 ? (
-            <View style={styles.tableCard}>
-              <View style={styles.tableHeader}>
-                {['Employee', 'Branch', 'Designation', 'Dept', 'Date', 'Yrs'].map(h => (
-                  <Text key={h} style={[styles.tableHeaderCell, h === 'Employee' && { flex: 2 }]}>{h}</Text>
-                ))}
-              </View>
-              {anniversaries.map((a, i) => (
-                <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
-                  <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{a.name ?? a.employee ?? a.employee_name ?? '—'}</Text>
-                  <Text style={styles.tableCell} numberOfLines={1}>{a.branch ?? '—'}</Text>
-                  <Text style={styles.tableCell} numberOfLines={1}>{a.designation ?? '—'}</Text>
-                  <Text style={styles.tableCell} numberOfLines={1}>{a.department ?? '—'}</Text>
-                  <View style={[styles.tableCellTag, { backgroundColor: '#1E88E5' }]}>
-                    <Text style={styles.tableCellTagText}>{a.date ?? a.anniversary ?? '—'}</Text>
-                  </View>
-                  <View style={[styles.tableCellTag, { backgroundColor: '#43A047' }]}>
-                    <Text style={styles.tableCellTagText}>{a.age ? `${a.age} yrs` : '—'}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>No anniversaries this month.</Text>
-            </View>
-          )}
-
-          {/* ── Details (collapsible) ──────────────────────────────────── */}
-          <SectionTitle title="Details" />
-          <Text style={styles.detailsNote}>All detailed views stay collapsed by default and appear only when opened.</Text>
-
-          <View style={styles.detailsCard}>
-            <CollapsibleSection title="Staff Details" count={staffDetails.length || totalStaff} color="#1a1a1a">
-              {staffDetails.map((s: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{s.name ?? s.employee_name ?? JSON.stringify(s)}</Text>
-                </View>
-              ))}
-            </CollapsibleSection>
-
-            <View style={styles.divider} />
-
-            <CollapsibleSection title="Department Details" count={deptDetails.length || depts.length} color="#1a1a1a">
-              {(deptDetails.length > 0 ? deptDetails : depts).map((d: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{d.name ?? d.department ?? JSON.stringify(d)}</Text>
-                  <Text style={styles.detailRowSub}>{d.total ?? d.count ?? ''}</Text>
-                </View>
-              ))}
-            </CollapsibleSection>
-
-            <View style={styles.divider} />
-
-            <CollapsibleSection title="Present Details" count={presentDetails.length || (today.present ?? 0)} color="#43A047">
-              <AttTable
-                rows={presentDetails}
-                cols={PRESENT_COLS}
-                empty="No present staff found for this day."
-              />
-            </CollapsibleSection>
-
-            <View style={styles.divider} />
-
-            <CollapsibleSection title="Late Details" count={lateDetails.length || (lateS?.today ?? 0)} color="#FB8C00">
-              <AttTable
-                rows={lateDetails}
-                cols={LATE_COLS}
-                empty="No late staff found for this day."
-              />
-            </CollapsibleSection>
-
-            <View style={styles.divider} />
-
-            <CollapsibleSection title="Absent Details" count={absentDetails.length || (absentS?.today ?? 0)} color="#E63946">
-              <AttTable
-                rows={absentDetails}
-                cols={ABSENT_COLS}
-                empty="No absent staff found for this day."
-              />
-            </CollapsibleSection>
-
-            <View style={styles.divider} />
-
-            <CollapsibleSection title="Leave Details" count={leaveDetails.length} color="#8E24AA">
-              {leaveDetails.map((l: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{l.name ?? l.employee_name ?? JSON.stringify(l)}</Text>
-                </View>
-              ))}
-            </CollapsibleSection>
-
-            <View style={styles.divider} />
-
-            <CollapsibleSection title="Duty-Hour Change Requests" count={dutyHourReqs.length} color="#00ACC1">
-              {dutyHourReqs.map((r: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{r.name ?? r.employee_name ?? JSON.stringify(r)}</Text>
-                </View>
-              ))}
-            </CollapsibleSection>
-
-            <View style={styles.divider} />
-
-            <CollapsibleSection title="Document Approval Requests" count={docApprovalReqs.length} color="#1E88E5">
-              {docApprovalReqs.map((r: any, i: number) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={styles.detailRowText}>{r.name ?? r.document_type ?? JSON.stringify(r)}</Text>
-                </View>
-              ))}
-            </CollapsibleSection>
-          </View>
-
-          <View style={{ height: 30 }} />
-        </ScrollView>
-      )}
+            <View style={{ height: 30 }} />
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const getAgeColor = (age: any) => {
-  if (!age) return '#999';
-  const a = Number(age);
-  if (a < 25) return '#43A047';
-  if (a < 30) return '#1E88E5';
-  if (a < 40) return '#FB8C00';
-  return '#E63946';
-};
-
 // ── Styles ────────────────────────────────────────────────────────────────────
+
+const shadow = { elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
+  scroll: { padding: 14, paddingBottom: 20 },
+  center: { paddingVertical: 60, alignItems: 'center', justifyContent: 'center' },
 
-  // Filters bar
-  filtersBar: { backgroundColor: '#fff', padding: 14, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  filtersSubtitle: { fontSize: 12, color: '#888', marginBottom: 10 },
+  // Cards
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 10, ...shadow },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
+  cardNote: { fontSize: 11, color: '#888', marginTop: 3, marginBottom: 8, lineHeight: 15 },
+  subHead: { fontSize: 12, fontWeight: '700', color: '#1a1a1a', marginTop: 8, marginBottom: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#1a1a1a', marginBottom: 8, marginTop: 12 },
+  sectionNote: { fontSize: 11, color: '#888', marginTop: -4, marginBottom: 8 },
+
+  // Filters
   filterRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   filterField: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
@@ -1245,14 +1361,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#FAFAFA',
   },
   filterFieldText: { flex: 1, fontSize: 13, color: '#333' },
-  refreshBtn: {
-    backgroundColor: '#1a1a1a', borderRadius: 8,
-    paddingVertical: 12, alignItems: 'center', marginBottom: 8,
-  },
+  refreshBtn: { backgroundColor: '#1a1a1a', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
   refreshBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  scopeText: { fontSize: 11, color: '#aaa', lineHeight: 16 },
 
-  // Modal
+  // Picker
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
   modalHandle: { width: 40, height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, alignSelf: 'center', marginBottom: 14 },
@@ -1265,48 +1377,59 @@ const styles = StyleSheet.create({
   modalOptionSelected: { borderColor: '#E63946', backgroundColor: '#FFF5F5' },
   modalOptionText: { fontSize: 15, color: '#333' },
 
-  // Scroll
-  scroll: { padding: 14, paddingBottom: 20 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#1a1a1a', marginBottom: 10, marginTop: 14 },
-
   // Staff Overview
-  staffRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  staffCard: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4,
-  },
-  staffValue: { fontSize: 26, fontWeight: '900', color: '#1E88E5' },
-  staffLabel: { fontSize: 12, fontWeight: '700', color: '#1a1a1a', marginTop: 2 },
+  staffRow: { flexDirection: 'row', gap: 10 },
+  staffCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10, borderTopWidth: 3, ...shadow },
+  staffLabel: { fontSize: 12, fontWeight: '700', color: '#555' },
+  staffValue: { fontSize: 26, fontWeight: '900', marginTop: 2 },
   staffSub: { fontSize: 10, color: '#888', marginTop: 4 },
 
+  // Branch performance
+  perfCard: { borderTopWidth: 3 },
+  perfHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  perfStaff: { fontSize: 12, color: '#555', fontWeight: '600' },
+  perfGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  perfCell: { width: '31%', backgroundColor: '#F5F6FA', borderRadius: 8, padding: 8 },
+  perfLabel: { fontSize: 11, color: '#888' },
+  perfValue: { fontSize: 16, fontWeight: '800', marginTop: 2 },
+
+  // Charts
+  donutWrap: { alignItems: 'center', marginVertical: 6 },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 10, height: 10, borderRadius: 2 },
+  legendText: { fontSize: 11, color: '#555' },
+  barGroups: { gap: 10 },
+  barGroup: { gap: 3 },
+  barGroupLabel: { fontSize: 12, fontWeight: '600', color: '#333' },
+  barLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  barTrack: { flex: 1, height: 8, backgroundColor: '#F0F0F0', borderRadius: 4, overflow: 'hidden' },
+  barFill: { height: 8, borderRadius: 4 },
+  barValue: { width: 28, fontSize: 11, color: '#555', textAlign: 'right' },
+
   // Department
-  deptGrid: { gap: 8, marginBottom: 4 },
-  deptCard: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4,
-  },
   deptCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   deptCardName: { fontSize: 14, fontWeight: '700', color: '#1a1a1a', flex: 1 },
   deptBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
   deptBadgeText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  deptBranchRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  deptBranchRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   deptBranchChip: {
     fontSize: 12, backgroundColor: '#F0F0F0', paddingHorizontal: 8,
     paddingVertical: 3, borderRadius: 6, color: '#555', fontWeight: '600',
   },
+  splitBar: { flexDirection: 'row', height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: '#F0F0F0', marginBottom: 8 },
   deptRoles: { fontSize: 12, color: '#888' },
 
   // Attendance
-  attScroll: { marginBottom: 4 },
+  attScroll: { marginBottom: 10 },
   attCard: {
     width: 220, backgroundColor: '#fff', borderRadius: 12, padding: 12, marginRight: 10,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4,
-    borderWidth: 1, borderColor: '#eee',
+    borderWidth: 1, borderColor: '#eee', ...shadow,
   },
-  attCardHighlighted: { borderColor: '#1E88E5', borderWidth: 2 },
+  attCardHighlighted: { borderColor: '#E63946', borderWidth: 2 },
   attCardHeader: { marginBottom: 8 },
   attCardTitle: { fontSize: 13, fontWeight: '700', color: '#888' },
-  attCardTitleHighlighted: { color: '#1E88E5' },
+  attCardTitleHighlighted: { color: '#E63946' },
   attCardDate: { fontSize: 11, color: '#aaa', marginTop: 2 },
   attGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   attCell: { width: '45%' },
@@ -1316,82 +1439,66 @@ const styles = StyleSheet.create({
   branchBreakText: { fontSize: 11, color: '#888' },
 
   // Late/Absent Summary
-  summaryRow: { flexDirection: 'row', marginBottom: 4 },
-  summaryBanner: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    borderLeftWidth: 4, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4,
-  },
+  summaryBanner: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 4, ...shadow },
   summaryBannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   summaryBannerTitle: { fontSize: 13, fontWeight: '700' },
   summaryBannerBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   summaryBannerBadgeText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   summaryBannerSub: { fontSize: 10, color: '#aaa', marginBottom: 8 },
-  summaryChips: { gap: 4 },
+  summaryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   summaryChip: { backgroundColor: '#F5F5F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   summaryChipText: { fontSize: 12, color: '#555', fontWeight: '600' },
 
   // Approvals
-  approvalRow: { flexDirection: 'row', marginBottom: 4 },
-  approvalCard: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4,
-  },
+  approvalRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  approvalCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, ...shadow },
   approvalLabel: { fontSize: 12, fontWeight: '700', color: '#555', marginBottom: 4 },
-  approvalValue: { fontSize: 30, fontWeight: '900', marginBottom: 6 },
+  approvalValue: { fontSize: 28, fontWeight: '900', marginBottom: 6 },
   approvalNote: { fontSize: 10, color: '#aaa', lineHeight: 14 },
 
-  // Table
-  tableCard: {
-    backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden',
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, marginBottom: 4,
-  },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#F5F6FA', paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  tableHeaderCell: { flex: 1, fontSize: 11, fontWeight: '700', color: '#888' },
-  tableRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  // Birthdays / anniversaries
+  peopleHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  peopleBranch: { fontSize: 13, fontWeight: '700', color: '#1a1a1a' },
+  peopleCount: { fontSize: 12, fontWeight: '700', color: '#555', backgroundColor: '#F0F0F0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  peopleName: { fontSize: 13, fontWeight: '700', color: '#1a1a1a' },
+  peopleSub: { fontSize: 11, color: '#888', marginTop: 1 },
+  tableRow: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 8, alignItems: 'center', gap: 6, borderRadius: 6 },
   tableRowAlt: { backgroundColor: '#FAFAFA' },
-  tableCell: { flex: 1, fontSize: 12, color: '#333' },
-  tableCellTag: { flex: 1, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2, marginRight: 2 },
-  tableCellTagText: { fontSize: 11, color: '#fff', fontWeight: '600', textAlign: 'center' },
+  tag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3 },
+  tagText: { fontSize: 11, color: '#fff', fontWeight: '700' },
 
-  // Details
-  // Attendance detail tables
+  // Tables
   attHeadRow:  { flexDirection: 'row', backgroundColor: '#F3F6FA', paddingVertical: 9, paddingHorizontal: 4, borderRadius: 6 },
   attTh:       { fontSize: 11, fontWeight: '700', color: '#44506A', paddingHorizontal: 6 },
   attRow:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
   attRowAlt:   { backgroundColor: '#FAFBFD' },
   attTd:       { fontSize: 11, color: '#333', paddingHorizontal: 6 },
   attSr:       { width: 42 },
-  detailSafe:  { flex: 1, backgroundColor: '#FFE5E5' },
-  detailBody:  { flex: 1, backgroundColor: '#F5F7FA' },
-  detailSubtitle: { fontSize: 12, color: '#6B7280', marginBottom: 8 },
-  detailBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  detailSectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   attEmpty:    { fontSize: 12, color: '#999', paddingVertical: 14, textAlign: 'center' },
   attBadge:    { alignSelf: 'flex-start', marginHorizontal: 6, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
   attBadgeOk:   { backgroundColor: '#2E7D32' },
   attBadgeLate: { backgroundColor: '#F0AD2B' },
   attBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 
-  detailsNote: { fontSize: 12, color: '#aaa', marginBottom: 10 },
-  detailsCard: {
-    backgroundColor: '#fff', borderRadius: 12,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4,
-  },
+  // Detail popup
+  detailSafe:  { flex: 1, backgroundColor: '#FFE5E5' },
+  detailBody:  { flex: 1, backgroundColor: '#F5F7FA' },
+  detailSubtitle: { fontSize: 12, color: '#6B7280', marginBottom: 8 },
+  detailBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  detailSectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+
+  // Details
+  detailsCard: { backgroundColor: '#fff', borderRadius: 12, ...shadow },
   collapseWrapper: { paddingHorizontal: 14, paddingVertical: 12 },
   collapseRow: { flexDirection: 'row', alignItems: 'center' },
   collapseTitle: { fontSize: 14, fontWeight: '700' },
   collapseBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   collapseBadgeText: { fontSize: 12, fontWeight: '700' },
   divider: { height: 1, backgroundColor: '#F0F0F0', marginHorizontal: 14 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', marginTop: 6 },
-  detailRowText: { fontSize: 13, color: '#333' },
-  detailRowSub: { fontSize: 13, color: '#888' },
 
   // Empty
-  emptyBox: { backgroundColor: '#fff', borderRadius: 12, padding: 20, alignItems: 'center', gap: 8, marginBottom: 4, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
+  emptyBox: { alignItems: 'center', gap: 8 },
   emptyText: { fontSize: 13, color: '#aaa' },
-
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default HRDashboard;

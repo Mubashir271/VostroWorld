@@ -222,6 +222,7 @@ export const PHYSIO_ALLOWED_SCREENS = [
   'EmployeeDashboard',
   'PhysiotherapyDashboard', 'PhysiotherapyPatientDetails',
   'PhysiotherapyAppointments',
+  'PhysiotherapyAssessments', 'AddClientAssessment', 'ViewClientAssessment',
   'PhysiotherapyPrescriptions', 'AddPhysioPrescription',
   'PhysiotherapyGX',
   'PhysiotherapyDailyClientReferral', 'AddPhysioDailyReferral',
@@ -301,8 +302,12 @@ export const HR_ALLOWED_SCREENS = [
   // staff names in Staff / Employee Attendance open the staff profile.
   'ClientProfile', 'StaffProfile',
   'LeaveQuota', 'LeaveApplications',
+  // The web's HR Leave Application page (staff-wide), not the personal one.
+  'HRLeaveApplications',
   'LetterManagement',
   'ResourceManager',
+  // Administration › Announcements on the web's HR menu (HAR 2026-10-15).
+  'Announcements',
 ];
 
 // Nutritionist-role drawer sections — confirmed live 2026-07-23 against the
@@ -332,58 +337,19 @@ export const NUTRITIONIST_ALLOWED_SCREENS = [
   'NutritionImageGallery',
 ];
 
-// Fitness-Manager-role drawer sections — confirmed live 2026-07-23 against
-// the web admin's Fitness-Manager-login menu (Employee Dashboard,
-// Announcements, Fitness in a curated subset that also pulls in two
-// Human-Resource-section items, Nutrition in a subset that additionally
-// includes Nutrition Assessments vs. the nutritionist login).
-export const FITNESS_MANAGER_ALLOWED_MENUS = ['Dashboard', 'Fitness', 'Nutrition', 'Notifications'];
-
-// Within Fitness, the web's fitness-manager login shows this curated list
-// (missing 'Session Attendance Report' and 'Session Tracker' vs. admin) —
-// 'Staff Commissions' and 'Session Portal (HR)' are then appended on top,
-// pulled in from the Human Resource section (see Drawercontent.tsx).
-export const FITNESS_MANAGER_ALLOWED_FITNESS_CHILDREN = [
-  'SOPs', 'Trainer Diary', 'Personal Trainer Diary', 'PT Sales Report',
-  'Switch Booking Time', 'Trainer Appointments', 'Session Attendance',
-  'New PT Bookings', 'New PT Clients', 'GX Classes', 'Befit', 'SPT',
-  'Fitness Plan', 'Trainer Schedule',
-];
-
-// Within Nutrition, the fitness-manager login includes 'Nutrition
-// Assessments' (unlike the nutritionist login, which hides it) but — per
-// 2026-07-23 decision — skips the trailing 'Clients' item pending
-// confirmation of what it maps to.
-export const FITNESS_MANAGER_ALLOWED_NUTRITION_CHILDREN = [
-  'Meals Plan', 'Nutrition Assessments', 'Clients Details', 'Dashboard',
-  'Appointments', 'Diet Plan Issued', 'Health Camps', 'Referral Sheet',
-  'Image Gallery', 'Assessment Questionnaire',
-];
-
 // Stack screen names fitness managers are allowed to navigate to — the
-// curated Fitness subset (+ the two appended HR-section screens), the
-// Nutrition subset above, plus the always-allowed shared ones.
+// screens behind FITNESS_MANAGER_MENU in Drawercontent.tsx (web sidebar
+// re-checked 2026-10-15), plus the always-allowed shared ones.
 export const FITNESS_MANAGER_ALLOWED_SCREENS = [
   'Drawer', 'Dashboard', 'Notifications', 'Account',
-  // Fitness (curated)
-  'SOPs', 'TrainerDiary', 'PersonalTrainerDiary', 'PTSalesReport',
-  'SwitchBookingTime', 'TrainerAppointments', 'SessionAttendance',
-  'NewPTBookings', 'NewPTClients',
-  'AddGXSlots', 'AddGXClass', 'GXTrainers', 'GXSlotsList', 'GXBookings',
-  'GXAppointments', 'GXAttendance', 'GXAttendanceReport',
-  'BefitList', 'BefitBookings', 'BefitAppointments', 'BefitAttendance', 'BefitAttendanceReport',
-  'SPTList', 'SPTBookings', 'SPTAppointments', 'SPTAttendance', 'SPTAttendanceReport',
+  // Fitness
+  'PersonalTrainerDiary', 'PTSalesReport', 'SessionTracker',
+  'AddGXClass', 'GXSlotsList', 'GXAppointments', 'GXAttendance', 'GXAttendanceReport',
   'ViewFitnessPlans', 'AddFitnessPlan', 'ManageExercises',
-  'TimeSlots', 'ManageAvailability',
-  // Human Resource › Session Portal (no Staff Commissions for this role)
-  'SessionPortalHR',
-  // Client names in the Session Portal open the client's profile (the web
-  // allows Fitness Manager on /trainer-client/:id).
-  'ClientProfile',
-  // Nutrition
-  'AddMealsPlan', 'ViewMealsPlan', 'MealPlanDetail', 'AddNutritionAssessments', 'ViewNutritionAssessments',
-  'ClientsDetails', 'NutritionDashboard', 'NutritionAppointments', 'AddNutritionAppointment',
-  'ViewDietPlanIssued', 'AddDietPlanIssued', 'HealthCamps', 'ReferralSheet',
-  'AddAssessmentQuestionnaire', 'ViewAssessmentQuestionnaire',
-  'NutritionImageGallery',
+  'GTDashboard', 'FitnessDashboard',
+  // Human Resource
+  'SOPs',
+  // Opened from the Fitness Dashboard's Quick access: the 2026-10-15 HAR shows
+  // the web loading these two for this login (other buttons bounce back).
+  'BefitList', 'SPTList',
 ];

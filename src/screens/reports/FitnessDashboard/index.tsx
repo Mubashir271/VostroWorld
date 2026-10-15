@@ -10,8 +10,9 @@
 // call the web page makes (HAR, 18 Sep 2026). Branch and date only change its
 // `bId` / `date` params.
 //
-// Super Admin only, like the Admin Dashboard: it defaults to "All Branches",
-// which only the no-branch super admin login may ask for.
+// Super Admin gets "All Branches" and a branch picker. The Fitness Manager
+// (whose Home tab this is) is pinned to their own branch, as on the web —
+// the 2026-10-15 HAR shows that login calling bId=<own branch> only.
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     View,
@@ -32,9 +33,10 @@ import { useSelector } from 'react-redux';
 
 import AppHeader from '../../../components/AppHeader';
 import NotificationSVG from '../../../assets/svg/NotificationSVG';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import { RootState } from '../../../redux/store';
 import AccessDenied from '../../AccessDenied';
-import { isSuperAdmin } from '../../../config/permissions';
+import { isSuperAdmin, isFitnessManager, FITNESS_MANAGER_ALLOWED_SCREENS } from '../../../config/permissions';
 import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import { useBranchSelector } from '../../../hooks/useBranchSelector';
 import { getFitnessDashboardSummary, FitnessDashboardSummary } from '../../../api/dashboard';
@@ -51,6 +53,14 @@ const iso = (d: Date) => {
     const m = `${d.getMonth() + 1}`.padStart(2, '0');
     const day = `${d.getDate()}`.padStart(2, '0');
     return `${d.getFullYear()}-${m}-${day}`;
+};
+
+// "Wednesday, 14 Oct 2026" from the response's YYYY-MM-DD, read as a local
+// calendar date like iso() above.
+const longDate = (ymd: string) => {
+    const [yy, mm, dd] = ymd.split('-').map(Number);
+    const d = new Date(yy, mm - 1, dd);
+    return `${d.toLocaleDateString('en-GB', { weekday: 'long' })}, ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
 };
 
 // The web's Quick access grid, mapped to this app's screens. The web's
@@ -131,14 +141,24 @@ const SessionsChart = ({ data, width, height }: {
     data: { label: string; pt: number; gx: number }[]; width: number; height: number;
 }) => {
     if (!data.length) { return null; }
-    const padL = scale(6), padB = scale(16), padT = scale(8);
-    const max = Math.max(...data.flatMap(d => [d.pt, d.gx]), 1);
-    const x = (i: number) => padL + (i * (width - padL * 2)) / Math.max(data.length - 1, 1);
+    const padL = scale(24), padR = scale(14), padB = scale(16), padT = scale(8);
+    // Round the top up to a multiple of 4 so the four gridlines land on whole
+    // numbers, as on the web's y-axis.
+    const max = Math.ceil(Math.max(...data.flatMap(d => [d.pt, d.gx]), 4) / 4) * 4;
+    const ticks = [0, 1, 2, 3, 4].map(n => (max / 4) * n);
+    const x = (i: number) => padL + (i * (width - padL - padR)) / Math.max(data.length - 1, 1);
     const y = (v: number) => padT + (1 - v / max) * (height - padT - padB);
     const line = (key: 'pt' | 'gx') => data.map((d, i) => `${x(i)},${y(d[key])}`).join(' ');
     return (
         <Svg width={width} height={height}>
-            <Line x1={padL} y1={y(0)} x2={width - padL} y2={y(0)} stroke="#E2E8F0" strokeWidth={1} />
+            {ticks.map(t => (
+                <React.Fragment key={t}>
+                    <Line x1={padL} y1={y(t)} x2={width - padR} y2={y(t)} stroke={t ? '#F1F5F9' : '#E2E8F0'} strokeWidth={1} />
+                    <SvgText x={padL - scale(5)} y={y(t) + scale(3)} fontSize={scale(8)} fill="#94A3B8" textAnchor="end">
+                        {t}
+                    </SvgText>
+                </React.Fragment>
+            ))}
             <Polyline points={line('gx')} fill="none" stroke={GX} strokeWidth={2} />
             <Polyline points={line('pt')} fill="none" stroke={PT} strokeWidth={2} />
             {data.map((d, i) => (
@@ -157,8 +177,14 @@ type Col<T> = { title: string; width: number; render: (r: T, i: number) => strin
 const VISIBLE_ROWS = 5;
 const ROW_H = scale(32);
 
-/** Horizontally scrolling table; the body scrolls after VISIBLE_ROWS rows. */
-function Table<T>({ cols, rows, empty }: { cols: Col<T>[]; rows: T[]; empty: string }) {
+/**
+ * Horizontally scrolling table; the body scrolls after VISIBLE_ROWS rows.
+ * `footer` is an optional totals row, one cell per column, kept outside the
+ * scrolling body so it stays visible.
+ */
+function Table<T>({ cols, rows, empty, footer }: {
+    cols: Col<T>[]; rows: T[]; empty: string; footer?: (string | number)[];
+}) {
     if (!rows.length) { return <Text style={styles.empty}>{empty}</Text>; }
     return (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -185,6 +211,15 @@ function Table<T>({ cols, rows, empty }: { cols: Col<T>[]; rows: T[]; empty: str
                         </View>
                     ))}
                 </ScrollView>
+                {footer && (
+                    <View style={[styles.tr, styles.tfoot, { height: ROW_H }]}>
+                        {cols.map((c, i) => (
+                            <Text key={c.title} numberOfLines={1} style={[styles.td, styles.tdStrong, { width: c.width }]}>
+                                {footer[i] ?? ''}
+                            </Text>
+                        ))}
+                    </View>
+                )}
             </View>
         </ScrollView>
     );
@@ -192,16 +227,20 @@ function Table<T>({ cols, rows, empty }: { cols: Col<T>[]; rows: T[]; empty: str
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 
-const FitnessDashboardScreen = () => {
+// `asHome` is set when this is the Fitness Manager's Home tab, where the left
+// action opens the drawer (same reason as the GT Dashboard's).
+const FitnessDashboardScreen = ({ asHome = false }: { asHome?: boolean }) => {
     const navigation = useNavigation() as any;
     const { profile } = useSelector((state: RootState) => state.user);
     const formatCurrency = useCurrencyFormatter();
 
-    const allowed = isSuperAdmin(profile?.role);
-    const { options, loadingOptions } = useBranchSelector();
+    // The Fitness Manager gets this dashboard too (web /fitness-dashboard),
+    // pinned to their own branch — the web preselects it (e.g. G-13).
+    const allowed = isSuperAdmin(profile?.role) || isFitnessManager(profile?.role);
+    const { options, loadingOptions, needsPicker, branchId: ownBranchId, branchName: ownBranchName } = useBranchSelector();
 
-    const [branchId, setBranchId] = useState<number | 'all'>('all');
-    const [branchLabel, setBranchLabel] = useState('All Branches');
+    const [branchId, setBranchId] = useState<number | 'all'>(needsPicker ? 'all' : (ownBranchId as number));
+    const [branchLabel, setBranchLabel] = useState(needsPicker ? 'All Branches' : ownBranchName);
     const [branchOpen, setBranchOpen] = useState(false);
 
     const [date, setDate] = useState(new Date());
@@ -243,15 +282,27 @@ const FitnessDashboardScreen = () => {
     if (!allowed) { return <AccessDenied />; }
 
     const s = data?.sales;
-    const netSalesTotal = data?.trainer_wise_sales.reduce((sum, t) => sum + (Number(t.net_price) || 0), 0) ?? 0;
+    const sumSales = (key: 'net_price' | 'sales' | 'clients') =>
+        data?.trainer_wise_sales.reduce((sum, t) => sum + (Number(t[key]) || 0), 0) ?? 0;
+    const netSalesTotal = sumSales('net_price');
+    const salesQty = sumSales('sales');
+    const salesClients = sumSales('clients');
+    const gt = data?.gt_referrals;
+    const roleLabel = isFitnessManager(profile?.role) ? 'FITNESS MANAGER' : 'ALL BRANCHES';
+    const quickLinks = QUICK_LINKS.filter(l =>
+        !isFitnessManager(profile?.role) || FITNESS_MANAGER_ALLOWED_SCREENS.includes(l.screen));
 
     return (
         <>
             <AppHeader
                 title="Fitness Dashboard"
-                leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
+                leftIcon={
+                    !asHome && navigation.canGoBack()
+                        ? <Icon name="arrow-left" size={24} color="#1A1A1A" />
+                        : <BurgerSVG width={24} height={24} />
+                }
                 rightIcon={<NotificationSVG width={24} height={24} />}
-                onLeftPress={() => navigation.goBack()}
+                onLeftPress={() => (!asHome && navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
                 onRightPress={() => navigation.navigate('Notifications')}
                 backgroundColor="#FFE5E5"
             />
@@ -271,10 +322,15 @@ const FitnessDashboardScreen = () => {
                 >
                     {/* ── Controls ─────────────────────────────────────────── */}
                     <View style={styles.controls}>
-                        <TouchableOpacity style={styles.control} onPress={() => setBranchOpen(true)} activeOpacity={0.7}>
+                        <TouchableOpacity
+                            style={styles.control}
+                            onPress={() => setBranchOpen(true)}
+                            disabled={!needsPicker}
+                            activeOpacity={0.7}
+                        >
                             <Icon name="office-building" size={scale(15)} color="#64748B" />
                             <Text style={styles.controlText} numberOfLines={1}>{branchLabel}</Text>
-                            <Icon name="chevron-down" size={scale(16)} color="#64748B" />
+                            {needsPicker && <Icon name="chevron-down" size={scale(16)} color="#64748B" />}
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.control} onPress={() => setDateOpen(true)} activeOpacity={0.7}>
@@ -296,8 +352,13 @@ const FitnessDashboardScreen = () => {
 
                     {data && s && (
                         <>
+                            <View style={styles.heading}>
+                                <Text style={styles.eyebrow}>{roleLabel}</Text>
+                                <Text style={styles.headingDate}>{longDate(data.date)} · {data.branch_label}</Text>
+                            </View>
+
                             {/* ── Today at a glance ─────────────────────────── */}
-                            <SectionTitle>Today at a glance · {data.branch_label}</SectionTitle>
+                            <SectionTitle>Today at a glance</SectionTitle>
                             <View style={styles.glanceGrid}>
                                 <GlanceCard
                                     label="Floor Footfall" accent={DELIVERED} iconName="account-group"
@@ -330,6 +391,29 @@ const FitnessDashboardScreen = () => {
                                     sub={`GX sales today ${formatCurrency(s.gx_today.net)} · PT MTD ${formatCurrency(s.pt_mtd.net)}`}
                                 />
                             </View>
+
+                            {/* ── General Trainers · BeFit this month ───────── */}
+                            {gt && (
+                                <>
+                                    <SectionTitle>General Trainers · BeFit this month</SectionTitle>
+                                    <Card
+                                        title="Referrals by General Trainer"
+                                        right={<Pill text={`${gt.totals.total} referrals · ${gt.totals.converted} converted · ${gt.totals.pending} pending · ${gt.totals.not_converted} not converted`} />}
+                                    >
+                                        <Table
+                                            empty="No BeFit referrals this month."
+                                            rows={gt.rows}
+                                            cols={[
+                                                { title: 'GENERAL TRAINER', width: scale(140), render: r => r.name },
+                                                { title: 'BEFIT GIVEN', width: scale(70), render: r => r.total },
+                                                { title: 'CONVERTED TO PT', width: scale(100), render: r => r.converted },
+                                                { title: 'PENDING', width: scale(60), render: r => r.pending },
+                                                { title: 'NOT CONVERTED', width: scale(90), render: r => r.not_converted },
+                                            ]}
+                                        />
+                                    </Card>
+                                </>
+                            )}
 
                             {/* ── Sessions & floor ──────────────────────────── */}
                             <SectionTitle>Sessions & floor</SectionTitle>
@@ -368,6 +452,7 @@ const FitnessDashboardScreen = () => {
                                         { title: 'TAX', width: scale(72), render: r => formatCurrency(r.tax) },
                                         { title: 'NET PRICE', width: scale(90), render: r => formatCurrency(r.net_price), strong: true },
                                     ]}
+                                    footer={['', 'Total', salesQty, salesClients, '', '', '', formatCurrency(netSalesTotal)]}
                                 />
                                 <TouchableOpacity
                                     style={styles.outlineBtn}
@@ -384,9 +469,11 @@ const FitnessDashboardScreen = () => {
                                     empty="No trainers checked in."
                                     rows={data.present_trainers}
                                     cols={[
-                                        { title: '#', width: scale(24), render: (_r, i) => i + 1 },
-                                        { title: 'BRANCH', width: scale(52), render: r => r.branch },
-                                        { title: 'NAME', width: scale(140), render: r => r.name },
+                                        // Branch only matters when several branches are mixed in.
+                                        ...(data.is_all_branches
+                                            ? [{ title: 'BRANCH', width: scale(52), render: (r: typeof data.present_trainers[number]) => r.branch }]
+                                            : []),
+                                        { title: 'NAME', width: scale(150), render: r => r.name },
                                         { title: 'DEPT', width: scale(70), render: r => r.department },
                                         { title: 'IN', width: scale(80), render: r => r.checkin },
                                     ]}
@@ -401,7 +488,6 @@ const FitnessDashboardScreen = () => {
                                     empty="No sessions yet today."
                                     rows={data.recent_sessions}
                                     cols={[
-                                        { title: '#', width: scale(24), render: (_r, i) => i + 1 },
                                         { title: 'TYPE', width: scale(40), render: r => r.type },
                                         { title: 'CLIENT', width: scale(120), render: r => r.client },
                                         { title: 'TRAINER', width: scale(110), render: r => r.trainer },
@@ -414,7 +500,7 @@ const FitnessDashboardScreen = () => {
                             {/* ── Quick access ──────────────────────────────── */}
                             <SectionTitle>Quick access</SectionTitle>
                             <View style={[styles.card, styles.links]}>
-                                {QUICK_LINKS.map(l => (
+                                {quickLinks.map(l => (
                                     <TouchableOpacity
                                         key={l.label}
                                         style={styles.linkBtn}
@@ -594,6 +680,11 @@ const styles = StyleSheet.create({
     },
     td: { fontSize: scale(11), color: '#334155', paddingRight: scale(6) },
     tdStrong: { color: '#0F172A', fontWeight: '700' },
+    tfoot: { borderTopWidth: 1, borderTopColor: '#E2E8F0', borderBottomWidth: 0 },
+
+    heading: { marginBottom: scale(12) },
+    eyebrow: { fontSize: scale(10), fontWeight: '700', color: '#E63946', letterSpacing: 1 },
+    headingDate: { fontSize: scale(12), color: '#64748b', marginTop: scale(3) },
 
     outlineBtn: {
         alignSelf: 'flex-start',

@@ -619,6 +619,53 @@ export const submitLeaveApplication = async (payload: {
   return res.data;
 };
 
+// ── HR › Leave Application (web /leave-application) ──────────────────────────
+// Routes and bodies are copied from the web bundle (main.828f47c7.js, HAR
+// 2026-10-15, HR login): `addLeaveApplication`, `approveRequest`,
+// `rejectRequest`, `leaveApplicationActions`. None was fired on prod to
+// confirm — see the no-prod-writes rule.
+
+/**
+ * HR adds a leave or absence for any staff member. Same body as the web's
+ * Add Leave/Absent: `leave_status` is "Leave" or "Absent", and an absence
+ * sends `leave_type` / `category` as null (they show as "Unspecified").
+ * The caller runs the web's checks first: Absent → is-exist; Leave →
+ * eligibility, is-exist, availability.
+ */
+export const addStaffLeave = async (payload: {
+  branch_id: number;
+  user_id: number;
+  leave_status: 'Leave' | 'Absent';
+  leave_type: string | null;
+  category: 'Full' | 'Half' | null;
+  from: string;
+  to: string;
+  number_of_leaves: number;
+  reason: string;
+}) => {
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const res = await api.post('/v1/hr/leave-application/store', {
+    ...payload,
+    application_status: 'Pending',
+    submission_date: today,
+    status: '1',
+  });
+  return res;
+};
+
+/** Approve (web answers 204). Approving a "Leave" is preceded by checkLeaveAvailability. */
+export const approveLeaveApplication = (id: number, reviewDate: string) =>
+  api.put(`/v1/hr/leave-application/update/${id}`, { application_status: 'Approved', review_date: reviewDate });
+
+/** Reject (web answers 204). */
+export const rejectLeaveApplication = (id: number, reviewDate: string) =>
+  api.put(`/v1/hr/leave-application/update/${id}`, { application_status: 'Rejected', review_date: reviewDate });
+
+/** Delete — the web's `leaveApplicationActions(id, "2")`, answered with 204. */
+export const deleteLeaveApplication = (id: number) =>
+  api.put(`/v1/hr/leave-application/actions/${id}/2`, {});
+
 // ── 6.6 Profile Entries (Qualification / Experience) ─────────────────────────
 // Unused by any screen currently. Live-checked 2026-06-24: neither
 // `/v1/hr/employee-profile-entries/*` nor a few likely alternate route names
@@ -903,22 +950,6 @@ export const getEmployeeDashboardStats = async (params: {
   const todayAttendance = attendance?.data?.data?.[0] ?? null;
 
   return { currentSalary, pendingRequests, dutySlotsCount, leaveBalance, approvedDocs, todayAttendance };
-};
-
-// ── HR Dashboard ──────────────────────────────────────────────────────────────
-
-export const getHRDashboard = async (params: {
-  branch_id?: number | string;
-  date?: string;
-}) => {
-  try {
-    const res = await api.get('/v1/hr/dashboard', { params });
-    return res.data;
-  } catch {
-    // /v1/hr/dashboard is still "under progress" on the backend (confirmed
-    // 404 live 2026-06-24) — callers fall back to combining other endpoints.
-    return null;
-  }
 };
 
 // `/v1/staff/get` 404s and will not be added (confirmed live 2026-06-24) —

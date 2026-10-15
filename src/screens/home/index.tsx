@@ -23,13 +23,16 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../redux/store';
 import { getClientsCount, getTodaySummary, getSalesDashboardSnapshot, SalesDashboardSnapshot } from '../../api/dashboard';
 import { getEmployeeDashboardStats } from '../../api/employeeDashboard';
-import { isAdmin, isSuperAdmin, isSales, isEmployee, isTrainer, isGeneralTrainer, isNutritionist, ROLE_LABELS, headerTitleOf, isPhysio } from '../../config/permissions';
+import { isAdmin, isSuperAdmin, isSales, isEmployee, isTrainer, isGeneralTrainer, isNutritionist, isFitnessManager, isHR, ROLE_LABELS, headerTitleOf, isPhysio } from '../../config/permissions';
 import EmployeeDashboardScreen from '../HR/EmployeeDashboard';
 import { avatarSource as avatarSourceOf } from '../../utils/avatar';
 import PTDashboardScreen from '../Fitness/PTDashboard';
 import GTDashboardScreen from '../Fitness/GTDashboard';
 import NutritionDashboardScreen from '../Nutrition/NutritionDashboard';
 import AdminDashboardScreen from '../reports/AdminDashboard';
+import FitnessDashboardScreen from '../reports/FitnessDashboard';
+import PhysiotherapyDashboardScreen from '../Physiotherapy/PhysiotherapyDashboard';
+import HRDashboardScreen from '../HR/HRDashboard';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { fetchMembers } from '../../redux/slices/membersSlice';
@@ -225,10 +228,13 @@ export default function DashboardScreen() {
     // Placed after every hook above so hook order stays constant.
     // `openEdit` is set by the drawer's edit icon and carries a timestamp, so
     // tapping it repeatedly re-opens the Change Information modal.
-    // Physio (role 15): the web lands this login on the Employee Dashboard.
-    if (userIsEmployee || isPhysio(profile?.role)) {
+    if (userIsEmployee) {
         return <EmployeeDashboardScreen focusContact={(route as any)?.params?.openEdit} />;
     }
+
+    // Physio (role 15) lands on the Physio Dashboard; Employee Dashboard stays
+    // in the drawer under Dashboard.
+    if (isPhysio(profile?.role)) return <PhysiotherapyDashboardScreen asHome />;
 
     // A personal trainer lands on the PT Dashboard, not the employee one —
     // the web makes /pt-dashboard role 9's working screen and files Employee
@@ -242,6 +248,14 @@ export default function DashboardScreen() {
     // A nutritionist lands on the Nutrition Dashboard, which the web files
     // under their Dashboard group; Employee Dashboard stays in the drawer.
     if (isNutritionist(profile?.role)) return <NutritionDashboardScreen asHome />;
+
+    // A fitness manager lands on the Fitness Dashboard, the web's landing page
+    // for this login (/fitness-manager-dashboard).
+    if (isFitnessManager(profile?.role)) return <FitnessDashboardScreen asHome />;
+
+    // HR lands on the HR Dashboard, the web's landing page and first sidebar
+    // link for this login (/hr-dashboard, HAR 2026-10-15).
+    if (isHR(profile?.role)) return <HRDashboardScreen asHome />;
 
     // Super Admin lands on the Admin Dashboard instead of the client-stats one.
     if (userIsSuperAdmin) return <AdminDashboardScreen />;

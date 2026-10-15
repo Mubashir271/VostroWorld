@@ -22,12 +22,18 @@ import MyClientsScreen from '../../screens/MyClientsScreen';
 import AttendanceScreen from '../../screens/Attendance';
 import TrainerRoster from '../../screens/trainer/TrainerRoster';
 import SessionTrackerScreen from '../../screens/trainer/SessionTrackerScreen';
-import ViewStaffScreen from '../../screens/HR/ViewStaff';
 
-// ── Nutritionist / Fitness Manager screens ─────────────────────────────────────
-import NutritionDashboardScreen from '../../screens/Nutrition/NutritionDashboard';
-import HRSessionCommissionPortal from '../../screens/HR/HRSessionCommissionPortal';
-import PhysiotherapyDashboard from '../../screens/Physiotherapy/PhysiotherapyDashboard';
+// ── HR screens ────────────────────────────────────────────────────────────────
+import EmployeeMaster from '../../screens/HR/EmployeeMaster';
+import EmployeeAttendance from '../../screens/HR/EmployeeAttendance';
+import SalaryManagement from '../../screens/SalaryManagement';
+
+// The HR login's tabs: the three Human Resource pages HR opens most, with a
+// drawer burger instead of a dead back arrow.
+const EmployeesTab = () => <EmployeeMaster asTab />;
+const StaffAttendanceTab = () => <EmployeeAttendance asTab />;
+const SalaryTab = () => <SalaryManagement asTab />;
+
 
 const Tab = createBottomTabNavigator();
 
@@ -82,9 +88,8 @@ const BottomTabNavigation = () => {
   // pair as a blank-role employee — not the personal trainer's My Clients /
   // Attendance / Roster, which is what they used to fall through to.
   const userIsGeneralTrainer = isGeneralTrainer(profile?.role);
-  // Physio (role 15): Home (their Employee Dashboard) + the Physio Dashboard.
-  // Without this they fell through to the trainer's My Clients /
-  // Attendance / Roster.
+  // Physio (role 15): Home (their Physio Dashboard) + Account. Without this
+  // they fell through to the trainer's My Clients / Attendance / Roster.
   const userIsPhysio = isPhysio(profile?.role);
 
   // Sales works the same client/package/report surface as admin, so it gets
@@ -101,13 +106,10 @@ const BottomTabNavigation = () => {
         options={{ tabBarIcon: imgIcon(HomeTab) }}
       />
 
-      {userIsEmployee || userIsGeneralTrainer ? null : userIsPhysio ? (
-        <Tab.Screen
-          name="PhysioTab"
-          component={PhysiotherapyDashboard}
-          options={{ tabBarLabel: 'Physio', tabBarIcon: mcIcon('medical-bag') }}
-        />
-      ) : useAdminTabs ? (
+      {/* Fitness Manager: Home (their Fitness Dashboard) + Account only — the
+          web dropped Nutrition and Session Portal from this login (2026-10-15).
+          Physio likewise: their Home tab is the Physio Dashboard. */}
+      {userIsEmployee || userIsGeneralTrainer || userIsFitnessManager || userIsPhysio ? null : useAdminTabs ? (
         /* ── Admin / Sales tabs ── */
         <>
           <Tab.Screen
@@ -126,36 +128,33 @@ const BottomTabNavigation = () => {
             options={{ tabBarIcon: imgIcon(ReportsTab) }}
           />
         </>
-      ) : userIsNutritionist || userIsFitnessManager ? (
-        /* ── Nutritionist / Fitness Manager tabs ── */
+      ) : userIsHR ? (
+        /* ── HR tabs: Home is the HR Dashboard ── */
         <>
-          {/* A nutritionist's Home tab already is the Nutrition Dashboard. */}
-          {userIsNutritionist ? null : (
-            <Tab.Screen
-              name="NutritionTab"
-              component={NutritionDashboardScreen}
-              options={{ tabBarLabel: 'Nutrition', tabBarIcon: mcIcon('food-apple') }}
-            />
-          )}
-          {/* Nutritionists reach GX Attendance from the drawer only. */}
-          {userIsNutritionist ? null : (
-            <Tab.Screen
-              name="SessionPortalTab"
-              component={HRSessionCommissionPortal}
-              options={{ tabBarLabel: 'Sessions', tabBarIcon: mcIcon('clipboard-text-outline') }}
-            />
-          )}
+          <Tab.Screen
+            name="EmployeesTab"
+            component={EmployeesTab}
+            options={{ tabBarLabel: 'Employees', tabBarIcon: mcIcon('account-group') }}
+          />
+          <Tab.Screen
+            name="StaffAttendanceTab"
+            component={StaffAttendanceTab}
+            options={{ tabBarLabel: 'Attendance', tabBarIcon: mcIcon('calendar-check') }}
+          />
+          <Tab.Screen
+            name="SalaryTab"
+            component={SalaryTab}
+            options={{ tabBarLabel: 'Salary', tabBarIcon: mcIcon('cash-multiple') }}
+          />
         </>
+      ) : userIsNutritionist ? (
+        /* A nutritionist's Home tab already is the Nutrition Dashboard, and
+           they reach everything else from the drawer. */
+        null
       ) : (
         /* ── Trainer / Employee tabs ── */
         <>
-          {userIsHR ? (
-            <Tab.Screen
-              name="ViewStaffTab"
-              component={ViewStaffScreen}
-              options={{ tabBarLabel: 'View Staff', tabBarIcon: mcIcon('account-group') }}
-            />
-          ) : userIsTrainer ? null : (
+          {userIsTrainer ? null : (
             <Tab.Screen
               name="MyClients"
               component={MyClientsScreen}

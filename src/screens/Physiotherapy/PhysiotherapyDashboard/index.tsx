@@ -4,7 +4,7 @@ import {
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useSelector } from 'react-redux';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { RootState } from '../../../redux/store';
@@ -61,12 +61,12 @@ const fmtDDMMYY = (dateStr: string) => {
   return `${d}/${m}/${y.slice(2)}`;
 };
 
-const PhysiotherapyDashboard = () => {
+// `asHome` is set when this is the physio login's Home tab, where there is
+// nothing to go back to — show the drawer burger there. A prop rather than
+// canGoBack(), which tab history makes unreliable.
+const PhysiotherapyDashboard = ({ asHome = false }: { asHome?: boolean }) => {
   const navigation = useNavigation<any>();
-  // The physio login gets this screen as its own bottom tab, where there is
-  // nothing to go back to — show the drawer burger there. Keyed on the route
-  // name rather than canGoBack(), which tab history makes unreliable.
-  const asTab = useRoute().name === 'PhysioTab';
+  const asTab = asHome;
   const { profile } = useSelector((state: RootState) => state.user);
   const branchId = profile?.branchId || '';
   // Physio login: own records only, as the web scopes it.

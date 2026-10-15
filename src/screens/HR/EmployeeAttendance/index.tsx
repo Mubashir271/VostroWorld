@@ -8,6 +8,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import BurgerSVG from '../../../assets/svg/BurgerSVG';
 import AppHeader from '../../../components/AppHeader';
 import StaffNameCell from '../../../components/StaffNameCell';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -88,7 +89,9 @@ const DeptTabs = React.memo(({ depts, activeDept, onSelect }: {
   </ScrollView>
 ));
 
-const EmployeeAttendance = () => {
+// `asTab` is set when this is a bottom tab on the HR login, where there is
+// nothing to go back to and the left action opens the drawer instead.
+const EmployeeAttendance = ({ asTab = false }: { asTab?: boolean }) => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
 
@@ -202,8 +205,8 @@ const EmployeeAttendance = () => {
     <View style={styles.container}>
       <AppHeader
         title="Employee Attendance"
-        leftIcon={<Icon name="arrow-left" size={24} color="#1A1A1A" />}
-        onLeftPress={() => navigation.goBack()}
+        leftIcon={asTab ? <BurgerSVG width={24} height={24} /> : <Icon name="arrow-left" size={24} color="#1A1A1A" />}
+        onLeftPress={() => (asTab ? (navigation as any).openDrawer() : navigation.goBack())}
       />
 
       {/* Summary Bar */}
